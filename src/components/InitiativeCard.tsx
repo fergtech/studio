@@ -11,17 +11,20 @@ interface InitiativeCardProps {
 }
 
 export function InitiativeCard({ initiative }: InitiativeCardProps) {
-  const placeholderImage = "https://picsum.photos/seed/" + initiative.id + "/400/200";
+  // Adjusted placeholder to reflect the new aspect ratio potentially
+  const placeholderImage = "https://picsum.photos/seed/" + initiative.id + "/600/300";
 
   return (
-    <Card className="flex flex-col overflow-hidden transition-all hover:shadow-lg">
+    <Card className="flex flex-col overflow-hidden transition-all hover:shadow-lg w-full">
       <CardHeader className="p-0">
-        <div className="relative h-48 w-full">
+        {/* Adjusted aspect ratio for a wider image in single column */}
+        <div className="relative aspect-video w-full bg-muted">
           <Image
             src={initiative.imageUrl || placeholderImage}
             alt={initiative.title}
             layout="fill"
             objectFit="cover"
+            priority={initiative.id === '1'} // Prioritize first image potentially
           />
         </div>
         <div className="p-4 pb-0">
@@ -44,9 +47,9 @@ export function InitiativeCard({ initiative }: InitiativeCardProps) {
           </span>
         </div>
       </CardContent>
-      <CardFooter className="p-4 pt-0">
+      <CardFooter className="p-4 pt-0 border-t mt-auto"> {/* Ensure footer is at bottom */}
         <Button variant="outline" size="sm" asChild className="w-full">
-           <Link href={`/initiatives/${initiative.id}`} className="flex items-center gap-1">
+           <Link href={`/initiatives/${initiative.id}`} className="flex items-center justify-center gap-1"> {/* Centered content */}
              <span>View Details</span>
              <ArrowRight className="h-4 w-4" />
            </Link>

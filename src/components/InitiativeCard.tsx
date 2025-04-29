@@ -1,20 +1,23 @@
 import type { Initiative } from "@/lib/types";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card"; // Keep Card for structure if needed, though styling is mostly custom now
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"; // Import Avatar components
 import Link from "next/link";
 import Image from "next/image";
 import { Users, ArrowRight } from "lucide-react";
 
 interface InitiativeCardProps {
   initiative: Initiative;
+  creatorName: string; // Add creator name prop
+  creatorAvatarUrl?: string; // Add optional creator avatar prop
 }
 
-export function InitiativeCard({ initiative }: InitiativeCardProps) {
+export function InitiativeCard({ initiative, creatorName, creatorAvatarUrl }: InitiativeCardProps) {
   const placeholderImage = "https://picsum.photos/seed/" + initiative.id + "/600/800"; // Taller aspect ratio
 
   return (
-    <Card className="relative flex flex-col overflow-hidden transition-all hover:shadow-lg w-full aspect-[9/16] text-white group"> {/* Taller aspect ratio, relative positioning */}
+    <Card className="relative flex flex-col overflow-hidden transition-all hover:shadow-lg w-full aspect-[9/16] text-white group rounded-lg"> {/* Added rounded-lg */}
       {/* Image Background */}
       <div className="absolute inset-0 z-0">
         <Image
@@ -31,6 +34,15 @@ export function InitiativeCard({ initiative }: InitiativeCardProps) {
 
       {/* Content Overlay */}
       <div className="relative z-20 flex flex-col justify-end h-full p-4 space-y-3">
+        {/* Creator Info */}
+        <div className="flex items-center gap-2 mb-2">
+          <Avatar className="h-7 w-7 border-2 border-white/50"> {/* Smaller avatar with border */}
+            <AvatarImage src={creatorAvatarUrl} alt={creatorName} />
+            <AvatarFallback className="text-xs bg-black/50 text-white">{creatorName?.charAt(0) || '?'}</AvatarFallback>
+          </Avatar>
+          <span className="text-sm font-medium truncate">{creatorName}</span>
+        </div>
+
         {/* Card Title */}
         <h2 className="text-xl font-semibold line-clamp-2">{initiative.title}</h2>
 
@@ -52,7 +64,7 @@ export function InitiativeCard({ initiative }: InitiativeCardProps) {
         </div>
 
         {/* Description (optional, maybe shorter) */}
-        <p className="text-sm opacity-80 line-clamp-2">{initiative.description}</p>
+        {/* <p className="text-sm opacity-80 line-clamp-2">{initiative.description}</p> */}
 
         {/* View Details Button - positioned at the bottom */}
         <Button variant="outline" size="sm" asChild className="mt-auto w-full bg-white/10 text-white border-white/40 hover:bg-white/20 backdrop-blur-sm">

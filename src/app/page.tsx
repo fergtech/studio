@@ -50,20 +50,44 @@ const mockInitiatives: Initiative[] = [
   },
 ];
 
+// Mock User Profile Data (Simplified) - Moved here to be accessible
+const mockUsers: Record<string, { name: string; avatar?: string }> = {
+  "user1": { name: "Alice" , avatar: "https://i.pravatar.cc/40?u=user1"},
+  "user2": { name: "Bob" },
+  "user3": { name: "Charlie", avatar: "https://i.pravatar.cc/40?u=user3" },
+  "user4": { name: "Diana" },
+  "user5": { name: "Eve", avatar: "https://i.pravatar.cc/40?u=user5" },
+  "user6": { name: "Faythe" },
+  "user7": { name: "Grace", avatar: "https://i.pravatar.cc/40?u=user7" },
+  "user8": { name: "Frank" },
+};
+
 
 export default function Home() {
-  // In a real app, fetch initiatives from a backend/database
+  // In a real app, fetch initiatives and user data from a backend/database
   const initiatives = mockInitiatives;
+  const users = mockUsers; // Access the mock user data
 
   return (
       // Single column centered layout for feed
       <div className="flex flex-col items-center space-y-8"> {/* Increased spacing */}
-        {initiatives.map((initiative) => (
-          // Constrain card width for a vertical, feed-like appearance
-          <div key={initiative.id} className="w-full max-w-md"> {/* Adjusted max-width */}
-             <InitiativeCard initiative={initiative} />
-          </div>
-        ))}
+        {initiatives.map((initiative) => {
+          // Find the creator's details
+          const creator = users[initiative.creatorId];
+          const creatorName = creator?.name || 'Unknown Creator';
+          const creatorAvatarUrl = creator?.avatar;
+
+          return (
+            // Constrain card width for a vertical, feed-like appearance
+            <div key={initiative.id} className="w-full max-w-md"> {/* Adjusted max-width */}
+               <InitiativeCard
+                  initiative={initiative}
+                  creatorName={creatorName}
+                  creatorAvatarUrl={creatorAvatarUrl}
+               />
+            </div>
+          );
+        })}
       </div>
   );
 }

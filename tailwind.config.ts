@@ -23,6 +23,7 @@ export default {
   		colors: {
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
+        white: 'hsl(var(--white))', // Added white color
   			card: {
   				DEFAULT: 'hsl(var(--card))',
   				foreground: 'hsl(var(--card-foreground))'
@@ -77,6 +78,9 @@ export default {
   			md: 'calc(var(--radius) - 2px)',
   			sm: 'calc(var(--radius) - 4px)'
   		},
+       aspectRatio: { // Added aspect ratios for vertical cards
+        '9/16': '9 / 16',
+      },
   		keyframes: {
         // Shadcn UI animations
   			'accordion-down': {

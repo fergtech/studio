@@ -6,10 +6,10 @@ import { Timestamp } from 'firebase/firestore'; // Import Timestamp if needed fo
 const mockInitiatives: Initiative[] = [
   {
     id: "1",
-    title: "Community Garden Project",
-    description: "Let's build a community garden together! We need volunteers for planting, watering, and maintenance.",
-    imageUrl: "https://picsum.photos/seed/garden/600/300", // Adjusted image size for single column
-    roles: ["Gardener", "Volunteer", "Organizer", "Watering Crew"],
+    title: "Community Garden Project: Sowing Seeds for a Greener Tomorrow", // Longer title example
+    description: "Let's build a community garden together! We need volunteers for planting, watering, and maintenance. Join us in cultivating fresh produce and friendships.",
+    imageUrl: "https://picsum.photos/seed/garden/600/800", // Adjusted image size for taller card
+    roles: ["Gardener", "Volunteer", "Organizer", "Watering Crew", "Composter", "Educator"],
     status: "Seeking Members",
     createdAt: Timestamp.fromDate(new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)), // More realistic timestamps
     creatorId: "user1",
@@ -17,9 +17,9 @@ const mockInitiatives: Initiative[] = [
   },
   {
     id: "2",
-    title: "Youth Tech Workshop",
-    description: "Organizing a weekend workshop to teach local kids basic coding skills. Looking for instructors and helpers.",
-    imageUrl: "https://picsum.photos/seed/tech/600/300",
+    title: "Youth Tech Workshop: Inspiring Future Innovators",
+    description: "Organizing a weekend workshop to teach local kids basic coding skills. Looking for instructors and helpers to ignite passion for technology.",
+    imageUrl: "https://picsum.photos/seed/tech/600/800",
     roles: ["Developer", "Instructor", "Mentor", "Volunteer"],
     status: "Planning",
     createdAt: Timestamp.fromDate(new Date(Date.now() - 5 * 24 * 60 * 60 * 1000)),
@@ -28,10 +28,10 @@ const mockInitiatives: Initiative[] = [
   },
   {
     id: "3",
-    title: "Neighborhood Park Cleanup",
-    description: "Join us this Saturday to clean up and beautify Miller Park. Bring gloves and enthusiasm!",
-    imageUrl: "https://picsum.photos/seed/park/600/300",
-    roles: ["Volunteer", "Community Member"],
+    title: "Neighborhood Park Cleanup: Making Our Community Shine",
+    description: "Join us this Saturday to clean up and beautify Miller Park. Bring gloves and enthusiasm! Let's create a cleaner, greener space for all.",
+    imageUrl: "https://picsum.photos/seed/park/600/800",
+    roles: ["Volunteer", "Community Member", "Team Lead"],
     status: "In Progress",
     createdAt: Timestamp.fromDate(new Date(Date.now() - 1 * 24 * 60 * 60 * 1000)),
     creatorId: "user4",
@@ -39,10 +39,10 @@ const mockInitiatives: Initiative[] = [
   },
     {
     id: "4",
-    title: "Local History Documentation",
-    description: "Collecting stories and photos about the history of APG. Need researchers, writers, and interviewers.",
-    imageUrl: "https://picsum.photos/seed/history/600/300",
-    roles: ["Researcher", "Writer", "Interviewer", "Historian"],
+    title: "Local History Documentation: Preserving APG's Heritage",
+    description: "Collecting stories and photos about the history of APG. Need researchers, writers, and interviewers to help safeguard our past for future generations.",
+    imageUrl: "https://picsum.photos/seed/history/600/800",
+    roles: ["Researcher", "Writer", "Interviewer", "Historian", "Archivist"],
     status: "Idea",
     createdAt: Timestamp.fromDate(new Date(Date.now() - 10 * 24 * 60 * 60 * 1000)),
     creatorId: "user8",
@@ -56,11 +56,11 @@ export default function Home() {
   const initiatives = mockInitiatives;
 
   return (
-      // Single column centered layout
-      <div className="flex flex-col items-center space-y-6">
+      // Single column centered layout for feed
+      <div className="flex flex-col items-center space-y-8"> {/* Increased spacing */}
         {initiatives.map((initiative) => (
-          // Constrain card width for better single-column readability
-          <div key={initiative.id} className="w-full max-w-xl">
+          // Constrain card width for a vertical, feed-like appearance
+          <div key={initiative.id} className="w-full max-w-md"> {/* Adjusted max-width */}
              <InitiativeCard initiative={initiative} />
           </div>
         ))}

@@ -10,7 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Timestamp } from 'firebase/firestore'; // For mock data
 import Image from 'next/image';
-import { Users, Clock, Send, Info } from 'lucide-react';
+import { Users, Clock, Send, Info, Plus } from 'lucide-react'; // Added Plus icon import
 import { useState, useEffect } from 'react';
 
 // Mock data (replace with actual data fetching)

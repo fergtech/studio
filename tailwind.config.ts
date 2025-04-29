@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+const { fontFamily } = require("tailwindcss/defaultTheme")
 
 export default {
     darkMode: ["class"],
@@ -8,7 +9,17 @@ export default {
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
+    container: { // Add container centering
+      center: true,
+      padding: "2rem",
+      screens: {
+        "2xl": "1400px",
+      },
+    },
   	extend: {
+      fontFamily: { // Add font variable
+        sans: ["var(--font-sans)", ...fontFamily.sans],
+      },
   		colors: {
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
@@ -67,28 +78,49 @@ export default {
   			sm: 'calc(var(--radius) - 4px)'
   		},
   		keyframes: {
+        // Shadcn UI animations
   			'accordion-down': {
-  				from: {
-  					height: '0'
-  				},
-  				to: {
-  					height: 'var(--radix-accordion-content-height)'
-  				}
+  				from: { height: '0' },
+  				to: { height: 'var(--radix-accordion-content-height)' },
   			},
   			'accordion-up': {
-  				from: {
-  					height: 'var(--radix-accordion-content-height)'
-  				},
-  				to: {
-  					height: '0'
-  				}
-  			}
+  				from: { height: 'var(--radix-accordion-content-height)' },
+  				to: { height: '0' },
+  			},
+         // Custom animations for Impact Labs
+         "fade-in": {
+            "0%": { opacity: '0' },
+            "100%": { opacity: '1' },
+          },
+          "slide-in-from-bottom": {
+            "0%": { transform: "translateY(10px)", opacity: '0' },
+            "100%": { transform: "translateY(0)", opacity: '1' },
+          },
+           "slide-in-from-right": {
+            "0%": { transform: "translateX(20px)", opacity: '0' },
+            "100%": { transform: "translateX(0)", opacity: '1' },
+          },
   		},
   		animation: {
+        // Shadcn UI animations
   			'accordion-down': 'accordion-down 0.2s ease-out',
-  			'accordion-up': 'accordion-up 0.2s ease-out'
-  		}
+  			'accordion-up': 'accordion-up 0.2s ease-out',
+         // Custom animations
+         "fade-in": "fade-in 0.5s ease-out forwards",
+         "slide-in-from-bottom": "slide-in-from-bottom 0.5s ease-out forwards",
+          "slide-in-from-right": "slide-in-from-right 0.5s ease-out forwards",
+  		},
+      // Add tailwindcss-animate plugin configuration if not implicitly handled by ShadCN setup
+      // Ensure this configuration exists if using animate-* classes directly
+       animationDelay: { // Utility for animation delays
+        '100': '100ms',
+        '200': '200ms',
+        '300': '300ms',
+        '500': '500ms',
+        '700': '700ms',
+        '1000': '1000ms',
+      },
   	}
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [require("tailwindcss-animate")], // Ensure animate plugin is included
 } satisfies Config;

@@ -1,9 +1,12 @@
 import type React from 'react';
 import { Header } from '@/components/Header';
-import { Toaster } from "@/components/ui/toaster"
+import { Toaster } from "@/components/ui/toaster";
 
+interface FeedLayoutProps {
+  children: React.ReactNode;
+}
 
-export function FeedLayout({ children }: { children: React.ReactNode }) {
+export function FeedLayout({ children }: FeedLayoutProps) {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <Header />

@@ -17,8 +17,8 @@ export default {
       },
     },
   	extend: {
-      fontFamily: { // Add font variable
-        sans: ["var(--font-sans)", ...fontFamily.sans],
+		fontFamily: {
+		  sans: ['Inter', 'sans-serif'],
       },
   		colors: {
   			background: 'hsl(var(--background))',

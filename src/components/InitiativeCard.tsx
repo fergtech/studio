@@ -1,79 +1,110 @@
-import type { Initiative } from "@/lib/types";
-import { Card } from "@/components/ui/card"; // Keep Card for structure if needed, though styling is mostly custom now
+import React from 'react';
+import { Initiative } from '@/lib/types';
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"; // Import Avatar components
-import Link from "next/link";
-import Image from "next/image";
-import { Users, ArrowRight } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import Link from 'next/link';
+import { formatDistanceToNow, parseISO } from 'date-fns';
+import { useRouter } from 'next/navigation';
 
 interface InitiativeCardProps {
   initiative: Initiative;
-  creatorName: string; // Add creator name prop
-  creatorAvatarUrl?: string; // Add optional creator avatar prop
+  creatorName?: string;
+  creatorAvatarUrl?: string;
 }
 
-export function InitiativeCard({ initiative, creatorName, creatorAvatarUrl }: InitiativeCardProps) {
-  const placeholderImage = "https://picsum.photos/seed/" + initiative.id + "/600/800"; // Taller aspect ratio
+export function InitiativeCard({ initiative, creatorName = "Creator", creatorAvatarUrl }: InitiativeCardProps) {
+  const router = useRouter();
+  const fallback = creatorName.substring(0, 2).toUpperCase();
+  
+  // Handle both Timestamp objects and ISO strings for compatibility
+  const timeAgo = initiative.createdAt ? 
+    formatDistanceToNow(
+      typeof initiative.createdAt === 'string' 
+        ? parseISO(initiative.createdAt) 
+        : initiative.createdAt.toDate?.() || new Date(initiative.createdAt as any),
+      { addSuffix: true }
+    ) : '';
+
+  const handleInitiativeClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    router.push(`/initiatives/${initiative.id}`);
+  };
 
   return (
-    <Card className="relative flex flex-col overflow-hidden transition-all hover:shadow-lg w-full aspect-[9/16] text-white group rounded-lg"> {/* Added rounded-lg */}
-      {/* Image Background */}
-      <div className="absolute inset-0 z-0">
-        <Image
-          src={initiative.imageUrl || placeholderImage}
-          alt={initiative.title}
-          layout="fill"
-          objectFit="cover"
-          priority={initiative.id === '1'} // Prioritize first image potentially
-          className="transition-transform duration-300 group-hover:scale-105" // Subtle zoom on hover
-        />
-        {/* Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent z-10"></div>
+    <div 
+      className="relative block mb-4 rounded-lg overflow-hidden shadow-lg aspect-[9/12] text-card-foreground group cursor-pointer" // Changed text-white to text-card-foreground
+      onClick={handleInitiativeClick}
+    > {/* Aspect ratio */}
+      {/* We replace the direct Link with a div and use the router for navigation */}
+      <div className="absolute inset-0 z-30">
+        <span className="sr-only">View initiative: {initiative.title}</span>
+      </div>
+      
+      <div
+        className="absolute inset-0 bg-cover bg-center z-0 transition-transform duration-300 group-hover:scale-105"
+        style={{ backgroundImage: `url(${initiative.imageUrl || 'https://picsum.photos/seed/default/600/800'})` }} // Default image if none provided
+      >
+         {/* Overlay for text contrast */}
+         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent z-10"></div>
       </div>
 
-      {/* Content Overlay */}
-      <div className="relative z-20 flex flex-col justify-end h-full p-4 space-y-3">
-        {/* Creator Info */}
-        <div className="flex items-center gap-2 mb-2">
-          <Avatar className="h-7 w-7 border-2 border-white/50"> {/* Smaller avatar with border */}
-            <AvatarImage src={creatorAvatarUrl} alt={creatorName} />
-            <AvatarFallback className="text-xs bg-black/50 text-white">{creatorName?.charAt(0) || '?'}</AvatarFallback>
-          </Avatar>
-          <span className="text-sm font-medium truncate">{creatorName}</span>
+      {/* Content Layer */}
+      <div className="relative z-20 flex flex-col h-full p-4">
+        {/* Header (Creator Info + Status) */}
+        <div className="flex items-center justify-between mb-auto">
+          <div className="flex items-center space-x-2">
+            {/* Creator Avatar with Profile Link */}
+            <Link 
+              href={`/profile/${initiative.creatorId}`}
+              onClick={(e) => e.stopPropagation()} 
+              className="z-40 relative hover:opacity-80 transition-opacity"
+            >
+              <Avatar className="h-8 w-8 border-2 border-white/80">
+                <AvatarImage src={creatorAvatarUrl} alt={creatorName} />
+                <AvatarFallback>{fallback}</AvatarFallback>
+              </Avatar>
+            </Link>
+            <div>
+              {/* Creator Name with Profile Link */}
+              <Link 
+                href={`/profile/${initiative.creatorId}`}
+                onClick={(e) => e.stopPropagation()} 
+                className="z-40 relative hover:underline"
+              >
+                <p className="text-xs font-medium">{creatorName}</p>
+              </Link>
+              <p className="text-xs opacity-80">{timeAgo}</p>
+            </div>
+          </div>
+          <Badge variant="secondary" className="text-xs bg-accent/20 text-accent border-none backdrop-blur-sm">{initiative.status}</Badge>
         </div>
 
-        {/* Card Title */}
-        <h2 className="text-xl font-semibold line-clamp-2">{initiative.title}</h2>
-
-        {/* Status and Member Count */}
-         <div className="flex items-center justify-between text-xs opacity-90">
-           <Badge variant="secondary" className="capitalize bg-white/20 text-white border-none backdrop-blur-sm">{initiative.status}</Badge>
-           <span className="flex items-center gap-1">
-             <Users className="h-3 w-3" />
-             {initiative.memberIds.length} Member{initiative.memberIds.length !== 1 ? 's' : ''}
-           </span>
-         </div>
-
-        {/* Roles */}
-        <div className="flex flex-wrap gap-1">
-          {initiative.roles.slice(0, 3).map((role) => (
-             <Badge key={role} variant="outline" className="bg-white/10 text-white border-white/30 backdrop-blur-sm text-xs">{role}</Badge>
-          ))}
-          {initiative.roles.length > 3 && <Badge variant="outline" className="bg-white/10 text-white border-white/30 backdrop-blur-sm text-xs">+{initiative.roles.length - 3} more</Badge>}
+        {/* Main Content Text (Title + Description) */}
+        <div className="my-4 text-center">
+          <h3 className="text-xl font-bold mb-1 line-clamp-2">{initiative.title}</h3>
+          <p className="text-sm opacity-90 line-clamp-3">{initiative.description}</p>
         </div>
 
-        {/* Description (optional, maybe shorter) */}
-        {/* <p className="text-sm opacity-80 line-clamp-2">{initiative.description}</p> */}
-
-        {/* View Details Button - positioned at the bottom */}
-        <Button variant="outline" size="sm" asChild className="mt-auto w-full bg-white/10 text-white border-white/40 hover:bg-white/20 backdrop-blur-sm">
-          <Link href={`/initiatives/${initiative.id}`} className="flex items-center justify-center gap-1">
-            <span>View Details</span>
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-        </Button>
+        {/* Footer (Roles) */}
+        <div className="mt-auto">
+          {initiative.roles && initiative.roles.length > 0 && (
+            <div className="flex flex-wrap justify-center gap-1">
+              {initiative.roles.slice(0, 3).map((role) => ( // Show limited roles
+                <Badge key={role} variant="secondary" className="text-xs backdrop-blur-sm">
+                  {role}
+                </Badge>
+              ))}
+              {initiative.roles.length > 3 && (
+                 <Badge variant="secondary" className="text-xs backdrop-blur-sm">
+                  +{initiative.roles.length - 3} more
+                </Badge>
+              )}
+            </div>
+          )}
+        </div>
       </div>
-    </Card>
+    </div>
   );
 }
+
+export default InitiativeCard;

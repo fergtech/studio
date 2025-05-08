@@ -24,11 +24,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useModal } from "@/context/ModalContext"; // Import useModal
+import { useRouter, usePathname } from "next/navigation"; // Import useRouter and usePathname
 
 export function Header() {
   console.log("Header component rendering - Simplified");
-  const [isCreateInitiativeOpen, setIsCreateInitiativeOpen] = useState(false); // State for dialog
   const { data: session, status } = useSession();
+  const { openCreateInitiativeModal, createInitiativeModal, closeCreateInitiativeModal } = useModal(); // Use modal context
+  const router = useRouter();
+  const pathname = usePathname();
   const isLoading = status === 'loading';
 
   const handleSignOut = () => {
@@ -59,33 +63,14 @@ export function Header() {
             Home
           </Link>
 
-          {/* Dialog for Create Initiative */}
-          <Dialog open={isCreateInitiativeOpen} onOpenChange={setIsCreateInitiativeOpen}>
-            <DialogTrigger asChild>
-              <Button
-                variant="default" // Use default button style
-                size="icon" // Make it icon-sized
-                className="rounded-md bg-primary p-2 text-primary-foreground shadow transition-colors hover:bg-primary/90 h-9 w-9" // Adjusted size and styling
-                aria-label="Create Initiative"
-              >
-                <PlusCircle className="h-5 w-5" />
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px]"> {/* Adjust max width as needed */}
-              <DialogHeader>
-                <DialogTitle>Create New Initiative</DialogTitle>
-                <DialogDescription>
-                  Start a new project and invite collaborators from your community.
-                </DialogDescription>
-              </DialogHeader>
-              {/* Render the form inside the dialog content */}
-              <CreateInitiativeForm setOpen={setIsCreateInitiativeOpen} />
-              {/* DialogFooter can be used here if the form doesn't include its own buttons */}
-              {/* <DialogFooter>
-                <Button type="submit" form="create-initiative-form">Save changes</Button>
-              </DialogFooter> */}
-            </DialogContent>
-          </Dialog>
+          <Button 
+            variant="default" 
+            size="sm" 
+            className="bg-accent text-accent-foreground hover:bg-accent/90"
+            onClick={() => openCreateInitiativeModal()} // Open modal without description from header
+          >
+            <PlusCircle className="mr-2 h-4 w-4" /> Create Initiative
+          </Button>
 
           {isLoading ? (
             <div className="h-8 w-20 bg-muted rounded animate-pulse"></div> // Skeleton loader
@@ -141,6 +126,16 @@ export function Header() {
           )}
         </nav>
       </div>
+
+      {/* Create Initiative Modal controlled by context */}
+      <Dialog open={createInitiativeModal.isOpen} onOpenChange={(isOpen) => !isOpen && closeCreateInitiativeModal()}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Create New Initiative</DialogTitle>
+          </DialogHeader>
+          <CreateInitiativeForm setOpen={closeCreateInitiativeModal} />
+        </DialogContent>
+      </Dialog>
     </header>
   );
 }

@@ -1,3 +1,4 @@
+"use client";
 import React from 'react';
 import { Initiative } from '@/lib/types';
 import { Badge } from "@/components/ui/badge";
@@ -7,7 +8,7 @@ import { formatDistanceToNow, parseISO } from 'date-fns';
 import { useRouter } from 'next/navigation';
 
 interface InitiativeCardProps {
-  initiative: Initiative;
+  initiative: Initiative & { creatorId?: string };
   creatorName?: string;
   creatorAvatarUrl?: string;
 }
@@ -16,12 +17,14 @@ export function InitiativeCard({ initiative, creatorName = "Creator", creatorAva
   const router = useRouter();
   const fallback = creatorName.substring(0, 2).toUpperCase();
   
-  // Handle both Timestamp objects and ISO strings for compatibility
+  // Handle date formatting
   const timeAgo = initiative.createdAt ? 
     formatDistanceToNow(
       typeof initiative.createdAt === 'string' 
         ? parseISO(initiative.createdAt) 
-        : initiative.createdAt.toDate?.() || new Date(initiative.createdAt as any),
+        : initiative.createdAt instanceof Date
+          ? initiative.createdAt
+          : new Date(initiative.createdAt as any),
       { addSuffix: true }
     ) : '';
 
@@ -106,5 +109,3 @@ export function InitiativeCard({ initiative, creatorName = "Creator", creatorAva
     </div>
   );
 }
-
-export default InitiativeCard;

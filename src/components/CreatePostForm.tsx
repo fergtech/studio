@@ -1,29 +1,15 @@
 "use client";
 
-import React, { useState, useRef } from 'react'; // Import useRef
+import React, { useState, useRef } from 'react';
+import { useSession } from 'next-auth/react'; // Import useSession
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Paperclip, Send, Palette } from 'lucide-react'; // Add Palette icon
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"; // Import Popover
-
-// Placeholder for user data - replace with actual auth context later
-const currentUser = {
-  name: "Current User",
-  avatarUrl: "/placeholder-avatar.png", // Replace with actual user avatar
-  id: "user123",
-};
-
-// Placeholder for the function to create a post - replace with actual API call
-// Update function signature to accept optional background
-async function createPostOnBackend(content: string, media?: File, background?: string) {
-  console.log("Creating post:", { content, media, background });
-  // Simulate API call
-  await new Promise(resolve => setTimeout(resolve, 500));
-  // In a real app, this would return the created post object or handle errors
-  return { success: true };
-}
+import { Paperclip, Send, Palette, AlertCircle } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { createGeneralPost } from '@/app/actions/postActions'; // Import the server action
+import { useToast } from '@/hooks/use-toast'; // Assuming you have a toast hook
 
 // Define some background options
 const backgroundOptions = [
@@ -35,15 +21,19 @@ const backgroundOptions = [
   '#333333', // Dark Grey
 ];
 
-export function CreatePostForm({ onPostCreated }: { onPostCreated: () => void }) {
+export default function CreatePostForm({ onPostCreated }: { onPostCreated: () => void }) {
+  const { data: session } = useSession();
+  const { toast } = useToast(); // For displaying messages
   const [content, setContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState<File | null>(null);
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
-  const [selectedBackground, setSelectedBackground] = useState<string>(backgroundOptions[1]); // Default background
+  const [selectedBackground, setSelectedBackground] = useState<string>(backgroundOptions[1]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  // Basic fallback for avatar
-  const fallback = currentUser.name?.substring(0, 2).toUpperCase() || 'CU';
+
+  const currentUser = session?.user;
+  const fallback = currentUser?.name?.substring(0, 2).toUpperCase() || (currentUser?.email?.substring(0, 2).toUpperCase() || 'U');
+  const userAvatarUrl = currentUser?.image || "/placeholder-avatar.png"; // Use session image or placeholder
 
   const handleMediaChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -69,32 +59,69 @@ export function CreatePostForm({ onPostCreated }: { onPostCreated: () => void })
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!content.trim() || isSubmitting) return;
+    if (!currentUser?.id) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to create a post.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setIsSubmitting(true);
     try {
-      // Pass background only if no media is selected
       const backgroundToSend = selectedMedia ? undefined : selectedBackground;
-      const result = await createPostOnBackend(content, selectedMedia ?? undefined, backgroundToSend);
-      if (result.success) {
+      // For now, selectedMedia is not being sent to the backend.
+      // The backend action createGeneralPost currently doesn't handle file uploads.
+      const result = await createGeneralPost({ 
+        content,
+        background: backgroundToSend,
+        // linkedInitiativeId: undefined, // Add if you have a way to link posts to initiatives from this form
+       });
+
+      if (result.success && result.post) {
         setContent('');
         setSelectedMedia(null);
         setMediaPreview(null);
-        setSelectedBackground(backgroundOptions[1]); // Reset to default background
+        setSelectedBackground(backgroundOptions[1]);
         if (fileInputRef.current) {
-            fileInputRef.current.value = ""; // Clear file input
+            fileInputRef.current.value = "";
         }
+        toast({
+          title: "Success!",
+          description: "Your post has been created.",
+        });
         onPostCreated(); // Callback to refresh the feed or show success
       } else {
-        // Handle error (e.g., show toast)
-        console.error("Failed to create post");
+        console.error("Failed to create post:", result.error);
+        toast({
+          title: "Error Creating Post",
+          description: result.error || "An unknown error occurred.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Error submitting post:", error);
-      // Handle error
+      toast({
+        title: "Submission Error",
+        description: "An unexpected error occurred while submitting your post.",
+        variant: "destructive",
+      });
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  if (!currentUser) {
+    return (
+      <Card className="mb-6 shadow-sm border-none bg-card/80 backdrop-blur overflow-hidden">
+        <CardContent className="p-4 text-center text-muted-foreground">
+          <AlertCircle className="mx-auto h-8 w-8 mb-2" />
+          Please log in to create a post.
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="mb-6 shadow-sm border-none bg-card/80 backdrop-blur overflow-hidden">
@@ -116,7 +143,7 @@ export function CreatePostForm({ onPostCreated }: { onPostCreated: () => void })
         <form onSubmit={handleSubmit}>
           <div className="flex items-start space-x-3">
             <Avatar className="h-10 w-10 mt-1">
-              <AvatarImage src={currentUser.avatarUrl} alt={currentUser.name} />
+              <AvatarImage src={userAvatarUrl} alt={currentUser.name || currentUser.email || 'User'} />
               <AvatarFallback>{fallback}</AvatarFallback>
             </Avatar>
             <Textarea

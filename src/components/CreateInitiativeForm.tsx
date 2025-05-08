@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react'; // Import useEffect
 import { useForm, useFieldArray, FieldValues, FieldArrayPath } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation'; // Import useSearchParams
+import { useSession } from 'next-auth/react';
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,10 +13,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import type { InitiativeStatus } from '@/lib/types';
-import { Upload, X, Plus, Tag } from 'lucide-react';
+// Use Prisma's InitiativeStatus for type safety with the server action & Zod schema
+import { InitiativeStatus as PrismaInitiativeStatus } from '@prisma/client';
+import { Upload, X, Plus, Tag, AlertCircle } from 'lucide-react';
+import { createInitiative } from '@/app/actions/initiativeActions'; // Import the server action
 
-const initiativeStatusOptions: InitiativeStatus[] = ["Idea", "Planning", "Seeking Members"];
+// Update Zod type for status options to align with Prisma
+const initiativeStatusOptions: PrismaInitiativeStatus[] = Object.values(PrismaInitiativeStatus);
 
 // Define the form schema
 const formSchema = z.object({
@@ -23,7 +27,9 @@ const formSchema = z.object({
   description: z.string().min(20, "Description must be at least 20 characters").max(1000),
   imageUrl: z.string().url("Please enter a valid image URL (optional)").optional().or(z.literal('')),
   roles: z.array(z.string().min(2, "Role must be at least 2 characters").max(30)).min(1, "At least one role is required"),
-  status: z.enum(["Idea", "Planning", "Seeking Members"]),
+  status: z.nativeEnum(PrismaInitiativeStatus, { 
+    errorMap: (issue, ctx) => ({ message: "Please select a valid status." })
+  }),
 });
 
 type InitiativeFormData = z.infer<typeof formSchema>;
@@ -34,44 +40,99 @@ interface CreateInitiativeFormProps {
 
 export function CreateInitiativeForm({ setOpen }: CreateInitiativeFormProps) {
   const router = useRouter();
+  const searchParams = useSearchParams(); // Get search params
+  const { data: session } = useSession();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Initialize form with react-hook-form
+  // Get postContent from URL query params for initial description
+  const initialDescription = searchParams.get('postContent') || "";
+
   const form = useForm<InitiativeFormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       title: "",
-      description: "",
+      description: decodeURIComponent(initialDescription), // Set initial description
       imageUrl: "",
-      roles: [""], // Start with one empty role input
-      status: "Idea",
+      roles: [""],
+      status: PrismaInitiativeStatus.Idea, // Default to Prisma enum value
     },
   });
 
-  // Setup field array for dynamic role inputs
+  // Effect to update description if query param changes after initial load (optional, but good practice)
+  useEffect(() => {
+    const postContentFromQuery = searchParams.get('postContent');
+    if (postContentFromQuery) {
+      // Only update if it's different from current form value to avoid unnecessary re-renders/resets
+      if (decodeURIComponent(postContentFromQuery) !== form.getValues("description")) {
+        form.setValue("description", decodeURIComponent(postContentFromQuery));
+      }
+    }
+  }, [searchParams, form]);
+
   const roleArray = useFieldArray({
     control: form.control,
-    name: "roles" as unknown as FieldArrayPath<InitiativeFormData>
+    name: "roles" as FieldArrayPath<InitiativeFormData> // Corrected type assertion
   });
 
   async function onSubmit(values: InitiativeFormData) {
+    if (!session?.user?.id) {
+      toast({
+        title: "Authentication Error",
+        description: "You must be logged in to create an initiative.",
+        variant: "destructive",
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
     setIsSubmitting(true);
-    console.log("Form submitted:", values);
+    console.log("Form submitted with values:", values);
 
-    // --- Mock Submission ---
-    await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate network delay
-    // --- End Mock Submission ---
+    try {
+      const result = await createInitiative({
+        ...values,
+        imageUrl: values.imageUrl || undefined, // Pass undefined if empty string
+      });
 
-    toast({
-      title: "Initiative Created!",
-      description: `"${values.title}" is now live.`,
-      variant: "default",
-    });
+      if (result.success && result.initiative) {
+        toast({
+          title: "Initiative Created!",
+          description: `"${result.initiative.title}" is now live.`,
+          variant: "default",
+        });
+        setOpen(false); // Close the dialog
+        form.reset();   // Reset form fields
+        // router.push(`/initiatives/${result.initiative.id}`); // Optionally redirect
+      } else {
+        toast({
+          title: "Error Creating Initiative",
+          description: result.error || "An unknown error occurred.",
+          variant: "destructive",
+        });
+        console.error("Failed to create initiative:", result.error);
+      }
+    } catch (error) {
+      console.error("Error submitting initiative form:", error);
+      toast({
+        title: "Submission Error",
+        description: "An unexpected error occurred.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
 
-    setIsSubmitting(false);
-    setOpen(false); // Close the dialog on successful submission
-    form.reset(); // Reset form fields after submission
+  if (!session?.user) {
+    return (
+      <div className="p-6 text-center">
+        <AlertCircle className="mx-auto h-10 w-10 text-destructive mb-2" />
+        <p className="text-lg font-medium">Authentication Required</p>
+        <p className="text-sm text-muted-foreground">Please log in to create an initiative.</p>
+        <Button onClick={() => router.push('/login')} className="mt-4">Login</Button>
+      </div>
+    );
   }
 
   return (

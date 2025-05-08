@@ -1,3 +1,4 @@
+"use client";
 import React, { useState } from 'react';
 import { GeneralPost } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -8,6 +9,7 @@ import { formatDistanceToNow, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useModal } from "@/context/ModalContext"; // Import useModal
 
 // Mock comment data (in a real app, this would come from the database)
 interface Comment {
@@ -37,6 +39,7 @@ interface GeneralPostCardProps {
 }
 
 export function GeneralPostCard({ post }: GeneralPostCardProps) {
+  const { openCreateInitiativeModal } = useModal(); // Use modal context
   // Generate deterministic values based on post ID instead of random numbers
   // This ensures the same values are used on both server and client
   const postIdSum = post.id.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
@@ -136,6 +139,10 @@ export function GeneralPostCard({ post }: GeneralPostCardProps) {
     setNewComment('');
   };
 
+  const handleCreateInitiativeFromPost = () => {
+    openCreateInitiativeModal(post.content);
+  };
+
   return (
     <div className={cn(
       "relative mb-4 rounded-lg overflow-hidden shadow-lg flex flex-col text-card-foreground",
@@ -219,12 +226,15 @@ export function GeneralPostCard({ post }: GeneralPostCardProps) {
             
             {/* Create Initiative Button */}
             <div className="flex justify-center">
-              <Link href="/initiatives/create" passHref>
-                <Button variant="outline" size="sm" className="text-xs w-full">
-                  <PlusCircle className="mr-1 h-3.5 w-3.5" />
-                  Create Initiative
-                </Button>
-              </Link>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="text-xs w-full"
+                onClick={handleCreateInitiativeFromPost} // Call context function
+              >
+                <PlusCircle className="mr-1 h-3.5 w-3.5" />
+                Create Initiative
+              </Button>
             </div>
           </div>
         )}

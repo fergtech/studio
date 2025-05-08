@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { mockUserStore } from '@/lib/mockUserStore';
+import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcrypt';
 import { z } from 'zod';
+
+const prisma = new PrismaClient();
+const saltRounds = 10; // For bcrypt
 
 // Define validation schema for registration
 const registerSchema = z.object({
@@ -25,10 +29,12 @@ export async function POST(req: NextRequest) {
 
     const { email, password } = validationResult.data;
 
-    // Attempt to add user using the mock store
-    const newUser = await mockUserStore.addUser(email, password);
+    // Check if user already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+    });
 
-    if (!newUser) {
+    if (existingUser) {
       console.log('Register API: User already exists:', email);
       return NextResponse.json(
         { message: "User with this email already exists" },
@@ -36,16 +42,32 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Hash password
+    const passwordHash = await bcrypt.hash(password, saltRounds);
+
+    // Create new user
+    const newUser = await prisma.user.create({
+      data: {
+        email,
+        passwordHash,
+        name: email.split('@')[0], // Default name, can be updated later via profile
+        // Add other default fields for User model if necessary
+      },
+    });
+
     console.log('Register API: User registered successfully:', email);
     // Exclude password hash from the response
-    const { passwordHash, ...userWithoutPassword } = newUser;
+    const { passwordHash: _, ...userWithoutPassword } = newUser;
     return NextResponse.json(userWithoutPassword, { status: 201 }); // Created
 
   } catch (error) {
     console.error('Register API: Internal server error:', error);
+    // Check for Prisma-specific errors if needed, though a generic 500 is often okay
     return NextResponse.json(
       { message: "An unexpected error occurred" },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }

@@ -4,7 +4,7 @@ import { InitiativeCard } from "@/components/InitiativeCard";
 import { GeneralPostCard } from "@/components/GeneralPostCard";
 import CreatePostForm from "@/components/CreatePostForm";
 import type { Initiative as PrismaInitiative, GeneralPost as PrismaGeneralPost, User as PrismaUser, MediaItem as PrismaMediaItem } from '@prisma/client';
-import type { GeneralPost } from '@/lib/types';
+import type { GeneralPost, Initiative, Role, SkillRoleType, InitiativeStatus, UserForDisplay } from '@/lib/types';
 
 // Temporary mock user avatars for fallback
 const mockUserAvatars: Record<string, string | undefined> = {
@@ -61,19 +61,52 @@ export function HomeClient({ feedItems }: HomeClientProps) {
             </div>
           );
         } else {
-          const initiativeCreatorName = item.creator?.name || 'Unknown Creator';
-          const initiativeCreatorAvatar = item.creator?.image || mockUserAvatars[item.creatorId] || "https://i.pravatar.cc/40?u=unknown";
-          const initiativeImageUrl = item.imageUrl || `https://picsum.photos/seed/${item.id}/600/800`;
-          
-          const displayInitiative = {
-            ...item,
-            imageUrl: initiativeImageUrl,
+          const initiativeItem = item as InitiativeWithCreator;
+          const initiativeCreatorName = initiativeItem.creator?.name || 'Unknown Creator';
+          const initiativeCreatorAvatar = initiativeItem.creator?.image || mockUserAvatars[initiativeItem.creatorId] || "https://i.pravatar.cc/40?u=unknown";
+
+          const processedRoles: Role[] = (initiativeItem.roles || []).map((roleString, index) => ({
+            id: `feed-role-${initiativeItem.id}-${index}-${roleString.replace(/\s+/g, '-')}`,
+            title: roleString,
+            description: `Skill/Tag: ${roleString}`,
+            type: 'other' as SkillRoleType,
+          }));
+
+          // Ensure creatorForCard is always UserForDisplay, providing a default if initiativeItem.creator is null
+          const creatorForCard: UserForDisplay = initiativeItem.creator
+            ? {
+                id: initiativeItem.creator.id,
+                name: initiativeItem.creator.name, // PrismaUser.name is string | null, compatible
+                image: initiativeItem.creator.image, // PrismaUser.image is string | null, compatible
+              }
+            : {
+                id: initiativeItem.creatorId || 'unknown-creator', // Use creatorId if available, else a fallback
+                name: 'Unknown Creator',
+                image: null,
+              };
+
+          const initiativeForCard: Initiative & { creatorId?: string } = {
+            id: initiativeItem.id,
+            title: initiativeItem.title,
+            description: initiativeItem.description || '',
+            imageUrl: initiativeItem.imageUrl,
+            status: initiativeItem.status as InitiativeStatus,
+            createdAt: initiativeItem.createdAt,
+            updatedAt: initiativeItem.createdAt, // Use createdAt as updatedAt is not in InitiativeWithCreator from feed query
+            creatorId: initiativeItem.creatorId,
+            roles: processedRoles,
+            creator: creatorForCard, // Now always a UserForDisplay object
+            memberships: [],
+            updates: [],
+            chatMessages: [],
+            goals: [],
+            milestones: [],
           };
 
           return (
-            <div key={item.id} className="w-full">
+            <div key={initiativeItem.id} className="w-full">
               <InitiativeCard
-                initiative={displayInitiative}
+                initiative={initiativeForCard}
                 creatorName={initiativeCreatorName}
                 creatorAvatarUrl={initiativeCreatorAvatar}
               />
@@ -86,4 +119,4 @@ export function HomeClient({ feedItems }: HomeClientProps) {
       )}
     </div>
   );
-} 
+}

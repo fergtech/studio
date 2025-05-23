@@ -79,6 +79,15 @@ enum MediaType {
   video
 }
 
+enum InitiativeRoleType {
+  ADMIN
+  MEMBER
+  CONTRIBUTOR
+  GUEST
+  SPONSOR
+  MENTOR
+}
+
 // Models from types.ts
 
 model User {
@@ -87,6 +96,7 @@ model User {
   passwordHash                String
   name                        String?
   image                       String?
+  bannerImageUrl              String?        // New field for banner image
   dateCreated                 DateTime       @default(now())
   // UserProfile fields merged
   bio                         String?
@@ -95,8 +105,8 @@ model User {
   profession                  String?
   organization                String?
   institution                 String?
-  participatingInitiatives  Initiative[]   @relation("UserParticipatingInitiatives") // Many-to-many for memberIds
   createdInitiatives          Initiative[]   @relation("CreatorOfInitiative")
+  initiativeMemberships       InitiativeMembership[]
   createdMilestones           Milestone[]    @relation("CreatorOfMilestone")
   createdSteps                Step[]         @relation("CreatorOfStep")
   assignedSteps               Step[]         @relation("AssigneeOfStep")
@@ -119,7 +129,7 @@ model Initiative {
   createdAt     DateTime         @default(now())
   creatorId     String
   creator       User             @relation("CreatorOfInitiative", fields: [creatorId], references: [id])
-  members       User[]           @relation("UserParticipatingInitiatives") // Many-to-many for memberIds
+  memberships   InitiativeMembership[]
   milestones    Milestone[]
   steps         Step[]
   chatMessages  ChatMessage[]
@@ -235,7 +245,6 @@ model ContributionItem {
   // user             User?            @relation(fields: [userId], references: [id])
 }
 
-
 model Goal {
   id            String     @id @default(cuid())
   initiativeId  String
@@ -278,4 +287,17 @@ model Action { // Renamed from Task in types.ts
   priority      Priority?
   creatorId     String? // Assuming actions also have a creator
   creator       User?      @relation("CreatorOfAction", fields: [creatorId], references: [id])
+}
+
+model InitiativeMembership {
+  id           String             @id @default(cuid())
+  user         User               @relation(fields: [userId], references: [id])
+  userId       String
+  initiative   Initiative         @relation(fields: [initiativeId], references: [id])
+  initiativeId String
+  role         InitiativeRoleType
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@unique([userId, initiativeId])
 }

@@ -45,7 +45,9 @@ export function InitiativeCard({ initiative, creatorName = "Creator", creatorAva
       
       <div
         className="absolute inset-0 bg-cover bg-center z-0 transition-transform duration-300 group-hover:scale-105"
-        style={{ backgroundImage: `url(${initiative.imageUrl || 'https://picsum.photos/seed/default/600/800'})` }} // Default image if none provided
+        style={{ 
+          backgroundImage: `url(${initiative.imageUrl || 'https://picsum.photos/seed/default-fallback/600/800'})` 
+        }} // Use initiative.imageUrl, fallback to a generic placeholder
       >
          {/* Overlay for text contrast */}
          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent z-10"></div>
@@ -93,12 +95,12 @@ export function InitiativeCard({ initiative, creatorName = "Creator", creatorAva
           {initiative.roles && initiative.roles.length > 0 && (
             <div className="flex flex-wrap justify-center gap-1">
               {initiative.roles.slice(0, 3).map((role) => ( // Show limited roles
-                <Badge key={role} variant="secondary" className="text-xs backdrop-blur-sm">
-                  {role}
+                <Badge key={role.id} variant="secondary" className="text-xs backdrop-blur-sm">
+                  {role.title}
                 </Badge>
               ))}
               {initiative.roles.length > 3 && (
-                 <Badge variant="secondary" className="text-xs backdrop-blur-sm">
+                 <Badge key="more-roles-badge" variant="secondary" className="text-xs backdrop-blur-sm">
                   +{initiative.roles.length - 3} more
                 </Badge>
               )}

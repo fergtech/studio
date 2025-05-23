@@ -4,55 +4,74 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Check } from 'lucide-react';
-import type { Initiative, Role } from "@/lib/types";
+import type { UserSelectableMembershipRole } from "@/lib/types";
+import { cn } from "@/lib/utils"; // Import for cn
 
 interface RoleSelectionModalProps {
-  initiative: Initiative;
+  availableMembershipRoles: UserSelectableMembershipRole[];
   isOpen: boolean;
   onClose: () => void;
-  onRoleSelect: (role: Role) => void;
+  onRoleSelect: (roleType: UserSelectableMembershipRole) => void;
+  title?: string; 
+  description?: string; 
+  currentRole?: UserSelectableMembershipRole; 
 }
 
 export function RoleSelectionModal({
-  initiative,
+  availableMembershipRoles,
   isOpen,
   onClose,
-  onRoleSelect
+  onRoleSelect,
+  title = "Join Initiative As", 
+  description = "Select the capacity in which you'd like to join this initiative.", 
+  currentRole,
 }: RoleSelectionModalProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>Join Initiative</DialogTitle>
+          <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
-            Select a role to join this initiative
+            {description}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-          {initiative.roles.map((role) => (
+          {availableMembershipRoles.map((roleType) => (
             <Card
-              key={role.id}
-              className="cursor-pointer hover:bg-muted/50 transition-colors"
+              key={roleType}
+              className={cn(
+                "cursor-pointer hover:bg-muted/50 transition-colors",
+                currentRole === roleType && "bg-muted/70 border-primary ring-2 ring-primary"
+              )}
               onClick={() => {
-                onRoleSelect(role);
-                onClose();
+                if (currentRole === roleType) return; // Prevent re-selecting current role if it's the same
+                onRoleSelect(roleType);
+                // Do not call onClose here; parent component (InitiativeClientPage) will close it after action.
               }}
             >
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="font-medium">{role.title}</h3>
+                    <h3 className="font-medium">{roleType.charAt(0).toUpperCase() + roleType.slice(1).toLowerCase()}</h3>
                     <p className="text-sm text-muted-foreground mt-1">
-                      {role.description}
+                      {currentRole === roleType 
+                        ? "This is your current role."
+                        : `Select to become a ${roleType.toLowerCase()}.`}
                     </p>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                  >
-                    <Check className="h-4 w-4" />
-                  </Button>
+                  {currentRole === roleType ? (
+                     <Check className="h-5 w-5 text-primary" /> // Indicate current selection
+                  ) : (
+                    <Button // Changed to a Button for better accessibility and click handling if needed, though div itself is clickable
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                      aria-label={`Select role ${roleType}`}
+                      // onClick is on the Card, so this button is more for visual cue
+                    >
+                      <Check className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -61,4 +80,4 @@ export function RoleSelectionModal({
       </DialogContent>
     </Dialog>
   );
-} 
+}

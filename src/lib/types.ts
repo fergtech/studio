@@ -1,11 +1,22 @@
-import type { User as PrismaUser, Initiative as PrismaInitiative, Milestone as PrismaMilestone, Goal as PrismaGoal, Update as PrismaUpdate, ChatMessage as PrismaChatMessage, MediaItem as PrismaMediaItem } from '@prisma/client';
+import type { User as PrismaUser, Initiative as PrismaInitiative, Milestone as PrismaMilestone, Goal as PrismaGoal, Update as PrismaUpdate, ChatMessage as PrismaChatMessage, MediaItem as PrismaMediaItem, InitiativeRoleType as PrismaInitiativeRoleType } from '@prisma/client';
+
+// Re-export PrismaInitiativeRoleType as InitiativeRoleType for use in other modules
+export type InitiativeRoleType = PrismaInitiativeRoleType;
 
 export type MilestoneStatus = 'not_started' | 'in_progress' | 'completed';
 export type InitiativeStatus = 'draft' | 'active' | 'completed' | 'archived';
 export type StepStatus = "ToDo" | "InProgress" | "Blocked" | "InReview" | "Done"; 
 export type GoalStatus = 'NotStarted' | 'InProgress' | 'Completed' | 'Blocked';
 export type Priority = 'Low' | 'Medium' | 'High';
-export type RoleType = 'admin' | 'member' | 'contributor' | 'viewer';
+
+// SkillRoleType is for categorizing SKILL roles (e.g., "Developer" skill role is 'technical').
+// Distinct from user membership roles in an initiative.
+export type SkillRoleType = 'technical' | 'creative' | 'organizational' | 'support' | 'leadership' | 'other';
+
+// User-selectable membership roles, derived from Prisma's InitiativeRoleType, excluding ADMIN.
+// These are the roles a user can choose when joining an initiative (e.g., "MEMBER", "CONTRIBUTOR").
+export type UserSelectableMembershipRole = Exclude<PrismaInitiativeRoleType, 'ADMIN'>;
+export const ALL_USER_SELECTABLE_MEMBERSHIP_ROLES: UserSelectableMembershipRole[] = ["MEMBER", "CONTRIBUTOR", "GUEST", "SPONSOR", "MENTOR"];
 
 export interface UserForDisplay {
   id: string;
@@ -14,9 +25,17 @@ export interface UserForDisplay {
   lastActive?: Date;
 }
 
+// Client-side representation of an initiative membership.
+export interface InitiativeMembershipClient {
+  user: UserForDisplay;
+  role: PrismaInitiativeRoleType; // Actual Prisma enum string values (e.g., "ADMIN", "MEMBER")
+  userId: string;
+  initiativeId: string;
+  // joinedAt?: Date; // Optional: if needed from Prisma model
+}
+
 export interface MediaItem extends Omit<PrismaMediaItem, 'initiativeId' | 'updateId' | 'chatMessageId'> {
   // Prisma MediaItem is fine, just ensure it's used consistently
-  // Omitting foreign keys as they might not be needed directly in the frontend type for display purposes
 }
 
 export interface Milestone {
@@ -27,18 +46,34 @@ export interface Milestone {
   dueDate?: Date;
   completedAt?: Date;
   assignedTo?: string[];
-  order?: number; // Added order
-  creator?: UserForDisplay; // Added creator
+  order?: number; 
+  creator?: UserForDisplay; 
+  createdAt: Date; 
+  updatedAt: Date; 
 }
 
-export interface Goal extends Omit<PrismaGoal, 'initiativeId' | 'ownerId' | 'createdAt' | 'updatedAt' | 'dueDate'> {
-  owner?: UserForDisplay | null;
-  createdAt: Date;
-  updatedAt: Date;
-  dueDate?: Date | null;
-  // Prisma model already includes: title, description, status, priority, progress, tags
+export interface Goal extends Omit<PrismaGoal, 
+  'initiativeId' | 
+  'ownerId' | 
+  'createdAt' | 
+  'updatedAt' | 
+  'dueDate' | 
+  'priority' // Omit priority from PrismaGoal to redefine it below
+> {
+  // Fields inherited from PrismaGoal (after Omit): 
+  // id, title, description, status, ownerName, ownerAvatar, progress, tags
+  // These fields are expected to be on the object passed to this type.
+
+  // Client-specific transformations or additions:
+  owner?: UserForDisplay | null; // Client-side object for display
+  createdAt: Date; // Overridden for consistent Date type
+  updatedAt: Date; // Overridden for consistent Date type
+  dueDate?: Date | null; // Overridden for consistent Date type
+  
+  priority?: Priority | null; // Redefined: optional and nullable client-side priority
 }
 
+// UpdateType for activity feed items.
 export type UpdateType = 
   'join' | 
   'status' | 
@@ -60,24 +95,27 @@ export interface Update {
   createdAt: Date;
   updatedAt: Date;
   author: UserForDisplay;
-  reactionCount: number; // Changed from likes
-  commentCount: number;  // Changed from comments
-  type: UpdateType; // Added type based on usage in page.tsx
-  timestamp: Date; // Added timestamp based on usage in page.tsx
-  details?: Record<string, any>; // Added details based on usage in page.tsx
+  reactionCount: number; 
+  commentCount: number;  
+  type: UpdateType; 
+  timestamp: Date; 
+  details?: Record<string, any>; 
 }
 
 export interface ChatMessage extends Omit<PrismaChatMessage, 'initiativeId' | 'senderId' | 'timestamp'> {
   timestamp: Date;
   sender?: UserForDisplay | null;
+  senderName: string; // Required
+  senderImage?: string; // Optional
   // Prisma model already includes: id, text, media, reactions
 }
 
+// Represents SKILL roles/tags for an initiative (e.g., "Developer", "Designer").
 export interface Role {
   id: string;
-  title: string;
+  title: string; // e.g., "Frontend Developer", "Marketing Lead"
   description: string;
-  type: RoleType;
+  type: SkillRoleType; // Category of the skill role (e.g., 'technical', 'creative')
   requirements?: string[];
   responsibilities?: string[];
 }
@@ -86,20 +124,20 @@ export interface Initiative {
   id: string;
   title: string;
   description: string;
-  status: InitiativeStatus;
+  status: InitiativeStatus; // Prisma's InitiativeStatus enum (e.g., 'active', 'draft')
   createdAt: Date;
   updatedAt: Date;
   imageUrl: string | null;
-  creator: UserForDisplay;
-  members: Member[];
-  roles: Role[];
-  updates: Update[]; // Should this be EnhancedUpdate[] if that's what's used? For now, keeping as Update.
+  creator: UserForDisplay; // Creator of the initiative
+  memberships: InitiativeMembershipClient[]; // Array of members with their roles
+  roles: Role[]; // These are the SKILL roles/tags the initiative is looking for (e.g., "Developer", "Designer")
+  updates: Update[]; 
   goals: Goal[];
   milestones: Milestone[];
-  chatMessages: EnhancedChatMessage[]; // Changed from ChatMessage[] to EnhancedChatMessage[]
+  chatMessages: EnhancedChatMessage[]; 
 }
 
-// --- Step Interface (if still used, ensure Date types) ---
+// --- Step Interface ---
 export interface Step {
   id: string;
   initiativeId: string; 
@@ -113,7 +151,6 @@ export interface Step {
   creatorId: string; 
   completedAt?: Date; 
 }
-// --- END NEW ---
 
 export interface UserProfile {
   id: string;
@@ -189,40 +226,26 @@ export interface User {
   email?: string;
 }
 
+// Legacy Member type. Review if still needed with InitiativeMembershipClient.
 export interface Member extends User {
-  role: RoleType;
+  role: PrismaInitiativeRoleType; // Role is now a PrismaInitiativeRoleType string
   joinedAt: Date;
   lastActive?: Date;
 }
 
 export interface Comment {
   id: string;
-  userId: string;
-  userName: string;
+  // Ensure other properties like content, author, createdAt are defined as needed
   content: string;
-  timestamp: Date;
-}
-
-export interface Reaction {
-  id: string;
-  userId: string;
-  type: 'like' | 'celebrate' | 'support' | 'insightful';
-}
-
-export interface EnhancedUpdate extends Update {
-  // content, author, reactionCount, commentCount, type, timestamp, details are inherited from Update
-  comments?: Comment[]; // This is fine now
-  reactions?: Reaction[]; // This is fine now
-  isPinned?: boolean;
-  // reactionCount and commentCount can be optionally overridden if needed, but usually inherited.
-}
-
-export interface EnhancedChatMessage {
-  id: string;
-  text: string;
+  author: UserForDisplay;
   createdAt: Date;
   updatedAt: Date;
-  creator: UserForDisplay;
+}
+
+// Placeholder for EnhancedChatMessage, assuming it extends ChatMessage or is defined elsewhere.
+export interface EnhancedChatMessage extends ChatMessage {
+    // any additional properties for EnhancedChatMessage
+    // For example, reactions, read receipts, etc.
 }
 
 export interface OnlineMember {

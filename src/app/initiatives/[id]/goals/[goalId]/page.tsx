@@ -14,83 +14,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-import type { Goal, Action, Initiative } from '@/lib/types';
-
-// Mock data functions (replace with actual API calls)
-const fetchGoalDetails = async (initiativeId: string, goalId: string): Promise<Goal> => {
-  // Mock implementation
-  return {
-    id: goalId,
-    initiativeId,
-    title: "Implement User Authentication",
-    description: "Set up secure user authentication system with email/password and social login options.",
-    owner: { id: "user1", name: "Alice", avatar: "https://i.pravatar.cc/40?u=user1" },
-    status: "In Progress",
-    dueDate: Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)), // 30 days from now
-    createdAt: Timestamp.fromDate(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)), // 7 days ago
-    updatedAt: Timestamp.fromDate(new Date()),
-    progress: 45,
-    priority: "High",
-    tags: ["Authentication", "Security", "Frontend"]
-  };
-};
-
-const fetchInitiativeDetails = async (initiativeId: string): Promise<Initiative> => {
-  // Mock implementation
-  return {
-    id: initiativeId,
-    title: "Community Platform Development",
-    description: "Building a community platform for local initiatives",
-    status: "In Progress",
-    roles: ["Developer", "Designer", "Project Manager"],
-    createdAt: Timestamp.fromDate(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)),
-    creatorId: "user1",
-    memberIds: ["user1", "user2", "user3"],
-    imageUrl: "https://picsum.photos/seed/garden/800/400",
-  };
-};
-
-const fetchRelatedActions = async (goalId: string): Promise<Action[]> => {
-  // Mock implementation
-  return [
-    {
-      id: "action1",
-      goalId,
-      initiativeId: "init-1",
-      title: "Set up Firebase Authentication",
-      description: "Configure Firebase Auth with email/password and Google sign-in",
-      status: "Done",
-      assignee: { id: "user1", name: "Alice", avatar: "https://i.pravatar.cc/40?u=user1" },
-      createdAt: Timestamp.fromDate(new Date(Date.now() - 5 * 24 * 60 * 60 * 1000)),
-      updatedAt: Timestamp.fromDate(new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)),
-      completedAt: Timestamp.fromDate(new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)),
-      completedBy: { id: "user1", name: "Alice", avatar: "https://i.pravatar.cc/40?u=user1" }
-    },
-    {
-      id: "action2",
-      goalId,
-      initiativeId: "init-1",
-      title: "Implement Login UI",
-      description: "Create login and registration forms with validation",
-      status: "In Progress",
-      assignee: { id: "user2", name: "Bob", avatar: "https://i.pravatar.cc/40?u=user2" },
-      createdAt: Timestamp.fromDate(new Date(Date.now() - 4 * 24 * 60 * 60 * 1000)),
-      updatedAt: Timestamp.fromDate(new Date()),
-      priority: "High"
-    },
-    {
-      id: "action3",
-      goalId,
-      initiativeId: "init-1",
-      title: "Add Password Reset Flow",
-      description: "Implement password reset functionality with email verification",
-      status: "To Do",
-      createdAt: Timestamp.fromDate(new Date(Date.now() - 3 * 24 * 60 * 60 * 1000)),
-      updatedAt: Timestamp.fromDate(new Date(Date.now() - 3 * 24 * 60 * 60 * 1000)),
-      priority: "Medium"
-    }
-  ];
-};
+import type { Goal, Action, Initiative, GoalStatus, Priority, StepStatus } from '@/lib/types'; // Added GoalStatus, Priority, StepStatus
+import { getGoalDetails, getInitiativeDetailsForGoalPage, getRelatedActions } from '@/app/actions/goalActions';
 
 function ActionList({ actions }: { actions: Action[] }) {
   return (
@@ -119,7 +44,8 @@ function ActionList({ actions }: { actions: Action[] }) {
               {action.dueDate && (
                 <div className="flex items-center gap-2">
                   <Calendar className="h-4 w-4" />
-                  <span>{action.dueDate.toDate().toLocaleDateString()}</span>
+                  {/* No .toDate() needed as it's already a Date object */}
+                  <span>{action.dueDate.toLocaleDateString()}</span>
                 </div>
               )}
               {action.priority && (
@@ -139,28 +65,84 @@ function ActionList({ actions }: { actions: Action[] }) {
 export default function GoalDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const [goal, setGoal] = useState<Goal | null>(null);
-  const [initiative, setInitiative] = useState<Initiative | null>(null);
-  const [actions, setActions] = useState<Action[]>([]);
+  const [goal, setGoal] = useState<Goal | null>(null); // Type remains Goal from @/lib/types
+  const [initiative, setInitiative] = useState<Partial<Initiative> | null>(null); // Initiative can be partial
+  const [actions, setActions] = useState<Action[]>([]); // Type remains Action from @/lib/types
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
+      setLoading(true);
       try {
         const initiativeId = params.id as string;
         const goalId = params.goalId as string;
 
-        const [goalData, initiativeData, actionsData] = await Promise.all([
-          fetchGoalDetails(initiativeId, goalId),
-          fetchInitiativeDetails(initiativeId),
-          fetchRelatedActions(goalId)
-        ]);
+        if (!initiativeId || !goalId) {
+          console.error("Missing initiativeId or goalId in params");
+          setLoading(false);
+          return;
+        }
 
-        setGoal(goalData);
-        setInitiative(initiativeData);
-        setActions(actionsData);
+        // Fetch data using server actions
+        const goalData = await getGoalDetails(goalId);
+        const initiativeData = await getInitiativeDetailsForGoalPage(initiativeId);
+        const actionsData = await getRelatedActions(goalId);
+
+        // Transform Prisma types to client-side types if necessary, or adjust client types
+        // For now, assuming direct compatibility or that Prisma types are close enough
+        // to what @/lib/types expects for Goal, Initiative (partial), and Action.
+        // This might require careful mapping if structures diverge significantly.
+
+        if (goalData) {
+          // Map Prisma Goal to lib/types.Goal
+          setGoal({
+            ...goalData,
+            owner: goalData.owner ? { 
+              id: goalData.owner.id, 
+              name: goalData.owner.name || 'N/A', 
+              image: goalData.owner.image || undefined 
+            } : undefined,
+            dueDate: goalData.dueDate ? new Date(goalData.dueDate) : undefined,
+            createdAt: new Date(goalData.createdAt),
+            updatedAt: new Date(goalData.updatedAt),
+            tags: goalData.tags || [],
+            status: goalData.status as GoalStatus, // Correctly cast to GoalStatus
+            priority: goalData.priority as Priority | null | undefined, // Correctly cast to Priority | null | undefined
+          });
+        }
+        if (initiativeData) {
+          setInitiative({
+            id: initiativeData.id,
+            title: initiativeData.title,
+            // Map other fields from initiativeData as needed for the context display
+          });
+        }
+        // Map Prisma Action[] to lib/types.Action[]
+        setActions(actionsData.map(action => ({
+          ...action,
+          goalId: action.goalId === null ? undefined : action.goalId, 
+          description: action.description === null ? undefined : action.description, // Handle null for description
+          assignee: action.assignee ? { 
+            id: action.assignee.id, 
+            name: action.assignee.name || 'N/A', 
+            avatar: action.assignee.image || undefined 
+          } : undefined,
+          completedBy: action.completedBy ? { 
+            id: action.completedBy.id, 
+            name: action.completedBy.name || 'N/A', 
+            avatar: action.completedBy.image || undefined 
+          } : undefined,
+          createdAt: new Date(action.createdAt),
+          updatedAt: new Date(action.updatedAt),
+          completedAt: action.completedAt ? new Date(action.completedAt) : undefined,
+          dueDate: action.dueDate ? new Date(action.dueDate) : undefined,
+          status: action.status as StepStatus, // Cast to StepStatus (assuming Action status maps to StepStatus)
+          priority: action.priority as Priority | undefined, // Cast to Priority | undefined
+        })));
+
       } catch (error) {
-        console.error('Error fetching goal details:', error);
+        console.error('Error fetching goal page data:', error);
+        // Optionally set an error state to display to the user
       } finally {
         setLoading(false);
       }
@@ -233,22 +215,25 @@ export default function GoalDetailPage() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Updated Owner Display */}
-            <Link href={`/profile/${goal.owner.id}`} className="flex items-center gap-2 group">
-              <Avatar className="h-8 w-8">
-                <AvatarImage src={goal.owner.avatar} alt={goal.owner.name} />
-                <AvatarFallback>{goal.owner.name.charAt(0)}</AvatarFallback>
-              </Avatar>
-              <div>
-                <p className="text-sm text-muted-foreground">Owner</p>
-                <p className="font-medium group-hover:underline">{goal.owner.name}</p>
-              </div>
-            </Link>
+            {goal.owner && ( // Add null check for goal.owner
+              <Link href={`/profile/${goal.owner.id}`} className="flex items-center gap-2 group">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={goal.owner.image ?? undefined} alt={goal.owner.name ?? undefined} />
+                  <AvatarFallback>{goal.owner.name?.charAt(0)}</AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="text-sm text-muted-foreground">Owner</p>
+                  <p className="font-medium group-hover:underline">{goal.owner.name}</p>
+                </div>
+              </Link>
+            )}
             {goal.dueDate && (
               <div className="flex items-center gap-2">
                 <Calendar className="h-5 w-5 text-muted-foreground" />
                 <div>
                   <p className="text-sm text-muted-foreground">Due Date</p>
-                  <p className="font-medium">{goal.dueDate.toDate().toLocaleDateString()}</p>
+                  {/* No .toDate() needed as it's already a Date object */}
+                  <p className="font-medium">{goal.dueDate.toLocaleDateString()}</p>
                 </div>
               </div>
             )}

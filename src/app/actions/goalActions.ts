@@ -3,8 +3,7 @@
 import { PrismaClient, GoalStatus, Priority, UpdateType } from '@prisma/client'; // Changed import
 import { revalidatePath } from 'next/cache';
 import { createUpdate } from './initiativeActions'; // For activity feed
-
-const prisma = new PrismaClient(); // Added instantiation
+import { prisma } from '@/lib/prisma';
 
 interface GoalCreateData {
   initiativeId: string;
@@ -134,5 +133,72 @@ export async function updateGoal(goalId: string, initiativeId: string, data: Goa
   } catch (error) {
     console.error("Error updating goal:", error);
     return { success: false, error: "Failed to update goal." };
+  }
+}
+
+export async function getGoalDetails(goalId: string) {
+  try {
+    const goal = await prisma.goal.findUnique({
+      where: { id: goalId },
+      include: {
+        owner: {
+          select: {
+            id: true,
+            name: true,
+            image: true,
+          },
+        },
+        // If you have related actions and want to include them directly:
+        // actions: { 
+        //   orderBy: { createdAt: 'desc' },
+        //   include: {
+        //     assignee: { select: { id: true, name: true, image: true } },
+        //     completedBy: { select: { id: true, name: true, image: true } },
+        //   }
+        // }
+      },
+    });
+    return goal;
+  } catch (error) {
+    console.error(`Error fetching goal details for ${goalId}:`, error);
+    // Consider throwing the error or returning a more specific error object
+    return null;
+  }
+}
+
+export async function getInitiativeDetailsForGoalPage(initiativeId: string) {
+  try {
+    const initiative = await prisma.initiative.findUnique({
+      where: { id: initiativeId },
+      select: {
+        id: true,
+        title: true,
+        // Select only fields absolutely necessary for the goal page context
+        // e.g., if you need to display initiative name or link back to it.
+      },
+    });
+    return initiative;
+  } catch (error) {
+    console.error(`Error fetching initiative (for goal page) ${initiativeId}:`, error);
+    return null;
+  }
+}
+
+export async function getRelatedActions(goalId: string) {
+  try {
+    const actions = await prisma.action.findMany({
+      where: { goalId: goalId },
+      include: {
+        assignee: { select: { id: true, name: true, image: true } },
+        completedBy: { select: { id: true, name: true, image: true } },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+    return actions;
+  } catch (error) {
+    console.error(`Error fetching actions for goal ${goalId}:`, error);
+    return []; // Return empty array on error or throw
   }
 }

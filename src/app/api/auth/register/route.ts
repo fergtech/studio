@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma'; // Changed from PrismaClient
 import bcrypt from 'bcrypt';
 import { z } from 'zod';
 
-const prisma = new PrismaClient();
+// const prisma = new PrismaClient(); // Removed local instantiation
 const saltRounds = 10; // For bcrypt
 
 // Define validation schema for registration
@@ -68,6 +68,6 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   } finally {
-    await prisma.$disconnect();
+    // await prisma.$disconnect(); // Removed for shared client
   }
 }

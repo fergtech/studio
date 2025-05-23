@@ -16,6 +16,12 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'societyplus.blob.core.windows.net',
+        port: '',
+        pathname: '/media/**',
+      },
     ],
   },
 };

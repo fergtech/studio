@@ -4,8 +4,7 @@ import { PrismaClient } from "@prisma/client";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"; // Adjust path as needed
 import { revalidatePath } from "next/cache";
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 interface CreatePostArgs {
   content: string;
@@ -61,7 +60,5 @@ export async function createGeneralPost(args: CreatePostArgs) {
   } catch (error) {
     console.error("Error creating general post:", error);
     return { error: "Failed to create post." };
-  } finally {
-    await prisma.$disconnect();
   }
 }

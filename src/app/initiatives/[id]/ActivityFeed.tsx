@@ -21,16 +21,27 @@ export function ActivityFeed({ updates, onLoadMore, hasMore }: ActivityFeedProps
           <CardContent className="p-4">
             <div className="flex gap-4">
               <Avatar>
-                <AvatarImage src={update.author.image || undefined} />
+                <AvatarImage src={update.author?.image || undefined} />
                 <AvatarFallback>
-                  {update.author.name.slice(0, 2).toUpperCase()}
+                  {update.author?.name ? update.author.name.slice(0, 2).toUpperCase() : 'AN'}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <p className="font-medium">{update.author.name}</p>
+                  <p className="font-medium">{update.author?.name || 'Anonymous'}</p>
                   <span className="text-sm text-muted-foreground">
-                    {formatDistanceToNow(new Date(update.createdAt), { addSuffix: true })}
+                    {(() => {
+                      try {
+                        const date = new Date(update.createdAt);
+                        // Check if the date is valid
+                        if (isNaN(date.getTime())) {
+                          return "Invalid date";
+                        }
+                        return formatDistanceToNow(date, { addSuffix: true });
+                      } catch (e) {
+                        return "Invalid date";
+                      }
+                    })()}
                   </span>
                 </div>
                 <p className="mt-2 text-sm whitespace-pre-wrap">{update.content}</p>
@@ -74,4 +85,4 @@ export function ActivityFeed({ updates, onLoadMore, hasMore }: ActivityFeedProps
       )}
     </div>
   );
-} 
+}

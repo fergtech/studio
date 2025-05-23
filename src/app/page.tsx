@@ -4,8 +4,7 @@ import { GeneralPostCard } from "@/components/GeneralPostCard";
 import CreatePostForm from "@/components/CreatePostForm";
 // FeedItem type might need adjustment or can be inferred if not too complex
 import type { Initiative as PrismaInitiative, GeneralPost as PrismaGeneralPost, User as PrismaUser, MediaItem as PrismaMediaItem } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 // Temporary mock user avatars for fallback
 const mockUserAvatars: Record<string, string | undefined> = {

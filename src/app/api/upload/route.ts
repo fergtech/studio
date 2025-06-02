@@ -3,6 +3,7 @@ import { BlobServiceClient, BlockBlobUploadOptions } from '@azure/storage-blob';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { v4 as uuidv4 } from 'uuid';
+import { prisma } from '@/lib/prisma'; // Added prisma import
 
 export async function POST(request: NextRequest) {
   console.log("Upload API route hit");
@@ -26,12 +27,14 @@ export async function POST(request: NextRequest) {
       console.error("User not authenticated for upload.");
       return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
     }
+    const userId = session.user.id; // Get userId from session
 
     const formData = await request.formData();
     console.log("Form data received"); // Removed formData content from log for brevity
 
     const file = formData.get('file') as File | null;
-    const filePath = formData.get('filePath') as string | null; // e.g., "initiatives/banners"
+    const filePath = formData.get('filePath') as string | null; // e.g., "profile/images" or "initiatives/banners"
+    const imageType = formData.get('imageType') as string | null; // e.g., "profile" or "banner"
 
     if (!file) {
       console.error("No file found in form data.");
@@ -86,7 +89,52 @@ export async function POST(request: NextRequest) {
     console.log(`File uploaded successfully. Azure response status: ${uploadBlobResponse._response.status}`);
     console.log(`Uploaded Blob URL: ${blockBlobClient.url}`);
 
-    return NextResponse.json({ imageUrl: blockBlobClient.url, message: "File uploaded successfully" }, { status: 200 });
+    // --- BEGIN DATABASE UPDATE LOGIC ---
+    const imageUrl = blockBlobClient.url;
+    let updatedUser;
+
+    console.log(`Attempting to update database for user: ${userId} with imageType: ${imageType}`);
+
+    try {
+      if (imageType === 'profile') {
+        updatedUser = await prisma.user.update({
+          where: { id: userId },
+          data: { image: imageUrl },
+        });
+        console.log("User profile image updated in database:", updatedUser);
+      } else if (imageType === 'banner') {
+        updatedUser = await prisma.user.update({
+          where: { id: userId },
+          data: { bannerImageUrl: imageUrl },
+        });
+        console.log("User banner image updated in database:", updatedUser);
+      } else {
+        // If imageType is not specified or recognized, we might not update the DB
+        // or handle it as a generic upload not tied to a specific user field.
+        // For now, we'll assume it's one of the above or we don't update user record directly here.
+        console.log(`Image uploaded with URL: ${imageUrl}, but no specific user field updated as imageType ('${imageType}') is not 'profile' or 'banner'.`);
+        // Return just the URL if no specific user field is targeted by this upload
+        return NextResponse.json({ imageUrl: imageUrl, message: "File uploaded successfully, no specific user field updated." }, { status: 200 });
+      }
+
+      return NextResponse.json({ 
+        imageUrl: imageUrl, 
+        message: "File uploaded and user profile updated successfully",
+        user: updatedUser // Optionally return updated user data
+      }, { status: 200 });
+
+    } catch (dbError: any) {
+      console.error("Error updating user profile in database:", dbError);
+      // It's tricky: file is uploaded, but DB update failed.
+      // You might want to implement a cleanup logic for the uploaded blob if DB fails.
+      // For now, return an error indicating DB update failure.
+      return NextResponse.json({ 
+        error: "File uploaded but database update failed.", 
+        imageUrl: imageUrl, // Still return the URL so client knows where it is
+        dbError: dbError.message 
+      }, { status: 500 });
+    }
+    // --- END DATABASE UPDATE LOGIC ---
 
   } catch (error: any) { 
     console.error("Error during file upload:", error);

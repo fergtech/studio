@@ -117,6 +117,8 @@ export default function EditProfileForm({ user }: EditProfileFormProps) {
       setIsUploadingImage(true);
       const imageFormData = new FormData();
       imageFormData.append('file', selectedFile);
+      imageFormData.append('imageType', 'profile');
+      console.log("Uploading profile image with imageType:", imageFormData.get('imageType'));
 
       try {
         const response = await fetch('/api/upload', {
@@ -124,12 +126,12 @@ export default function EditProfileForm({ user }: EditProfileFormProps) {
           body: imageFormData,
         });
         const result = await response.json();
-        if (result.success && result.url) {
-          finalImageUrl = result.url;
+        if (response.ok && result.imageUrl) {
+          finalImageUrl = result.imageUrl;
         } else {
           toast({
             title: 'Image Upload Failed',
-            description: result.message || 'Could not upload the new profile picture.',
+            description: result.message || result.error || 'Could not upload the new profile picture.',
             variant: 'destructive',
           });
           setIsUploadingImage(false);
@@ -151,6 +153,8 @@ export default function EditProfileForm({ user }: EditProfileFormProps) {
       setIsUploadingBanner(true);
       const bannerFormData = new FormData();
       bannerFormData.append('file', selectedBannerFile);
+      bannerFormData.append('imageType', 'banner');
+      console.log("Uploading banner image with imageType:", bannerFormData.get('imageType'));
 
       try {
         const response = await fetch('/api/upload', {
@@ -158,12 +162,12 @@ export default function EditProfileForm({ user }: EditProfileFormProps) {
           body: bannerFormData,
         });
         const result = await response.json();
-        if (result.success && result.url) {
-          finalBannerImageUrl = result.url;
+        if (response.ok && result.imageUrl) {
+          finalBannerImageUrl = result.imageUrl;
         } else {
           toast({
             title: 'Banner Upload Failed',
-            description: result.message || 'Could not upload the new banner image.',
+            description: result.message || result.error || 'Could not upload the new banner image.',
             variant: 'destructive',
           });
           setIsUploadingBanner(false);

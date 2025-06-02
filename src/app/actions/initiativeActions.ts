@@ -87,24 +87,57 @@ export async function getInitiativeById(id: string) {
                 image: true,
               }
             }
-            // role: true // REMOVED: role is a scalar and fetched by default
           }
         },
         updates: {
           orderBy: { timestamp: 'desc' },
-          include: { user: true, media: true }, 
+          include: { 
+            user: {
+              select: {
+                id: true,
+                name: true,
+                image: true,
+              }
+            }, 
+            media: true 
+          }, 
         },
         chatMessages: {
           orderBy: { timestamp: 'asc' },
-          include: { sender: true },
+          include: { 
+            sender: {
+              select: {
+                id: true,
+                name: true,
+                image: true,
+              }
+            }
+          },
         },
         milestones: {
           orderBy: { order: 'asc' }, 
-          include: { creator: true, steps: true },
+          include: { 
+            creator: {
+              select: {
+                id: true,
+                name: true,
+                image: true,
+              }
+            }, 
+            steps: true 
+          },
         },
         goals: {
           orderBy: { createdAt: 'asc' }, 
-          include: { owner: true }, 
+          include: { 
+            owner: {
+              select: {
+                id: true,
+                name: true,
+                image: true,
+              }
+            }
+          }, 
         },
       },
     });
@@ -348,6 +381,43 @@ export async function updateInitiativeAction(args: UpdateInitiativeArgs): Promis
       return { success: false, error: `Database error: ${error.code}` };
     }
     return { success: false, error: "An unexpected error occurred while updating the initiative." };
+  }
+}
+
+export async function deleteUpdateAction(updateId: string): Promise<{ success: boolean; error?: string }> {
+  const session = await getServerSession(authOptions);
+
+  if (!session?.user?.id) {
+    return { success: false, error: "User not authenticated." };
+  }
+  const userId = session.user.id;
+
+  try {
+    const updateToDelete = await prisma.update.findUnique({
+      where: { id: updateId },
+      select: { userId: true, initiativeId: true },
+    });
+
+    if (!updateToDelete) {
+      return { success: false, error: "Update not found." };
+    }
+
+    if (updateToDelete.userId !== userId) {
+      return { success: false, error: "User not authorized to delete this update." };
+    }
+
+    // Optional: Add logic here to delete associated media from Azure Blob Storage if necessary
+
+    await prisma.update.delete({
+      where: { id: updateId },
+    });
+
+    revalidatePath(`/initiatives/${updateToDelete.initiativeId}`);
+
+    return { success: true };
+  } catch (error) {
+    console.error(`Error deleting update ${updateId}:`, error);
+    return { success: false, error: "Failed to delete update." };
   }
 }
 

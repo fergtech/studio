@@ -27,8 +27,8 @@ import { ActivityFeed } from './ActivityFeed';
 import { EditInitiativeDialog } from './EditInitiativeDialog';
 import { RoleSelectionModal } from './RoleSelectionModal';
 import { useSession } from "next-auth/react";
-import { joinInitiativeAction, updateInitiativeAction, updateInitiativeMembershipAction, leaveInitiativeAction } from "@/app/actions/initiativeActions"; // Added updateInitiativeAction
-import { InitiativeRoleType } from '@prisma/client'; // Added this import
+import { joinInitiativeAction, updateInitiativeAction, updateInitiativeMembershipAction, leaveInitiativeAction, createUpdate as createUpdateAction } from "@/app/actions/initiativeActions"; // Added updateInitiativeAction and createUpdateAction
+import { InitiativeRoleType, UpdateType } from '@prisma/client'; // Added this import
 import { CreateGoalDialog } from './CreateGoalDialog'; // Import CreateGoalDialog
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -354,6 +354,34 @@ export function InitiativeClientPage({
     });
   };
 
+  // Helper to transform backend update to frontend Update type
+  function transformRawUpdate(rawUpdate: any): Initiative['updates'][number] {
+    return {
+      id: rawUpdate.id,
+      content: rawUpdate.content,
+      userId: rawUpdate.userId,
+      user: {
+        id: rawUpdate.user.id,
+        name: rawUpdate.user.name || 'Unknown User',
+        image: rawUpdate.user.image || null,
+      },
+      media: (rawUpdate.media || []).map((m: any) => ({
+        id: m.id,
+        url: m.url,
+        type: m.type,
+        updateId: m.updateId ?? null,
+        postId: m.postId ?? null,
+      })),
+      type: rawUpdate.type,
+      timestamp: new Date(rawUpdate.createdAt),
+      createdAt: new Date(rawUpdate.createdAt),
+      updatedAt: new Date(rawUpdate.updatedAt || rawUpdate.createdAt),
+      reactionCount: rawUpdate.reactionCount || 0,
+      commentCount: rawUpdate.commentCount || 0,
+      details: rawUpdate.details || {},
+    };
+  }
+
   return (
     <div className="relative min-h-screen">
       {/* Overlay for Mobile Sidebar */}
@@ -579,13 +607,52 @@ export function InitiativeClientPage({
             {/* Updates Section */}
             <div className="space-y-4">
               <h2 className="text-xl font-semibold">Updates</h2>
-              <CreateUpdateForm 
-                initiativeId={initiativeId} 
-                onPostUpdate={(updateData) => {
-                  console.log('New update:', updateData);
-                  router.refresh(); 
-                }} 
-              />
+              {(isMember || isAdmin) && (
+                <CreateUpdateForm 
+                  initiativeId={initiativeId} 
+                  onPostUpdate={async (updateData) => {
+                    console.log('Attempting to post new update:', updateData);
+                    if (!userId) {
+                      toast({
+                        title: "Authentication Error",
+                        description: "You must be logged in to post an update.",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    try {
+                      const result = await createUpdateAction({
+                        initiativeId: initiativeId,
+                        userId: userId,
+                        content: updateData.content,
+                        type: UpdateType.post, // Corrected to use UpdateType.post
+                        media: updateData.imageUrl ? [{ url: updateData.imageUrl, type: 'IMAGE' as const }] : undefined,
+                      });
+
+                      if (result.success) {
+                        toast({
+                          title: "Update Posted!",
+                          description: "Your update has been added to the initiative.",
+                        });
+                        router.refresh();
+                      } else {
+                        toast({
+                          title: "Error Posting Update",
+                          description: result.error || "Could not post your update.",
+                          variant: "destructive",
+                        });
+                      }
+                    } catch (error) {
+                      console.error("Error in onPostUpdate:", error);
+                      toast({
+                        title: "Unexpected Error",
+                        description: "An error occurred while posting the update.",
+                        variant: "destructive",
+                      });
+                    }
+                  }} 
+                />
+              )}
               {initiative.updates && initiative.updates.length > 0 ? (
                 <ActivityFeed 
                   updates={initiative.updates} 

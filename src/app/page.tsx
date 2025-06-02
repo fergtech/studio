@@ -5,6 +5,8 @@ import CreatePostForm from "@/components/CreatePostForm";
 // FeedItem type might need adjustment or can be inferred if not too complex
 import type { Initiative as PrismaInitiative, GeneralPost as PrismaGeneralPost, User as PrismaUser, MediaItem as PrismaMediaItem } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
+import { getServerSession } from "next-auth/next"; // Import getServerSession
+import { authOptions } from "@/app/api/auth/[...nextauth]/route"; // Import authOptions
 
 // Temporary mock user avatars for fallback
 const mockUserAvatars: Record<string, string | undefined> = {
@@ -62,6 +64,9 @@ import { HomeClient } from '@/components/HomeClient';
 
 export default async function Home() {
   const feedItems = await getFeedItems();
+  const session = await getServerSession(authOptions); // Get the current session using getServerSession
+  const currentUserId = session?.user?.id; // Extract currentUserId
 
-  return <HomeClient feedItems={feedItems} />;
+  // Pass currentUserId to HomeClient
+  return <HomeClient feedItems={feedItems} currentUserId={currentUserId} />;
 }

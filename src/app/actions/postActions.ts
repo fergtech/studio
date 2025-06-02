@@ -2,7 +2,7 @@
 
 import { PrismaClient } from "@prisma/client";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route"; // Adjust path as needed
+import { authOptions } from "@/app/api/auth/[...nextauth]/route"; // Corrected import path
 import { revalidatePath } from "next/cache";
 import { prisma } from '@/lib/prisma';
 
@@ -60,5 +60,38 @@ export async function createGeneralPost(args: CreatePostArgs) {
   } catch (error) {
     console.error("Error creating general post:", error);
     return { error: "Failed to create post." };
+  }
+}
+
+export async function deletePostAction(postId: string) {
+  const session = await getServerSession(authOptions); // Changed to getServerSession
+  if (!session?.user?.id) {
+    return { error: "User not authenticated." };
+  }
+  const currentUserId = session.user.id;
+
+  try {
+    const post = await prisma.generalPost.findUnique({
+      where: { id: postId },
+      select: { creatorId: true }, // Ensured this is creatorId
+    });
+
+    if (!post) {
+      return { error: "Post not found." };
+    }
+
+    if (post.creatorId !== currentUserId) { // Ensured this is creatorId
+      return { error: "User not authorized to delete this post." };
+    }
+
+    await prisma.generalPost.delete({
+      where: { id: postId },
+    });
+
+    revalidatePath("/"); // Revalidate the home page
+    return { success: "Post deleted successfully." };
+  } catch (error) {
+    console.error("Error deleting post:", error);
+    return { error: "Failed to delete post. Please try again." };
   }
 }

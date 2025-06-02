@@ -1,4 +1,4 @@
-import type { User as PrismaUser, Initiative as PrismaInitiative, Milestone as PrismaMilestone, Goal as PrismaGoal, Update as PrismaUpdate, ChatMessage as PrismaChatMessage, MediaItem as PrismaMediaItem, InitiativeRoleType as PrismaInitiativeRoleType } from '@prisma/client';
+import type { User as PrismaUser, Initiative as PrismaInitiative, Milestone as PrismaMilestone, Goal as PrismaGoal, Update as PrismaUpdate, ChatMessage as PrismaChatMessage, MediaItem as PrismaMediaItem, InitiativeRoleType as PrismaInitiativeRoleType, UpdateType as PrismaUpdateType, MediaType as PrismaMediaType } from '@prisma/client';
 
 // Re-export PrismaInitiativeRoleType as InitiativeRoleType for use in other modules
 export type InitiativeRoleType = PrismaInitiativeRoleType;
@@ -74,32 +74,43 @@ export interface Goal extends Omit<PrismaGoal,
 }
 
 // UpdateType for activity feed items.
-export type UpdateType = 
-  'join' | 
-  'status' | 
-  'post' | 
-  'role_add' | 
-  'step_creation' |   
-  'step_completion' | 
-  'endorsement' |     
-  'resource_share' |  
-  'milestone_creation' | 
-  'milestone_status' |   
-  'goal_creation' |      
-  'goal_status'; 
+// REMOVE or REPLACE the custom UpdateType union:
+// export type UpdateType = 
+//   'join' | 
+//   'status' | 
+//   'post' | 
+//   'role_add' | 
+//   'step_creation' |   
+//   'step_completion' | 
+//   'endorsement' |     
+//   'resource_share' |  
+//   'milestone_creation' | 
+//   'milestone_status' |   
+//   'goal_creation' |      
+//   'goal_status'; 
 
 export interface Update {
   id: string;
   content: string;
-  imageUrl?: string;
-  createdAt: Date;
-  updatedAt: Date;
-  author: UserForDisplay;
-  reactionCount: number; 
-  commentCount: number;  
-  type: UpdateType; 
-  timestamp: Date; 
-  details?: Record<string, any>; 
+  // imageUrl?: string; // Replaced by media array
+  createdAt: Date; // Should be present on PrismaUpdate
+  updatedAt: Date; // Should be present on PrismaUpdate
+  
+  // Consistent with Prisma structure when user is included
+  userId: string; 
+  user: UserForDisplay; // Renamed from 'author' to 'user' for consistency with Prisma include
+  
+  media: PrismaMediaItem[]; // To hold images, videos, files etc.
+
+  // type: UpdateType; // Will use PrismaUpdateType
+  type: PrismaUpdateType; // Use the enum from @prisma/client
+  
+  timestamp: Date; // Prisma's timestamp field
+  details?: Record<string, any>; // Prisma's Json field
+
+  // Optional client-side enhancements or aggregated data
+  reactionCount?: number; 
+  commentCount?: number;  
 }
 
 export interface ChatMessage extends Omit<PrismaChatMessage, 'initiativeId' | 'senderId' | 'timestamp'> {
@@ -155,13 +166,44 @@ export interface Step {
 export interface UserProfile {
   id: string;
   name: string;
-  bio?: string; 
+  profession?: string;
+  bio?: string;
+  image?: string | null;
+  bannerImageUrl?: string | null;
+  dateCreated: Date;
   skills: string[];
   interests: string[];
-  profession?: string; 
-  organization?: string; 
-  institution?: string; 
-  participatingInitiativeIds: string[];
+  organization?: string;
+  institution?: string;
+  featuredItemType?: 'initiative' | 'post';
+  featuredItemId?: string;
+  isFollowing?: boolean; // Whether the viewing user follows this user
+  followersCount?: number;
+  followingCount?: number;
+}
+
+export interface ProfileTab {
+  id: 'posts' | 'skills' | 'initiatives';
+  label: string;
+}
+
+export interface FeaturedContent {
+  type: 'initiative' | 'post';
+  id: string;
+  title: string;
+  description: string;
+  imageUrl?: string;
+  createdAt: Date;
+}
+
+export interface ProfileFeedItem {
+  id: string;
+  type: 'initiative' | 'post';
+  title?: string;
+  content?: string;
+  imageUrl?: string;
+  timestamp: Date;
+  isFeatured?: boolean;
 }
 
 export interface GeneralPost {

@@ -1,8 +1,10 @@
-import { Initiative, Role, InitiativeMembershipClient, Update, ChatMessage, Goal, Milestone, InitiativeStatus, SkillRoleType, UserForDisplay, InitiativeRoleType as ClientInitiativeRoleType, UpdateType, GoalStatus, MilestoneStatus, EnhancedChatMessage, Priority } from '@/lib/types'; // Added EnhancedChatMessage, Priority
+import { Initiative, Role, InitiativeMembershipClient, Update, ChatMessage, Goal, Milestone, InitiativeStatus, SkillRoleType, UserForDisplay, InitiativeRoleType as ClientInitiativeRoleType, GoalStatus, MilestoneStatus, EnhancedChatMessage, Priority } from '@/lib/types';
 import { getInitiativeById } from '@/app/actions/initiativeActions';
 import { InitiativeClientPage } from './InitiativeClientPage';
 import Link from 'next/link';
 import { Prisma } from '@prisma/client';
+import { UpdateType as PrismaUpdateType } from '@prisma/client';
+import { MediaType as PrismaMediaType } from '@prisma/client';
 
 // Helper function to convert Prisma's Decimal to number or keep as is
 const toNumber = (value: any): number => {
@@ -42,6 +44,8 @@ interface DatabaseUpdateMedia {
   id: string;
   url: string;
   type: string;
+  updateId?: string | null;
+  postId?: string | null;
 }
 
 interface DatabaseUpdate {
@@ -148,19 +152,26 @@ function transformDatabaseInitiative(dbInitiative: DatabaseInitiative, currentUs
   const processedUpdates: Update[] = (dbInitiative.updates || []).map((update: DatabaseUpdate) => ({
     id: update.id,
     content: update.content,
-    author: {
+    userId: update.userId,
+    user: {
       id: update.user.id,
-      name: update.user.name || 'Unknown Author',
+      name: update.user.name || 'Unknown User',
       image: update.user.image || null,
     },
+    media: (update.media || []).map(m => ({
+      id: m.id,
+      url: m.url,
+      type: m.type as PrismaMediaType,
+      updateId: m.updateId !== undefined ? m.updateId : null,
+      postId: m.postId !== undefined ? m.postId : null,
+    })),
+    type: (update.type || PrismaUpdateType.post) as PrismaUpdateType,
     timestamp: convertTimestampToDate(update.createdAt),
-    imageUrl: update.media && update.media.length > 0 ? update.media[0].url : undefined,
     createdAt: convertTimestampToDate(update.createdAt),
     updatedAt: convertTimestampToDate(update.updatedAt || update.createdAt),
     reactionCount: update.reactionCount || 0,
     commentCount: update.commentCount || 0,
-    type: (update.type || 'post') as UpdateType,
-    details: {}, 
+    details: {},
   }));
 
   const processedChatMessages: EnhancedChatMessage[] = (dbInitiative.chatMessages || []).map((msg: DatabaseChatMessage) => ({

@@ -3,13 +3,14 @@ import React, { useState } from 'react';
 import { GeneralPost } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from "@/components/ui/button";
-import { PlusCircle, MessageSquare, Share2, X, Send, Star } from 'lucide-react';
+import { PlusCircle, MessageSquare, Share2, X, Send, Star, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useModal } from "@/context/ModalContext"; // Import useModal
+import { useModal } from "@/context/ModalContext";
+import { deletePostAction } from '@/app/actions/postActions';
 
 // Mock comment data (in a real app, this would come from the database)
 interface Comment {
@@ -36,9 +37,10 @@ const mockUsers: Record<string, { name: string; avatar?: string }> = {
 
 interface GeneralPostCardProps {
   post: GeneralPost;
+  currentUserId?: string; // Added currentUserId prop
 }
 
-export function GeneralPostCard({ post }: GeneralPostCardProps) {
+export function GeneralPostCard({ post, currentUserId }: GeneralPostCardProps) {
   const { openCreateInitiativeModal } = useModal(); // Use modal context
   // Generate deterministic values based on post ID instead of random numbers
   // This ensures the same values are used on both server and client
@@ -84,7 +86,7 @@ export function GeneralPostCard({ post }: GeneralPostCardProps) {
     formatDistanceToNow(
       typeof post.timestamp === 'string' 
         ? parseISO(post.timestamp)
-        : post.timestamp.toDate?.() || new Date(post.timestamp as any), 
+        : post.timestamp, // Removed .toDate() as post.timestamp is already a Date
       { addSuffix: true }
     ) : 'Just now';
   
@@ -143,10 +145,44 @@ export function GeneralPostCard({ post }: GeneralPostCardProps) {
     openCreateInitiativeModal(post.content);
   };
 
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const handleDelete = async () => {
+    if (!currentUserId || post.creatorId !== currentUserId) { // Changed authorId to creatorId
+      setDeleteError("You are not authorized to delete this post.");
+      return;
+    }
+
+    // Optional: Add a confirmation dialog
+    if (!confirm("Are you sure you want to delete this post? This action cannot be undone.")) {
+      return;
+    }
+
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      const result = await deletePostAction(post.id);
+      if (result.error) {
+        setDeleteError(result.error);
+      } else {
+        // Post was deleted successfully.
+        // The page will revalidate, so no need to manually remove the post from UI here
+        // unless you want an immediate optimistic update.
+        console.log(result.success);
+      }
+    } catch (error) {
+      console.error("Error in handleDelete:", error);
+      setDeleteError("An unexpected error occurred. Please try again.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div className={cn(
       "relative mb-4 rounded-lg overflow-hidden shadow-lg flex flex-col text-card-foreground",
-      "aspect-[9/12]" // Keep fixed aspect ratio
+      "aspect-[9/12]"
     )}>
       {/* Background Layer - Always present */}
       <div className="absolute inset-0 bg-cover bg-center z-0" style={backgroundStyle}>
@@ -169,6 +205,19 @@ export function GeneralPostCard({ post }: GeneralPostCardProps) {
             </Link>
             <p className="text-xs opacity-80">{postTime}</p>
           </div>
+          {/* Delete Button - Show only to author */}
+          {currentUserId && post.creatorId === currentUserId && ( // Changed authorId to creatorId
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="ml-auto text-destructive-foreground hover:text-destructive hover:bg-destructive/10"
+              aria-label="Delete post"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
         </div>
 
         {/* Main Content Text - Always present */}
@@ -236,6 +285,7 @@ export function GeneralPostCard({ post }: GeneralPostCardProps) {
                 Create Initiative
               </Button>
             </div>
+            {deleteError && <p className="text-xs text-destructive text-center mt-2">{deleteError}</p>}
           </div>
         )}
       </div>

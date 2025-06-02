@@ -26,9 +26,10 @@ function isGeneralPost(item: FeedItemDb): item is GeneralPostWithCreatorAndMedia
 
 interface HomeClientProps {
   feedItems: FeedItemDb[];
+  currentUserId?: string; // Add currentUserId prop
 }
 
-export function HomeClient({ feedItems }: HomeClientProps) {
+export function HomeClient({ feedItems, currentUserId }: HomeClientProps) { // Destructure currentUserId
   const handlePostCreated = async () => {
     // This will be handled by the server action in CreatePostForm
     window.location.reload(); // Simple refresh for now
@@ -57,7 +58,8 @@ export function HomeClient({ feedItems }: HomeClientProps) {
           };
           return (
             <div key={item.id} className="w-full">
-              <GeneralPostCard post={displayPost} />
+              {/* Pass currentUserId to GeneralPostCard */}
+              <GeneralPostCard post={displayPost} currentUserId={currentUserId} />
             </div>
           );
         } else {

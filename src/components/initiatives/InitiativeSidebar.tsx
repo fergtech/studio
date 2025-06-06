@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Initiative, Member } from '@/lib/types';
-import { Users, CalendarDays, Info, X } from 'lucide-react'; // Added X icon import
+import { Users, CalendarDays, Info, X, MessageSquare } from 'lucide-react'; // Added X icon import
 import { cn } from '@/lib/utils';
 
 interface InitiativeSidebarProps {
@@ -14,6 +14,8 @@ interface InitiativeSidebarProps {
   isMobile?: boolean;
   isOpen?: boolean;
   onToggle?: () => void;
+  onToggleChat: () => void; // Add new prop for toggling chat
+  isChatOpen: boolean; // Add new prop to indicate if chat is open
 }
 
 export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
@@ -22,6 +24,8 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
   isMobile,
   isOpen,
   onToggle,
+  onToggleChat, // Destructure new prop
+  isChatOpen, // Destructure new prop
 }) => {
   const cardBaseClasses = "transition-transform duration-300 ease-in-out";
   let computedCardClassName;
@@ -53,12 +57,18 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
         <CardTitle className="text-lg">About Initiative</CardTitle>
       </CardHeader>
       <CardContent className={cn("space-y-4 py-4", { "pb-4": isMobile && isOpen })}>
-        {/* Content is now the same for mobile and desktop */}
         <div>
           <h3 className="font-semibold text-sm mb-1">Description</h3>
           <p className="text-xs text-muted-foreground line-clamp-3">
             {initiative.description || 'No description provided.'}
           </p>
+        </div>
+        <Separator />
+        <div className="py-2 px-0">
+          <Button variant="outline" className="w-full" onClick={onToggleChat}>
+            <MessageSquare className="h-4 w-4 mr-2" />
+            {isChatOpen ? 'Close Chat' : 'Open Chat'}
+          </Button>
         </div>
         <Separator />
         <div>

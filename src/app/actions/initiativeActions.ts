@@ -26,8 +26,20 @@ export async function createInitiative(args: CreateInitiativeArgs) {
   const userId = session.user.id;
 
   try {
+    // Debugging: Log the creatorId
+    console.log("Creating initiative with creatorId:", userId);
+
+    // Verify creatorId exists in the User table
+    const userExists = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!userExists) {
+      return { error: "Creator ID does not exist in the database." };
+    }
+
     if (!Object.values(InitiativeStatus).includes(args.status)) {
-        return { error: "Invalid initiative status provided." };
+      return { error: "Invalid initiative status provided." };
     }
 
     const newInitiative = await prisma.initiative.create({
@@ -49,15 +61,14 @@ export async function createInitiative(args: CreateInitiativeArgs) {
       },
       include: {
         creator: true,
-        memberships: { 
+        memberships: {
           include: {
-            user: { 
-              select: { id: true, name: true, image: true }
-            }
-            // role: true // REMOVED: role is a scalar and fetched by default
-          }
-        }
-      }
+            user: {
+              select: { id: true, name: true, image: true },
+            },
+          },
+        },
+      },
     });
 
     revalidatePath("/");
@@ -68,6 +79,11 @@ export async function createInitiative(args: CreateInitiativeArgs) {
     return { success: true, initiative: newInitiative };
   } catch (error) {
     console.error("Error creating initiative:", error);
+
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      return { error: `Database error: ${error.message}` };
+    }
+
     return { error: "Failed to create initiative. Please try again." };
   }
 }
@@ -77,75 +93,101 @@ export async function getInitiativeById(id: string) {
     const initiative = await prisma.initiative.findUnique({
       where: { id },
       include: {
-        creator: true,
-        memberships: { 
-          include: {
-            user: { 
-              select: {
-                id: true,
-                name: true,
-                image: true,
-              }
-            }
-          }
+        creator: {
+          select: {
+            id: true,
+            name: true,
+            image: true,
+          },
         },
-        updates: {
-          orderBy: { timestamp: 'desc' },
-          include: { 
+        memberships: {
+          include: {
             user: {
               select: {
                 id: true,
                 name: true,
                 image: true,
-              }
-            }, 
-            media: true 
-          }, 
+              },
+            },
+          },
+        },
+        updates: {
+          orderBy: { timestamp: 'desc' },
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                image: true,
+              },
+            },
+            media: {
+              select: {
+                id: true,
+                url: true,
+                type: true,
+              },
+            },
+          },
         },
         chatMessages: {
           orderBy: { timestamp: 'asc' },
-          include: { 
+          select: {
+            id: true,
+            initiativeId: true,
+            senderId: true,
+            senderName: true,
+            text: true,
+            timestamp: true,
             sender: {
               select: {
                 id: true,
                 name: true,
                 image: true,
-              }
-            }
+              },
+            },
           },
         },
         milestones: {
-          orderBy: { order: 'asc' }, 
-          include: { 
+          orderBy: { order: 'asc' },
+          include: {
             creator: {
               select: {
                 id: true,
                 name: true,
                 image: true,
-              }
-            }, 
-            steps: true 
+              },
+            },
+            steps: {
+              select: {
+                id: true,
+                title: true,
+                status: true,
+              },
+            },
           },
         },
         goals: {
-          orderBy: { createdAt: 'asc' }, 
-          include: { 
+          orderBy: { createdAt: 'asc' },
+          include: {
             owner: {
               select: {
                 id: true,
                 name: true,
                 image: true,
-              }
-            }
-          }, 
+              },
+            },
+          },
         },
       },
     });
 
     if (!initiative) {
+      console.log(`getInitiativeById: Initiative with ID ${id} not found.`);
       return { error: "Initiative not found." };
     }
-    return { initiative: initiative as any }; 
+
+    return { initiative: initiative };
   } catch (error) {
     console.error(`Error fetching initiative ${id}:`, error);
     return { error: "Failed to fetch initiative." };
@@ -240,6 +282,9 @@ export async function joinInitiativeAction(
           goals: { include: { owner: true }, orderBy: { createdAt: 'asc' } },
         },
       });
+
+      console.log('joinInitiativeAction: Returning existing initiative data:', currentInitiativeData);
+
       return { success: true, initiative: currentInitiativeData as any }; 
     }
 
@@ -260,6 +305,16 @@ export async function joinInitiativeAction(
     // The roleType is already a PrismaInitiativeRoleType string, so direct assignment is fine.
     const prismaRole: InitiativeRoleType = roleType;
 
+    // Validate if the userId exists in the User table
+    const userExists = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!userExists) {
+      console.error(`User ${userId} does not exist. Cannot join initiative ${initiativeId}.`);
+      return { success: false, error: "User does not exist." };
+    }
+
     await prisma.initiativeMembership.create({
       data: {
         userId: userId,
@@ -274,7 +329,7 @@ export async function joinInitiativeAction(
       where: { id: initiativeId },
       include: { 
         creator: true,
-        memberships: { include: { user: {select: {id: true, name: true, image: true}}/*, role: true*/ } }, // REMOVED: role is a scalar
+        memberships: { include: { user: {select: {id: true, name: true, image: true}} } },
         updates: { include: { user: true, media: true }, orderBy: { timestamp: 'desc' } },
         chatMessages: { include: { sender: true }, orderBy: { timestamp: 'asc' } },
         milestones: { include: { creator: true, steps: true }, orderBy: { order: 'asc' } },
@@ -484,6 +539,8 @@ export async function updateInitiativeMembershipAction(
     const updatedInitiativeData = await getInitiativeById(initiativeId); // Fetch full updated initiative data
 
     revalidatePath(`/initiatives/${initiativeId}`);
+
+    console.log('updateInitiativeMembershipAction: Returning initiative data:', updatedInitiativeData.initiative);
 
     return { success: true, initiative: updatedInitiativeData.initiative };
   } catch (error) {

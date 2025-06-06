@@ -64,9 +64,10 @@ interface DatabaseUpdate {
 
 interface DatabaseChatMessage {
   id: string;
-  content: string;
+  text: string; // Changed from content to text
   senderId: string;
   sender: { id: string; name?: string | null; image?: string | null; };
+  senderName: string; // Added: To reflect Prisma query result and use in mapping
   createdAt: any;
   initiativeId: string;
 }
@@ -174,20 +175,27 @@ function transformDatabaseInitiative(dbInitiative: DatabaseInitiative, currentUs
     details: {},
   }));
 
-  const processedChatMessages: EnhancedChatMessage[] = (dbInitiative.chatMessages || []).map((msg: DatabaseChatMessage) => ({
-    id: msg.id,
-    text: msg.content,
-    senderId: msg.senderId,
-    timestamp: convertTimestampToDate(msg.createdAt),
-    sender: msg.sender ? {
+  const processedChatMessages: EnhancedChatMessage[] = (dbInitiative.chatMessages || []).map((msg: DatabaseChatMessage) => {
+    // Construct UserForDisplay object, assuming msg.sender is always present due to Prisma include
+    const userForDisplay: UserForDisplay = {
       id: msg.sender.id,
-      name: msg.sender.name || 'Unknown Sender',
-      image: msg.sender.image || undefined,
-    } : null,
-    senderName: msg.sender?.name || 'Unknown Sender',
-    senderImage: msg.sender?.image || undefined,
-    initiativeId: msg.initiativeId,
-  }));
+      name: msg.sender.name || msg.senderName, // Use sender.name, fallback to senderName from DB
+      image: msg.sender.image || null, // Ensure null if undefined
+    };
+
+    return {
+      // Fields for ChatMessage (which EnhancedChatMessage extends)
+      id: msg.id,
+      text: msg.text,
+      timestamp: convertTimestampToDate(msg.createdAt),
+      sender: userForDisplay, // ChatMessage.sender is UserForDisplay | null
+      senderName: msg.senderName, // ChatMessage.senderName is string (now from DatabaseChatMessage)
+      senderImage: userForDisplay.image || undefined, // ChatMessage.senderImage is string?
+
+      // Field specific to EnhancedChatMessage
+      user: userForDisplay, // This provides the required 'user' property
+    };
+  });
 
   const processedGoals: Goal[] = (dbInitiative.goals || []).map((goal: DatabaseGoal) => {
     const ownerNameString: string = goal.ownerName || 'Unknown Owner';

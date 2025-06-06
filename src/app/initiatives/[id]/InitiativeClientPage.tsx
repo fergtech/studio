@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+// Add a simple log to check if the component file is being executed
+console.log('InitiativeClientPage.tsx loaded');
+
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -18,7 +20,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from "@/components/ui/label";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { useToast } from "@/components/ui/use-toast"; // Ensure this import is present
-import type { Initiative, Role, UserSelectableMembershipRole, Member } from "@/lib/types"; 
+import type { Initiative, Role, UserSelectableMembershipRole, Member, EnhancedChatMessage, Goal, Milestone, Update, UserForDisplay, InitiativeStatus, Priority, GoalStatus } from "@/lib/types"; 
 import { ALL_USER_SELECTABLE_MEMBERSHIP_ROLES } from "@/lib/types";
 import { MissionProgressBanner } from './MissionProgressBanner';
 import { InitiativeSidebar } from '@/components/initiatives/InitiativeSidebar'; // Corrected import path
@@ -31,6 +33,8 @@ import { joinInitiativeAction, updateInitiativeAction, updateInitiativeMembershi
 import { InitiativeRoleType, UpdateType } from '@prisma/client'; // Added this import
 import { CreateGoalDialog } from './CreateGoalDialog'; // Import CreateGoalDialog
 import { useIsMobile } from '@/hooks/use-mobile';
+import { ChatPanel } from '@/components/initiatives/ChatPanel';
+import { io, Socket } from 'socket.io-client';
 
 interface InitiativeClientPageProps {
   initiative: Initiative;
@@ -41,17 +45,57 @@ export function InitiativeClientPage({
   initiative: initialInitiative, 
   initiativeId 
 }: InitiativeClientPageProps) {
+  // Log the initial initiative data received as a prop
+  console.log('InitiativeClientPage: initialInitiative prop received:', initialInitiative);
+
+  // Log initialInitiative right before useState
+  console.log('InitiativeClientPage: initialInitiative before useState:', initialInitiative);
+
+  // Log stringified chatMessages from initialInitiative right before useState
+  console.log('InitiativeClientPage: stringified initialInitiative.chatMessages before useState:', JSON.stringify(initialInitiative.chatMessages));
+
   const { data: session } = useSession();
   const router = useRouter();
   const { toast } = useToast(); // Call useToast to get the toast function
   const userId = session?.user?.id; 
 
+  // Initialize main initiative state (Revert type to Initiative)
   const [initiative, setInitiative] = useState<Initiative>(initialInitiative);
+
+  // Log the initiative state right after initialization
+  console.log('InitiativeClientPage: Initiative state after useState initialization:', initiative);
+
+  const [socket, setSocket] = useState<Socket | null>(null);
+
+  // Memoize the transformed chat messages, dependent directly on the initialInitiative prop's chatMessages
+  const transformedMessages = useMemo(() => {
+    console.log('useMemo: Transforming chat messages from initialInitiative prop directly.', initialInitiative?.chatMessages);
+    return initialInitiative.chatMessages?.map(transformDatabaseChatMessage) || [];
+  }, [initialInitiative.chatMessages]); // Depend directly on initialInitiative.chatMessages
+
   useEffect(() => {
-    // Ensure the local state `initiative` is updated if `initialInitiative` prop changes.
-    // This is important if the parent Server Component re-fetches and passes new data.
-    setInitiative(initialInitiative);
-  }, [initialInitiative]);
+    // Initialize socket connection
+    // Ensure the client connects directly to the socket server port (9003)
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'http://localhost:9003';
+    console.log('Attempting to connect to socket server at:', socketUrl, 'with path:', '/api/socketio');
+    const socketInstance = io(socketUrl, {
+      path: '/api/socketio', // Use the explicitly set path
+      // Add transport options for better compatibility if needed
+      transports: ['websocket', 'polling']
+    });
+    setSocket(socketInstance);
+
+    // Add a listener here to see if the socket object itself connects
+    socketInstance.on('connect', () => {
+      console.log('InitiativeClientPage: Socket instance connected successfully!');
+    });
+
+    // Cleanup on unmount
+    return () => {
+      console.log('InitiativeClientPage: Disconnecting socket instance.');
+      socketInstance.disconnect();
+    };
+  }, []);
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -382,6 +426,102 @@ export function InitiativeClientPage({
     };
   }
 
+  // Helper to transform database chat message to frontend EnhancedChatMessage type
+  function transformDatabaseChatMessage(dbMessage: any): EnhancedChatMessage {
+    // Log the complete dbMessage object received by the function
+    console.log('transformDatabaseChatMessage: received dbMessage:', dbMessage);
+
+    console.log('transformDatabaseChatMessage: raw dbMessage:', dbMessage);
+    const messageText = dbMessage.text || dbMessage.content || '';
+    console.log('transformDatabaseChatMessage: evaluated text value:', messageText);
+    const transformedMessage = {
+      id: dbMessage.id,
+      // Use text if available, otherwise use content
+      text: messageText, 
+      content: messageText, // Keep content for compatibility if needed elsewhere
+      timestamp: new Date(dbMessage.timestamp), // Ensure it's a Date object
+      sender: dbMessage.sender ? {
+        id: dbMessage.sender.id,
+        name: dbMessage.sender.name || 'Unknown Sender',
+        image: dbMessage.sender.image || undefined, // Map null to undefined
+      } : {
+        id: dbMessage.senderId || 'unknown', // Use senderId if sender object is missing
+        name: dbMessage.senderName || 'Unknown Sender',
+        image: undefined
+      },
+      senderName: dbMessage.sender?.name || dbMessage.senderName || 'Unknown Sender',
+      senderImage: dbMessage.sender?.image || undefined, // Map null to undefined
+      user: dbMessage.sender ? { // Map sender to user property for EnhancedChatMessage
+        id: dbMessage.sender.id,
+        name: dbMessage.user?.name || dbMessage.sender.name || 'Unknown User', // Added dbMessage.user?.name as a fallback
+        image: dbMessage.user?.image || dbMessage.sender.image || undefined
+      } : { // Fallback if sender object is missing
+        id: dbMessage.senderId || 'unknown',
+        name: dbMessage.senderName || 'Unknown User',
+        image: undefined
+      },
+    };
+    console.log('transformDatabaseChatMessage: transformed message:', transformedMessage);
+    return transformedMessage;
+  }
+
+  const handleSendMessage = async (message: string) => {
+    if (!message.trim()) return;
+
+    const messagePayload = {
+      initiativeId,
+      text: message,
+      senderId: session?.user?.id,
+      senderName: session?.user?.name || 'Anonymous',
+    };
+
+    console.log('handleSendMessage: Sending message payload:', messagePayload);
+
+    try {
+      const response = await fetch('/api/chat/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(messagePayload),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send message');
+      }
+
+      const savedMessage = await response.json();
+
+      // Update the main initiative state with the raw saved message
+      setInitiative(prev => ({
+        ...prev,
+        chatMessages: [...(prev.chatMessages || []), savedMessage as any] // Add raw message to main state
+      }));
+
+      // useMemo will automatically re-calculate transformedMessages because initiative.chatMessages changed
+      console.log('handleSendMessage: Main initiative state updated with new raw message.');
+
+      // Emit socket event for real-time updates
+      if (socket) {
+        // Emit the transformed message to ensure consistency on other clients
+        socket.emit('sendMessage', transformDatabaseChatMessage(savedMessage));
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast({
+        title: "Error",
+        description: "Failed to send message. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const transformedOnlineMembers = initiative.memberships?.map((membership) => ({
+    id: membership.user.id,
+    name: membership.user.name || 'Unknown User',
+    lastActive: membership.user.lastActive || new Date(), // Default to current date if undefined
+  })) || [];
+
   return (
     <div className="relative min-h-screen">
       {/* Overlay for Mobile Sidebar */}
@@ -686,18 +826,10 @@ export function InitiativeClientPage({
               isMobile={isMobile}
               isOpen={isSidebarOpen}
               onToggle={toggleSidebar}
+              onToggleChat={() => setIsChatOpen(!isChatOpen)}
+              isChatOpen={isChatOpen}
             />
           </div>
-        </div>
-
-        {/* Chat Panel */}
-        <div className="fixed bottom-4 right-4 z-40"> {/* Ensure z-index is appropriate */}
-          <Button
-            onClick={() => setIsChatOpen(!isChatOpen)}
-            className="rounded-full h-12 w-12 shadow-lg"
-          >
-            <MessageSquare className="h-5 w-5" />
-          </Button>
         </div>
 
         {/* Edit Dialog */}
@@ -807,6 +939,16 @@ export function InitiativeClientPage({
             onGoalCreated={handleGoalCreated} // Pass the callback
           />
         )}
+
+        {/* Chat Panel */}
+        <ChatPanel
+          isOpen={isChatOpen}
+          messages={transformedMessages}
+          onSendMessage={handleSendMessage}
+          onClose={() => setIsChatOpen(false)}
+          socket={socket}
+          currentUserId={userId}
+        />
       </div>
     </div>
   );

@@ -1,14 +1,11 @@
-import type { Metadata } from 'next';
+"use client";
+
 import './globals.css';
 import { Header } from '@/components/Header'; // Import Header directly
 import { Toaster } from "@/components/ui/toaster"; // Keep Toaster if needed globally
 import AuthProvider from "@/components/AuthProvider"; // Import the AuthProvider
 import { ModalProvider } from "@/context/ModalContext"; // Import ModalProvider
-
-export const metadata: Metadata = {
-  title: 'Impact Labs',
-  description: 'Hyperlocal collaboration platform for Aberdeen Proving Ground',
-};
+import { useEffect } from 'react';
 
 export default function RootLayout({
   children,

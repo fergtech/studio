@@ -173,8 +173,7 @@ export async function getInitiativeDetailsForGoalPage(initiativeId: string) {
       select: {
         id: true,
         title: true,
-        // Select only fields absolutely necessary for the goal page context
-        // e.g., if you need to display initiative name or link back to it.
+        imageUrl: true, // Added imageUrl to ensure it is fetched
       },
     });
     return initiative;

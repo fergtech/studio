@@ -57,6 +57,9 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (session.user) {
         (session.user as any).id = token.id;
+        console.log('Session user:', session.user); // Log session user details
+      } else {
+        console.warn('Session user is undefined');
       }
       return session;
     },
@@ -69,7 +72,7 @@ export const authOptions: NextAuthOptions = {
     signIn: '/login',
     error: '/auth/error',
   },
-  debug: process.env.NODE_ENV === 'development',
+  debug: process.env.NODE_ENV === 'development' && process.env.NEXTAUTH_DEBUG === 'true',
 };
 
 const handler = NextAuth(authOptions);

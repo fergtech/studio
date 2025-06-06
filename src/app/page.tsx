@@ -18,36 +18,84 @@ const mockUserAvatars: Record<string, string | undefined> = {
 };
 
 // Define extended types that include the relations we'll fetch
-type InitiativeWithCreator = PrismaInitiative & { creator: PrismaUser | null };
-type GeneralPostWithCreatorAndMedia = PrismaGeneralPost & { creator: PrismaUser | null; media: PrismaMediaItem[] };
+interface InitiativeWithCreator extends PrismaInitiative {
+  creator: PrismaUser | null;
+}
 
-// Union type for feed items from the database
+interface GeneralPostWithCreatorAndMedia extends PrismaGeneralPost {
+  creator: PrismaUser | null;
+  media: PrismaMediaItem[];
+}
+
 type FeedItemDb = InitiativeWithCreator | GeneralPostWithCreatorAndMedia;
 
-async function getFeedItems(): Promise<FeedItemDb[]> {
+async function getFeedItems(page: number = 1, pageSize: number = 10): Promise<FeedItemDb[]> {
   const initiatives = await prisma.initiative.findMany({
     include: {
-      creator: true, // Include the creator user data
+      creator: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          passwordHash: true,
+          image: true,
+          bannerImageUrl: true,
+          dateCreated: true,
+          bio: true,
+          skills: true,
+          interests: true,
+          profession: true,
+          organization: true,
+          institution: true,
+        },
+      },
     },
     orderBy: {
       createdAt: 'desc',
     },
+    skip: (page - 1) * pageSize,
+    take: pageSize,
   });
 
   const generalPosts = await prisma.generalPost.findMany({
     include: {
-      creator: true, // Include the creator user data
-      media: true,   // Include associated media items
+      creator: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          passwordHash: true,
+          image: true,
+          bannerImageUrl: true,
+          dateCreated: true,
+          bio: true,
+          skills: true,
+          interests: true,
+          profession: true,
+          organization: true,
+          institution: true,
+        },
+      },
+      media: {
+        select: {
+          id: true,
+          url: true,
+          type: true,
+          updateId: true,
+          postId: true,
+        },
+      },
     },
     orderBy: {
       timestamp: 'desc',
     },
+    skip: (page - 1) * pageSize,
+    take: pageSize,
   });
 
-  // Combine and sort. Prisma Date objects can be compared directly or using getTime()
   const feedItems: FeedItemDb[] = [...initiatives, ...generalPosts].sort((a, b) => {
-    const timeA = 'createdAt' in a ? a.createdAt.getTime() : a.timestamp.getTime();
-    const timeB = 'createdAt' in b ? b.createdAt.getTime() : b.timestamp.getTime();
+    const timeA = 'createdAt' in a ? new Date(a.createdAt).getTime() : new Date(a.timestamp).getTime();
+    const timeB = 'createdAt' in b ? new Date(b.createdAt).getTime() : new Date(b.timestamp).getTime();
     return timeB - timeA;
   });
 
@@ -63,7 +111,9 @@ function isGeneralPost(item: FeedItemDb): item is GeneralPostWithCreatorAndMedia
 import { HomeClient } from '@/components/HomeClient';
 
 export default async function Home() {
-  const feedItems = await getFeedItems();
+  const page = 1; // Example: Default to page 1
+  const pageSize = 10; // Example: Default page size
+  const feedItems = await getFeedItems(page, pageSize);
   const session = await getServerSession(authOptions); // Get the current session using getServerSession
   const currentUserId = session?.user?.id; // Extract currentUserId
 

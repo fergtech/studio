@@ -119,6 +119,7 @@ export interface ChatMessage extends Omit<PrismaChatMessage, 'initiativeId' | 's
   senderName: string; // Required
   senderImage?: string; // Optional
   // Prisma model already includes: id, text, media, reactions
+  text: string; // Ensure 'text' is part of the type for clarity
 }
 
 // Represents SKILL roles/tags for an initiative (e.g., "Developer", "Designer").
@@ -286,8 +287,8 @@ export interface Comment {
 
 // Placeholder for EnhancedChatMessage, assuming it extends ChatMessage or is defined elsewhere.
 export interface EnhancedChatMessage extends ChatMessage {
-    // any additional properties for EnhancedChatMessage
-    // For example, reactions, read receipts, etc.
+  user: UserForDisplay; // Added user property
+  // content: string; // Removed redundant content property, text from ChatMessage should be used
 }
 
 export interface OnlineMember {

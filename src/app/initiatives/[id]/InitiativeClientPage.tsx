@@ -35,6 +35,7 @@ import { CreateGoalDialog } from './CreateGoalDialog'; // Import CreateGoalDialo
 import { useIsMobile } from '@/hooks/use-mobile';
 import { ChatPanel } from '@/components/initiatives/ChatPanel';
 import { io, Socket } from 'socket.io-client';
+import { SuggestedGoalTag } from '@/components/initiatives/SuggestedGoalTag';
 
 interface InitiativeClientPageProps {
   initiative: Initiative;
@@ -110,6 +111,10 @@ export function InitiativeClientPage({
   const [isCreateGoalDialogOpen, setIsCreateGoalDialogOpen] = useState(false); // State for goal dialog
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const isMobile = useIsMobile();
+
+  // State for suggested goals
+  const [suggestedGoals, setSuggestedGoals] = useState<Array<{ title: string; description: string }>>([]);
+  const [selectedSuggestedGoal, setSelectedSuggestedGoal] = useState<{ title: string; description: string } | null>(null);
 
   useEffect(() => {
     // Close sidebar if window is resized from mobile to desktop
@@ -389,14 +394,48 @@ export function InitiativeClientPage({
     }
   };
 
-  const handleGoalCreated = () => {
+  const handleGoalCreated = (newGoal: Goal) => {
     setIsCreateGoalDialogOpen(false);
-    router.refresh(); // Refresh data to show the new goal
+    // Update the initiative state by adding the new goal to the goals array
+    setInitiative(prevInitiative => ({
+      ...prevInitiative,
+      goals: [...(prevInitiative.goals || []), newGoal],
+    }));
     toast({
       title: "Goal Created!",
       description: "Your new goal has been added to the initiative.",
     });
+    // Clear selected suggested goal after creation
+    setSelectedSuggestedGoal(null);
   };
+
+  const handleSuggestedGoalClick = (goal: { title: string; description: string }) => {
+    setSelectedSuggestedGoal(goal);
+    setIsCreateGoalDialogOpen(true);
+  };
+
+  // Effect to fetch suggested goals when the initiativeId changes
+  useEffect(() => {
+    const fetchSuggestedGoals = async () => {
+      if (!initiativeId) return;
+      console.log('Fetching suggested goals for initiative:', initiativeId);
+      try {
+        const response = await fetch(`/api/initiatives/${initiativeId}/suggest-goals`);
+        if (!response.ok) {
+          console.error('Failed to fetch suggested goals:', response.statusText);
+          setSuggestedGoals([]); // Clear suggestions on error
+          return;
+        }
+        const data = await response.json();
+        setSuggestedGoals(data);
+      } catch (error) {
+        console.error('Error fetching suggested goals:', error);
+        setSuggestedGoals([]); // Clear suggestions on error
+      }
+    };
+
+    fetchSuggestedGoals();
+  }, [initiativeId, setSuggestedGoals, toast]); // Depend on initiativeId, setSuggestedGoals, and toast
 
   // Helper to transform backend update to frontend Update type
   function transformRawUpdate(rawUpdate: any): Initiative['updates'][number] {
@@ -417,7 +456,6 @@ export function InitiativeClientPage({
         postId: m.postId ?? null,
       })),
       type: rawUpdate.type,
-      timestamp: new Date(rawUpdate.createdAt),
       createdAt: new Date(rawUpdate.createdAt),
       updatedAt: new Date(rawUpdate.updatedAt || rawUpdate.createdAt),
       reactionCount: rawUpdate.reactionCount || 0,
@@ -706,17 +744,14 @@ export function InitiativeClientPage({
                                 {goal.priority && (
                                   <Badge variant="outline" className="mr-2">{goal.priority}</Badge>
                                 )}
-                                {goal.progress !== undefined && (
-                                  <span className="text-xs">{goal.progress}%</span>
-                                )}
                               </div>
-                              {goal.ownerName && (
+                              {goal.owner && (
                                 <div className="flex items-center text-sm">
                                   <Avatar className="h-6 w-6 mr-2">
-                                    <AvatarImage src={goal.ownerAvatar || undefined} alt={goal.ownerName} />
-                                    <AvatarFallback>{goal.ownerName.charAt(0)}</AvatarFallback>
+                                    <AvatarImage src={goal.owner.image || undefined} alt={goal.owner.name || 'User'} />
+                                    <AvatarFallback>{goal.owner.name?.charAt(0) || 'U'}</AvatarFallback>
                                   </Avatar>
-                                  <span>{goal.ownerName}</span>
+                                  <span>{goal.owner.name || 'Unknown Owner'}</span>
                                 </div>
                               )}
                             </div>
@@ -742,6 +777,21 @@ export function InitiativeClientPage({
                   </CardContent>
                 </Card>
               )}
+              {/* Suggested Goals Section */}
+              <div className="mt-6">
+                <h3 className="text-lg font-semibold mb-2">Suggested Goals</h3>
+                {/* Placeholder for suggested goals */}
+                <div className="flex flex-wrap gap-2">
+                  {suggestedGoals.map((goal, index) => (
+                    <SuggestedGoalTag
+                      key={index} // Using index as key here, consider a unique ID if available
+                      title={goal.title}
+                      description={goal.description}
+                      onClick={handleSuggestedGoalClick}
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
 
             {/* Updates Section */}
@@ -935,8 +985,13 @@ export function InitiativeClientPage({
           <CreateGoalDialog
             initiativeId={initiativeId}
             isOpen={isCreateGoalDialogOpen}
-            onClose={() => setIsCreateGoalDialogOpen(false)}
+            onClose={() => {
+              setIsCreateGoalDialogOpen(false);
+              setSelectedSuggestedGoal(null); // Clear selected suggested goal on close
+            }}
             onGoalCreated={handleGoalCreated} // Pass the callback
+            initialTitle={selectedSuggestedGoal?.title}
+            initialDescription={selectedSuggestedGoal?.description}
           />
         )}
 

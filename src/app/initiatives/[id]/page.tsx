@@ -119,6 +119,7 @@ interface DatabaseInitiative {
   updatedAt?: any; 
   creatorId: string;
   imageUrl?: string | null;
+  aiGuidance?: string | null; // Added aiGuidance
   roles: string[]; // These are skill/tag strings
   creator?: { id: string; name?: string | null; image?: string | null; } | null;
   memberships?: DatabaseInitiativeMembership[] | null;
@@ -130,12 +131,8 @@ interface DatabaseInitiative {
 
 // Function to transform the database initiative into the frontend Initiative type
 function transformDatabaseInitiative(dbInitiative: DatabaseInitiative, currentUserId?: string): Initiative {
-  const processedRoles: Role[] = (dbInitiative.roles || []).map((roleString, index) => ({
-    id: `skill-role-${dbInitiative.id}-${index}-${Date.now()}`,
-    title: roleString,
-    description: `Skill/Tag: ${roleString}`,
-    type: 'other' as SkillRoleType,
-  }));
+  // Directly use dbInitiative.roles as string[], no transformation to Role[] needed
+  const processedRoles: string[] = dbInitiative.roles || [];
 
   const processedMemberships: InitiativeMembershipClient[] = (dbInitiative.memberships || []).map((mem: DatabaseInitiativeMembership) => ({
     id: mem.id,
@@ -198,7 +195,6 @@ function transformDatabaseInitiative(dbInitiative: DatabaseInitiative, currentUs
   });
 
   const processedGoals: Goal[] = (dbInitiative.goals || []).map((goal: DatabaseGoal) => {
-    const ownerNameString: string = goal.ownerName || 'Unknown Owner';
     const goalTags: string[] = goal.tags || [];
     const goalPriority: Priority | null = (goal.priority || null) as Priority | null;
 
@@ -207,16 +203,16 @@ function transformDatabaseInitiative(dbInitiative: DatabaseInitiative, currentUs
       title: goal.title,
       description: goal.description || '',
       status: goal.status as GoalStatus,
-      ownerName: ownerNameString,
-      ownerAvatar: goal.ownerAvatar || null,
-      progress: goal.progress !== null && goal.progress !== undefined ? goal.progress : null,
       tags: goalTags,
-      owner: goal.ownerId && ownerNameString ? { id: goal.ownerId, name: ownerNameString, image: goal.ownerAvatar || null } : null,
+      owner: goal.ownerId ? {
+        id: goal.ownerId,
+        name: goal.ownerName || 'Unknown Owner',
+        image: goal.ownerAvatar || null
+      } : null,
       createdAt: convertTimestampToDate(goal.createdAt || dbInitiative.createdAt),
       updatedAt: convertTimestampToDate(goal.updatedAt || goal.createdAt || dbInitiative.createdAt),
       dueDate: goal.deadline ? convertTimestampToDate(goal.deadline) : undefined,
       priority: goalPriority,
-      // targetValue and currentValue removed as they are not in the client Goal type per previous error
     };
     return clientGoal;
   });
@@ -247,6 +243,7 @@ function transformDatabaseInitiative(dbInitiative: DatabaseInitiative, currentUs
     createdAt: convertTimestampToDate(dbInitiative.createdAt),
     updatedAt: dbInitiative.updatedAt ? convertTimestampToDate(dbInitiative.updatedAt) : convertTimestampToDate(dbInitiative.createdAt),
     imageUrl: dbInitiative.imageUrl || null,
+    aiGuidance: dbInitiative.aiGuidance || null, // Added aiGuidance
     roles: processedRoles,
     creator: dbInitiative.creator ? {
       id: dbInitiative.creator.id,
@@ -311,6 +308,7 @@ export default async function InitiativePage({ params: incomingParams }: { param
       updatedAt: rawInit.updatedAt,
       creatorId: rawInit.creatorId || 'unknown',
       imageUrl: rawInit.imageUrl,
+      aiGuidance: rawInit.aiGuidance, // Added aiGuidance
       roles: rawInit.roles || [], // Expecting string[] from DB action
       creator: rawInit.creator,
       memberships: rawInit.memberships,

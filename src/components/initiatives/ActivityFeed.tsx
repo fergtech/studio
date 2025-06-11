@@ -105,12 +105,14 @@ export function ActivityFeed({ updates: initialUpdates, onLoadMore, hasMore }: A
           <Card key={update.id} className="overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200 bg-white dark:bg-slate-850 rounded-lg">
             <CardHeader className="p-4 bg-slate-50 dark:bg-slate-800">
               <div className="flex items-start space-x-3">
-                <Avatar className="h-10 w-10 border border-slate-200 dark:border-slate-700">
-                  <AvatarImage src={update.user?.image || undefined} alt={update.user?.name || 'User'} />
-                  <AvatarFallback className="bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
-                    {update.user?.name?.charAt(0).toUpperCase() || 'U'}
-                  </AvatarFallback>
-                </Avatar>
+                <Link href={`/profile/${update.user?.id}`} className="cursor-pointer hover:opacity-80 transition-opacity">
+                  <Avatar className="h-10 w-10 border border-slate-200 dark:border-slate-700">
+                    <AvatarImage src={update.user?.image || undefined} alt={update.user?.name || 'User'} />
+                    <AvatarFallback className="bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                      {update.user?.name?.charAt(0).toUpperCase() || 'U'}
+                    </AvatarFallback>
+                  </Avatar>
+                </Link>
                 <div className="flex-1">
                   <div className="flex items-center justify-between">
                       <div>

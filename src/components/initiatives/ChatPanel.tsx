@@ -9,6 +9,7 @@ import type { EnhancedChatMessage } from '@/lib/types';
 import { Socket } from 'socket.io-client';
 import { toast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
+import Link from 'next/link';
 
 interface ChatPanelProps {
   isOpen: boolean;
@@ -151,19 +152,25 @@ export function ChatPanel({
           return (
             <div key={message.id} className={cn("mb-4 flex items-end", isCurrentUser ? 'justify-end' : 'justify-start')}>
               {!isCurrentUser && (
-                <Avatar className="h-8 w-8 mr-2">
-                  <AvatarImage src={message.sender?.image ?? undefined} alt={message.senderName} />
-                  <AvatarFallback>{message.senderName[0]}</AvatarFallback>
-                </Avatar>
+                <Link href={`/profile/${message.sender?.id}`} className="cursor-pointer hover:opacity-80 transition-opacity">
+                  <Avatar className="h-8 w-8 mr-2">
+                    <AvatarImage src={message.sender?.image ?? undefined} alt={message.senderName} />
+                    <AvatarFallback>{message.senderName[0]}</AvatarFallback>
+                  </Avatar>
+                </Link>
               )}
               <div className={cn(
                 "flex flex-col space-y-1 max-w-[70%]",
                 isCurrentUser ? 'items-end' : 'items-start'
               )}>
                 <div className={cn("flex items-center gap-2", isCurrentUser && 'flex-row-reverse')}>
-                  <span className={cn("font-semibold text-sm", isCurrentUser && 'sr-only')}>
-                    {message.senderName}
-                  </span>
+                  {!isCurrentUser && (
+                    <Link href={`/profile/${message.sender?.id}`} className="cursor-pointer hover:underline">
+                      <span className="font-semibold text-sm">
+                        {message.senderName}
+                      </span>
+                    </Link>
+                  )}
                   <span className="text-xs text-muted-foreground">
                     {formatDistanceToNow(new Date(message.timestamp), { addSuffix: true })}
                   </span>

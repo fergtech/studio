@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface EditProfileFormProps {
   user: User;
@@ -30,6 +31,9 @@ export default function EditProfileForm({ user }: EditProfileFormProps) {
 
   const [name, setName] = useState(user.name ?? '');
   const [bio, setBio] = useState(user.bio ?? '');
+  const [username, setUsername] = useState(user.username ?? '');
+  const [gender, setGender] = useState(user.gender ?? '');
+  const [websites, setWebsites] = useState<string[]>(user.websites ?? []);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(user.image);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -109,6 +113,9 @@ export default function EditProfileForm({ user }: EditProfileFormProps) {
 
     formData.append('name', name);
     formData.append('bio', bio);
+    formData.append('username', username);
+    formData.append('gender', gender);
+    websites.forEach(website => formData.append('websites', website));
 
     let finalImageUrl = user.image; // Default to existing image
     let finalBannerImageUrl = user.bannerImageUrl ?? null; // Default to existing banner image
@@ -209,7 +216,7 @@ export default function EditProfileForm({ user }: EditProfileFormProps) {
       <form onSubmit={handleSubmit}>
         <CardHeader>
           <CardTitle>Profile Details</CardTitle>
-          <CardDescription>Update your name, bio, profile picture, and banner image.</CardDescription>
+          <CardDescription>Update your profile information.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">
@@ -223,6 +230,61 @@ export default function EditProfileForm({ user }: EditProfileFormProps) {
             />
             {formState.errors?.name && (
               <p className="text-sm text-red-500">{formState.errors.name.join(', ')}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="username">Username</Label>
+            <Input 
+              id="username" 
+              name="username" 
+              value={username} 
+              onChange={(e) => setUsername(e.target.value)} 
+              placeholder="Your username"
+            />
+            {formState.errors?.username && (
+              <p className="text-sm text-red-500">{formState.errors.username.join(', ')}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="gender">Gender</Label>
+            <Select value={gender} onValueChange={setGender}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select gender" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="male">Male</SelectItem>
+                <SelectItem value="female">Female</SelectItem>
+                <SelectItem value="other">Other</SelectItem>
+                <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
+              </SelectContent>
+            </Select>
+            {formState.errors?.gender && (
+              <p className="text-sm text-red-500">{formState.errors.gender.join(', ')}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="websites">Websites (up to 2)</Label>
+            <div className="space-y-2">
+              {[0, 1].map((index) => (
+                <Input
+                  key={index}
+                  id={`website-${index}`}
+                  name="websites"
+                  value={websites[index] || ''}
+                  onChange={(e) => {
+                    const newWebsites = [...websites];
+                    newWebsites[index] = e.target.value;
+                    setWebsites(newWebsites);
+                  }}
+                  placeholder={`Website ${index + 1} URL`}
+                />
+              ))}
+            </div>
+            {formState.errors?.websites && (
+              <p className="text-sm text-red-500">{formState.errors.websites.join(', ')}</p>
             )}
           </div>
 
@@ -242,65 +304,93 @@ export default function EditProfileForm({ user }: EditProfileFormProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="profilePicture">Profile Picture</Label>
-            <div className="flex items-center space-x-4">
-              <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
-                {imagePreview ? (
-                  <Image 
-                    src={imagePreview} 
-                    alt="Profile preview" 
-                    width={96} 
-                    height={96} 
-                    className="object-cover w-full h-full" 
-                  />
-                ) : (
-                  <span className="text-sm text-gray-500 dark:text-gray-400">Preview</span>
-                )}
-              </div>
-              <Input 
-                id="profilePicture" 
-                name="profilePicture" 
-                type="file" 
-                accept="image/*" 
-                ref={fileInputRef} 
-                onChange={handleFileChange} 
-                className="max-w-xs"
-              />
-            </div>
-            {formState.errors?.imageUrl && (
-              <p className="text-sm text-red-500">{formState.errors.imageUrl.join(', ')}</p>
-            )}
-          </div>
-
-          <div className="space-y-2">
             <Label htmlFor="bannerImage">Banner Image</Label>
             <div className="flex flex-col items-start space-y-2">
               <div className="w-full h-32 relative rounded-md overflow-hidden bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
                 {bannerPreview ? (
-                  <Image 
-                    src={bannerPreview} 
-                    alt="Banner preview" 
-                    layout="fill" 
-                    objectFit="cover"
-                    className="w-full h-full"
+                  <Image
+                    src={bannerPreview}
+                    alt="Banner Preview"
+                    width={1200} // Set a fixed width
+                    height={300} // Set a fixed height
+                    className="object-cover w-full h-full rounded-md"
                   />
                 ) : (
-                  <span className="text-sm text-gray-500 dark:text-gray-400">Banner Preview</span>
+                  <div className="w-full h-48 bg-gray-200 dark:bg-gray-700 rounded-md flex items-center justify-center text-gray-500 dark:text-gray-400">
+                    No Banner Image
+                  </div>
                 )}
               </div>
-              <Input 
-                id="bannerImage" 
-                name="bannerImage" 
-                type="file" 
-                accept="image/*" 
-                ref={bannerFileInputRef} 
+              <input
+                type="file"
+                id="bannerImage"
+                name="bannerImage"
+                accept="image/*"
                 onChange={handleBannerFileChange}
-                className="w-full"
+                ref={bannerFileInputRef}
+                className="hidden"
               />
+              <div className="flex flex-wrap gap-2 mt-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => bannerFileInputRef.current?.click()}>
+                  Select Banner Image
+                </Button>
+                {(bannerPreview || user.bannerImageUrl) && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setBannerPreview(null)} // Clear the preview and effectively remove the image
+                  >
+                    Remove Banner
+                  </Button>
+                )}
+              </div>
             </div>
-            {formState.errors?.bannerImageUrl && (
-              <p className="text-sm text-red-500">{formState.errors.bannerImageUrl.join(', ')}</p>
-            )}
+          </div>
+
+          <div className="space-y-2 relative">
+            <Label htmlFor="image">Profile Image</Label>
+            <div className="flex items-center space-x-4">
+              <div className="relative w-24 h-24 rounded-full overflow-hidden shadow-md border border-gray-200 dark:border-gray-700">
+                {imagePreview ? (
+                  <Image
+                    src={imagePreview}
+                    alt="Profile Preview"
+                    width={96} // Equivalent to w-24 (24*4 = 96px)
+                    height={96} // Equivalent to h-24 (24*4 = 96px)
+                    className="object-cover w-full h-full rounded-full"
+                  />
+                ) : (
+                  <div className="w-24 h-24 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400">
+                    No Image
+                  </div>
+                )}
+              </div>
+              <input
+                type="file"
+                id="image"
+                name="image"
+                accept="image/*"
+                onChange={handleFileChange}
+                ref={fileInputRef}
+                className="hidden"
+              />
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+                  Select Image
+                </Button>
+                {(imagePreview || user.image) && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setImagePreview(null)} // Clear the preview and effectively remove the image
+                  >
+                    Remove Image
+                  </Button>
+                )}
+              </div>
+            </div>
           </div>
 
         </CardContent>

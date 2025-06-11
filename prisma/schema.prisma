@@ -95,6 +95,9 @@ model User {
   email                       String         @unique
   passwordHash                String
   name                        String?
+  username                    String?        @unique
+  gender                      String?
+  websites                    String[]       @default([])
   image                       String?
   bannerImageUrl              String?        // New field for banner image
   dateCreated                 DateTime       @default(now())
@@ -117,6 +120,10 @@ model User {
   assignedActions             Action[]       @relation("AssigneeOfAction")
   completedActionsBy          Action[]       @relation("CompleterOfAction")
   createdActions              Action[]       @relation("CreatorOfAction") // If creatorId is added to Action
+  createdIssues               Issue[]        @relation("CreatorOfIssue") // New: Issues created by this user
+  createdIdeas                Idea[]         @relation("CreatorOfIdea")  // New: Ideas created by this user
+  championedIssues            Issue[]        @relation("ChampionedIssueBy") // New: Issues championed by this user
+  championedIdeas             Idea[]         @relation("ChampionedIdeaBy")  // New: Ideas championed by this user
 }
 
 model Initiative {
@@ -127,6 +134,7 @@ model Initiative {
   roles         String[]         @default([]) // Array of roles/skills needed (tags)
   status        InitiativeStatus
   createdAt     DateTime         @default(now())
+  updatedAt     DateTime?        @updatedAt // Made updatedAt optional for existing records
   creatorId     String
   creator       User             @relation("CreatorOfInitiative", fields: [creatorId], references: [id])
   memberships   InitiativeMembership[]
@@ -137,6 +145,9 @@ model Initiative {
   goals         Goal[]
   actions       Action[]
   linkedPosts   GeneralPost[]    @relation("LinkedInitiativePosts")
+  aiGuidance    String? // Store AI-generated getting started guidance
+  championedIssue     Issue?       @relation("ChampionedIssue") // New: Link to an Issue this initiative championed
+  championedIdea      Idea?        @relation("ChampionedIdea")  // New: Link to an Idea this initiative championed
 }
 
 model Milestone {
@@ -191,23 +202,31 @@ model MediaItem {
   update    Update?   @relation(fields: [updateId], references: [id])
   postId    String?   // Link to GeneralPost if part of a post
   post      GeneralPost? @relation(fields: [postId], references: [id])
+  issueId   String?     // New: Link to Issue if part of an issue
+  issue     Issue?      @relation("IssueMedia", fields: [issueId], references: [id])
+  ideaId    String?     // New: Link to Idea if part of an idea
+  idea      Idea?       @relation("IdeaMedia", fields: [ideaId], references: [id])
   // alt    String?
   // width  Int?
   // height Int?
 }
 
 model Update {
-  id            String     @id @default(cuid())
+  id            String    @id @default(cuid())
   initiativeId  String
   initiative    Initiative @relation(fields: [initiativeId], references: [id])
+  userId        String
+  user          User      @relation("CreatorOfUpdate", fields: [userId], references: [id])
   type          UpdateType
-  timestamp     DateTime   @default(now())
-  userId        String? // User who triggered the update
-  user          User?      @relation("CreatorOfUpdate", fields: [userId], references: [id])
-  userName      String? // Denormalized, consider removing
   content       String
-  media         MediaItem[] // One-to-many relation to MediaItem
-  details       Json? // For newStatus, roleName, memberName, etc.
+  details       Json? // Store arbitrary details about the update, e.g., { goalId: "...", milestoneId: "..." }
+  media         MediaItem[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime? @updatedAt // Make updatedAt optional
+
+  // Relationships based on details or content, potentially denormalized
+  goalId String? // Optional field to link update to a Goal
+  goal   Goal? @relation(fields: [goalId], references: [id])
 }
 
 model GeneralPost {
@@ -246,23 +265,21 @@ model ContributionItem {
 }
 
 model Goal {
-  id            String     @id @default(cuid())
+  id            String           @id @default(cuid())
   initiativeId  String
-  initiative    Initiative @relation(fields: [initiativeId], references: [id])
+  initiative    Initiative       @relation(fields: [initiativeId], references: [id])
   title         String
-  description   String
-  ownerId       String
-  owner         User       @relation("OwnerOfGoal", fields: [ownerId], references: [id])
-  ownerName     String // Denormalized from User.name
-  ownerAvatar   String? // Denormalized from User.image
+  description   String?
   status        GoalStatus
-  dueDate       DateTime?
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-  progress      Int? // 0-100
   priority      Priority?
-  tags          String[]   @default([])
+  dueDate       DateTime?
+  ownerId       String?
+  owner         User?            @relation("OwnerOfGoal", fields: [ownerId], references: [id])
+  tags          String[]         @default([])
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
   actions       Action[]
+  updates       Update[]
 }
 
 model Action { // Renamed from Task in types.ts
@@ -300,4 +317,40 @@ model InitiativeMembership {
   updatedAt    DateTime           @updatedAt
 
   @@unique([userId, initiativeId])
+}
+
+// New Model for Issues
+model Issue {
+  id                        String      @id @default(cuid())
+  title                     String
+  description               String
+  creatorId                 String
+  creator                   User        @relation("CreatorOfIssue", fields: [creatorId], references: [id])
+  createdAt                 DateTime    @default(now())
+  tags                      String[]    @default([])
+  location                  String?     
+  media                     MediaItem[] @relation("IssueMedia") // Corrected: Added @relation attribute
+  championCount             Int         @default(0)
+  championedById            String?
+  championedBy              User?       @relation("ChampionedIssueBy", fields: [championedById], references: [id])
+  championedByInitiativeId  String?     @unique 
+  championedByInitiative    Initiative? @relation("ChampionedIssue", fields: [championedByInitiativeId], references: [id])
+}
+
+// New Model for Ideas
+model Idea {
+  id                        String      @id @default(cuid())
+  title                     String
+  description               String
+  creatorId                 String
+  creator                   User        @relation("CreatorOfIdea", fields: [creatorId], references: [id])
+  createdAt                 DateTime    @default(now())
+  tags                      String[]    @default([])
+  location                  String?     
+  media                     MediaItem[] @relation("IdeaMedia") // Corrected: Added @relation attribute
+  championCount             Int         @default(0)
+  championedById            String?
+  championedBy              User?       @relation("ChampionedIdeaBy", fields: [championedById], references: [id])
+  championedByInitiativeId  String?     @unique 
+  championedByInitiative    Initiative? @relation("ChampionedIdea", fields: [championedByInitiativeId], references: [id])
 }

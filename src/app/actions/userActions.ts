@@ -11,7 +11,10 @@ const UpdateProfileSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100).optional(),
   bio: z.string().max(500).optional(),
   imageUrl: z.string().url().optional(),
-  bannerImageUrl: z.string().url().optional(), // Add bannerImageUrl to schema
+  bannerImageUrl: z.string().url().optional(),
+  username: z.string().min(3, 'Username must be at least 3 characters').max(30).optional(),
+  gender: z.enum(['male', 'female', 'other', 'prefer_not_to_say']).optional(),
+  websites: z.array(z.string().url()).max(2, 'Maximum 2 websites allowed').optional(),
 });
 
 export interface UpdateUserProfileActionState {
@@ -21,7 +24,10 @@ export interface UpdateUserProfileActionState {
     name?: string[];
     bio?: string[];
     imageUrl?: string[];
-    bannerImageUrl?: string[]; // Add bannerImageUrl to errors
+    bannerImageUrl?: string[];
+    username?: string[];
+    gender?: string[];
+    websites?: string[];
     general?: string[];
   };
 }
@@ -46,12 +52,16 @@ export async function updateUserProfileAction(
     name?: string;
     bio?: string;
     imageUrl?: string;
-    bannerImageUrl?: string; // Add bannerImageUrl to rawData
+    bannerImageUrl?: string;
+    username?: string;
+    gender?: string;
+    websites?: string[];
   } = {
     name: formData.get('name') as string | undefined,
     bio: formData.get('bio') as string | undefined,
-    // imageUrl will be added below if present in formData
-    // bannerImageUrl will be added below if present in formData
+    username: formData.get('username') as string | undefined,
+    gender: formData.get('gender') as string | undefined,
+    websites: formData.getAll('websites') as string[],
   };
 
   // Handle imageUrl if it's directly passed (e.g., after an upload)
@@ -78,15 +88,26 @@ export async function updateUserProfileAction(
     };
   }
 
-  const { name, bio, imageUrl: validatedImageUrl, bannerImageUrl: validatedBannerImageUrl } = validatedFields.data;
+  const { name, bio, imageUrl: validatedImageUrl, bannerImageUrl: validatedBannerImageUrl, username, gender, websites } = validatedFields.data;
 
   try {
-    const dataToUpdate: { name?: string; bio?: string; image?: string; bannerImageUrl?: string; } = {}; // Add bannerImageUrl to dataToUpdate
+    const dataToUpdate: { 
+      name?: string; 
+      bio?: string; 
+      image?: string; 
+      bannerImageUrl?: string;
+      username?: string;
+      gender?: string;
+      websites?: string[];
+    } = {};
+    
     if (name) dataToUpdate.name = name;
     if (bio) dataToUpdate.bio = bio;
     if (validatedImageUrl) dataToUpdate.image = validatedImageUrl;
     if (validatedBannerImageUrl) dataToUpdate.bannerImageUrl = validatedBannerImageUrl;
-
+    if (username) dataToUpdate.username = username;
+    if (gender) dataToUpdate.gender = gender;
+    if (websites) dataToUpdate.websites = websites;
 
     if (Object.keys(dataToUpdate).length === 0) {
         return {

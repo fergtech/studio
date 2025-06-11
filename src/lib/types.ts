@@ -1,10 +1,10 @@
-import type { User as PrismaUser, Initiative as PrismaInitiative, Milestone as PrismaMilestone, Goal as PrismaGoal, Update as PrismaUpdate, ChatMessage as PrismaChatMessage, MediaItem as PrismaMediaItem, InitiativeRoleType as PrismaInitiativeRoleType, UpdateType as PrismaUpdateType, MediaType as PrismaMediaType } from '@prisma/client';
+import type { User as PrismaUser, Initiative as PrismaInitiative, Milestone as PrismaMilestone, Goal as PrismaGoal, Update as PrismaUpdate, ChatMessage as PrismaChatMessage, MediaItem as PrismaMediaItem, InitiativeRoleType as PrismaInitiativeRoleType, UpdateType as PrismaUpdateType, MediaType as PrismaMediaType, InitiativeStatus as PrismaInitiativeStatus } from '@prisma/client';
 
 // Re-export PrismaInitiativeRoleType as InitiativeRoleType for use in other modules
 export type InitiativeRoleType = PrismaInitiativeRoleType;
 
 export type MilestoneStatus = 'not_started' | 'in_progress' | 'completed';
-export type InitiativeStatus = 'draft' | 'active' | 'completed' | 'archived';
+export type InitiativeStatus = PrismaInitiativeStatus;
 export type StepStatus = "ToDo" | "InProgress" | "Blocked" | "InReview" | "Done"; 
 export type GoalStatus = 'NotStarted' | 'InProgress' | 'Completed' | 'Blocked';
 export type Priority = 'Low' | 'Medium' | 'High';
@@ -34,7 +34,7 @@ export interface InitiativeMembershipClient {
   // joinedAt?: Date; // Optional: if needed from Prisma model
 }
 
-export interface MediaItem extends Omit<PrismaMediaItem, 'initiativeId' | 'updateId' | 'chatMessageId'> {
+export interface MediaItem extends Omit<PrismaMediaItem, 'initiativeId' | 'updateId' | 'chatMessageId' | 'postId' | 'issueId' | 'ideaId'> {
   // Prisma MediaItem is fine, just ensure it's used consistently
 }
 
@@ -58,12 +58,11 @@ export interface Goal extends Omit<PrismaGoal,
   'createdAt' | 
   'updatedAt' | 
   'dueDate' | 
-  'priority' // Omit priority from PrismaGoal to redefine it below
+  'priority' | 
+  'ownerName' | // No longer directly on PrismaGoal
+  'ownerAvatar' | // No longer directly on PrismaGoal
+  'progress' // No longer directly on PrismaGoal
 > {
-  // Fields inherited from PrismaGoal (after Omit): 
-  // id, title, description, status, ownerName, ownerAvatar, progress, tags
-  // These fields are expected to be on the object passed to this type.
-
   // Client-specific transformations or additions:
   owner?: UserForDisplay | null; // Client-side object for display
   createdAt: Date; // Overridden for consistent Date type
@@ -94,7 +93,7 @@ export interface Update {
   content: string;
   // imageUrl?: string; // Replaced by media array
   createdAt: Date; // Should be present on PrismaUpdate
-  updatedAt: Date; // Should be present on PrismaUpdate
+  updatedAt: Date | null; // Corrected: Should be Date | null as per Prisma schema
   
   // Consistent with Prisma structure when user is included
   userId: string; 
@@ -105,7 +104,6 @@ export interface Update {
   // type: UpdateType; // Will use PrismaUpdateType
   type: PrismaUpdateType; // Use the enum from @prisma/client
   
-  timestamp: Date; // Prisma's timestamp field
   details?: Record<string, any>; // Prisma's Json field
 
   // Optional client-side enhancements or aggregated data
@@ -138,15 +136,16 @@ export interface Initiative {
   description: string;
   status: InitiativeStatus; // Prisma's InitiativeStatus enum (e.g., 'active', 'draft')
   createdAt: Date;
-  updatedAt: Date;
+  updatedAt: Date | null; // Added for consistency with Prisma model
   imageUrl: string | null;
   creator: UserForDisplay; // Creator of the initiative
   memberships: InitiativeMembershipClient[]; // Array of members with their roles
-  roles: Role[]; // These are the SKILL roles/tags the initiative is looking for (e.g., "Developer", "Designer")
+  roles: string[]; // These are the SKILL roles/tags the initiative is looking for (e.g., "Developer", "Designer")
   updates: Update[]; 
   goals: Goal[];
   milestones: Milestone[];
   chatMessages: EnhancedChatMessage[]; 
+  aiGuidance?: string | null; // Add AI-generated getting started guidance
 }
 
 // --- Step Interface ---
@@ -315,5 +314,35 @@ export interface Task {
   createdAt: Date;
   updatedAt: Date;
   creator?: UserForDisplay | null;
+}
+
+export interface Issue {
+  id: string;
+  title: string;
+  description: string;
+  creatorId: string;
+  creator: UserForDisplay; // Assuming UserForDisplay is the client-side representation of a user
+  createdAt: Date;
+  tags: string[];
+  location?: string | null;
+  media: MediaItem[]; // New: Array of media items
+  championCount: number; // New: Number of champions
+  championedBy?: UserForDisplay | null; // New: User who championed it
+  championedByInitiativeId?: string | null; // Optional link to an initiative
+}
+
+export interface Idea {
+  id: string;
+  title: string;
+  description: string;
+  creatorId: string;
+  creator: UserForDisplay; // Assuming UserForDisplay is the client-side representation of a user
+  createdAt: Date;
+  tags: string[];
+  location?: string | null;
+  media: MediaItem[]; // New: Array of media items
+  championCount: number; // New: Number of champions
+  championedBy?: UserForDisplay | null; // New: User who championed it
+  championedByInitiativeId?: string | null; // Optional link to an initiative
 }
 

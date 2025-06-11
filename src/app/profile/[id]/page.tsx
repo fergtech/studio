@@ -1,150 +1,231 @@
-'use server';
-
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
+import { Initiative, Update, ChatMessage, ContributionItem } from "@/lib/types";
+import ProfileClient from './ProfileClient';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import Image from 'next/image';
 import { notFound } from 'next/navigation';
-import Link from 'next/link';
-import { Button } from '@/components/ui/button'; // Assuming you have a Button component from shadcn/ui
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs" // Import Tabs components
-
-// We will create this client component later to handle the edit form display
-// import EditProfileModal from './EditProfileModal'; 
-// import { User } from '@prisma/client'; // If you pass the full user object to client component
 
 interface ProfilePageProps {
   params: {
-    id: string; // This will be the user ID from the URL
+    id: string;
+  };
+}
+
+// Add this function before the ProfilePage component
+function transformInitiative(initiative: any): Initiative {
+  return {
+    ...initiative,
+    updates: initiative.updates?.map((update: any) => ({
+      ...update,
+      details: update.details ? JSON.parse(JSON.stringify(update.details)) : undefined
+    })) || [],
+    createdAt: new Date(initiative.createdAt),
+    updatedAt: new Date(initiative.updatedAt)
   };
 }
 
 export default async function ProfilePage({ params: incomingParams }: ProfilePageProps) {
-  // Speculative fix: Await the params object itself based on the error message.
-  const params = await incomingParams;
-
   const session = await getServerSession(authOptions);
   const loggedInUserId = session?.user?.id;
-  
-  // If the route is /profile/me, use the logged-in user's ID
-  const profileUserId = params.id === 'me' && loggedInUserId ? loggedInUserId : params.id;
+
+  console.log('Session:', session);
+  console.log('Logged in user ID:', loggedInUserId);
+
+  const profileUserId = incomingParams.id === 'me' && loggedInUserId ? loggedInUserId : incomingParams.id;
+
+  console.log('Profile user ID (after resolving "me"):', profileUserId);
 
   if (!profileUserId) {
-    // This case might happen if /profile/me is accessed without being logged in.
-    // Or if params.id is somehow undefined, though Next.js routing usually prevents that.
-    notFound(); 
+    notFound();
   }
 
-  const user = await prisma.user.findUnique({
+  // Define the user query with all necessary includes, excluding direct updates and chatMessages for now
+  const userQuery = {
     where: { id: profileUserId },
-    // Optionally include related data if needed directly on this page
-    // include: {
-    //   posts: true,
-    //   initiativesMember: { include: { initiative: true } },
-    // }
-  });
+    include: {
+      createdInitiatives: {
+        include: {
+          creator: true,
+          memberships: {
+            include: {
+              user: true
+            }
+          },
+          updates: {
+            include: {
+              user: true,
+              media: true
+            }
+          },
+          goals: {
+            include: {
+              owner: true
+            }
+          },
+          milestones: {
+            include: {
+              creator: true
+            }
+          }
+        }
+      },
+      initiativeMemberships: {
+        select: {
+          createdAt: true,
+          role: true,
+          initiative: {
+            include: {
+              creator: true,
+              memberships: {
+                include: {
+                  user: true
+                }
+              },
+              updates: {
+                include: {
+                  user: true,
+                  media: true
+                }
+              },
+              goals: {
+                include: {
+                  owner: true
+                }
+              },
+              milestones: {
+                include: {
+                  creator: true
+                }
+              }
+            }
+          }
+        }
+      },
+      createdGeneralPosts: {
+        include: {
+          media: true
+        },
+        orderBy: {
+          timestamp: 'desc'
+        }
+      },
+    }
+  } as const;
+
+  // Define a type for the user object based on the Prisma query result
+  type UserWithInitiativesAndPosts = Prisma.UserGetPayload<typeof userQuery>;
+
+  // Fetch the user data
+  const user = await prisma.user.findUnique(userQuery);
 
   if (!user) {
     notFound();
   }
 
-  const isOwnProfile = loggedInUserId === user.id;
+  // Assert the type of the user object
+  const typedUser = user as UserWithInitiativesAndPosts;
 
-  return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-3xl mx-auto bg-white dark:bg-gray-800 shadow-xl rounded-lg overflow-hidden">
-        <div className="relative h-56 w-full bg-gradient-to-r from-purple-600 to-blue-500">
-          {user.bannerImageUrl ? (
-            <Image
-              src={user.bannerImageUrl}
-              alt={`${user.name ?? 'User'}'s banner image`}
-              layout="fill"
-              objectFit="cover"
-              priority
-            />
-          ) : (
-            // Placeholder or default banner styling if no image
-            <div className="h-full w-full bg-gradient-to-r from-purple-500 to-blue-400 dark:from-purple-700 dark:to-blue-600"></div>
-          )}
-        </div>
-        <div className="p-6 sm:p-8">
-          <div className="flex flex-col sm:flex-row items-center sm:items-end sm:-mt-24">
-            <div className="relative w-32 h-32 sm:w-40 sm:h-40 rounded-full border-4 border-white dark:border-gray-700 shadow-[0_0_15px_5px_rgba(59,130,246,0.4)] dark:shadow-[0_0_15px_5px_rgba(59,130,246,0.3)] overflow-hidden mb-4 sm:mb-0">
-              {user.image ? (
-                <Image
-                  src={user.image}
-                  alt={user.name ?? 'User profile image'}
-                  layout="fill"
-                  objectFit="cover"
-                  priority // Prioritize loading profile image
-                />
-              ) : (
-                <div className="bg-gray-300 dark:bg-gray-600 h-full w-full flex items-center justify-center">
-                  <span className="text-gray-500 dark:text-gray-400 text-4xl">
-                    {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-                  </span>
-                </div>
-              )}
-            </div>
-            <div className="sm:ml-6 text-center sm:text-left">
-              <h1 className="text-3xl sm:text-4xl font-bold text-gray-800 dark:text-white">
-                {user.name ?? 'Anonymous User'}
-              </h1>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Joined: {new Date(user.dateCreated).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
-              </p>
-            </div>
-            {isOwnProfile && (
-              <div className="mt-4 sm:mt-0 sm:ml-auto">
-                {/* 
-                  This button will eventually link to an edit page or trigger a modal.
-                  For now, linking to /profile/[id]/edit which we can create next.
-                */}
-                <Button asChild variant="outline" size="sm">
-                  <Link href={`/profile/${user.id}/edit`}>Edit Profile</Link>
-                </Button>
-                {/* 
-                  Alternatively, to open a modal (requires client component setup):
-                  <EditProfileModal user={user} /> 
-                */}
-              </div>
-            )}
-          </div>
-          
-          <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
-            <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-3">Bio</h2>
-            <p className="text-gray-600 dark:text-gray-400 whitespace-pre-wrap leading-relaxed">
-              {user.bio ? user.bio : (isOwnProfile ? 'You haven\'t added a bio yet. Click "Edit Profile" to tell us about yourself!' : 'This user hasn\'t shared a bio yet.')}
-            </p>
-          </div>
+  // Fetch updates and chat messages separately
+  const userUpdates = await prisma.update.findMany({
+    where: { userId: profileUserId },
+    include: {
+      user: true,
+      media: true,
+      initiative: true, // Include initiative for context
+    },
+    orderBy: {
+      createdAt: 'desc'
+    },
+  });
 
-          {/* Tabbed sections for Activity Feed and Initiatives */}
-          <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
-            <Tabs defaultValue="activity" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="activity">Activity Feed</TabsTrigger>
-                <TabsTrigger value="initiatives">Initiatives</TabsTrigger>
-              </TabsList>
-              <TabsContent value="activity">
-                <div className="mt-4">
-                  <p className="text-gray-500 dark:text-gray-400">
-                    {isOwnProfile ? 'Your recent activities will appear here.' : 'Recent activities from this user will appear here.'}
-                    {/* TODO: Implement activity feed component */}
-                  </p>
-                </div>
-              </TabsContent>
-              <TabsContent value="initiatives">
-                <div className="mt-4">
-                  <p className="text-gray-500 dark:text-gray-400">
-                    {isOwnProfile ? 'Initiatives you are part of will be listed here.' : 'Initiatives this user is part of will be listed here.'}
-                    {/* TODO: Implement initiatives list component */}
-                  </p>
-                </div>
-              </TabsContent>
-            </Tabs>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  const userChatMessages = await prisma.chatMessage.findMany({
+    where: { senderId: profileUserId },
+    include: {
+      sender: true,
+      initiative: true, // Include initiative for context
+    },
+    orderBy: {
+      timestamp: 'desc'
+    },
+  });
+
+  // Transform the data
+  const transformedUser = {
+    ...typedUser,
+    createdInitiatives: typedUser.createdInitiatives.map(transformInitiative),
+    initiativeMemberships: typedUser.initiativeMemberships.map(membership => ({
+      ...membership,
+      initiative: transformInitiative(membership.initiative)
+    })),
+  };
+
+  // Aggregate all activities into a single feed
+  const activityFeed: ContributionItem[] = [];
+
+  // Add general posts
+  transformedUser.createdGeneralPosts.forEach(post => {
+    activityFeed.push({
+      id: post.id,
+      type: 'post_creation',
+      title: 'New Post',
+      date: post.timestamp,
+      details: post.content,
+    });
+  });
+
+  // Add created initiatives
+  transformedUser.createdInitiatives.forEach(initiative => {
+    activityFeed.push({
+      id: initiative.id,
+      type: 'initiative_creation',
+      title: initiative.title,
+      date: initiative.createdAt,
+      details: initiative.description,
+      relatedInitiativeId: initiative.id,
+    });
+  });
+
+  // Add initiative memberships (user joining an initiative)
+  transformedUser.initiativeMemberships.forEach(membership => {
+    activityFeed.push({
+      id: membership.initiative.id + '-join', // Unique ID for join activity
+      type: 'initiative_join',
+      title: `Joined ${membership.initiative.title}`,
+      date: membership.createdAt, // Use createdAt directly now
+      details: `Role: ${membership.role}`,
+      relatedInitiativeId: membership.initiative.id,
+    });
+  });
+
+  // Add initiative updates (fetched separately)
+  userUpdates.forEach(update => {
+    activityFeed.push({
+      id: update.id,
+      type: 'post', // Using 'post' type for general updates within an initiative
+      title: `Update in ${update.initiative?.title || update.initiativeId}`,
+      date: update.createdAt,
+      details: update.content,
+      relatedInitiativeId: update.initiativeId || undefined,
+    });
+  });
+
+  // Add chat messages (fetched separately)
+  userChatMessages.forEach(chatMessage => {
+    activityFeed.push({
+      id: chatMessage.id,
+      type: 'comment', // Using 'comment' type for chat messages as they are textual contributions
+      title: `Chat message in ${chatMessage.initiative?.title || chatMessage.initiativeId}`,
+      date: chatMessage.timestamp,
+      details: chatMessage.text,
+      relatedInitiativeId: chatMessage.initiativeId || undefined,
+    });
+  });
+
+  // Sort activity feed by date in descending order
+  activityFeed.sort((a, b) => b.date.getTime() - a.date.getTime());
+
+  const isOwnProfile = loggedInUserId === profileUserId;
+
+  return <ProfileClient user={transformedUser} isOwnProfile={isOwnProfile} activityFeed={activityFeed} />;
 }

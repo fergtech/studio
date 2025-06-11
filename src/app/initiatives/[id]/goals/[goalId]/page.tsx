@@ -14,16 +14,21 @@ import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
+import { CalendarIcon } from 'lucide-react';
 
-import type { Goal, Action, Initiative, GoalStatus, Priority, StepStatus } from '@/lib/types'; // Added GoalStatus, Priority, StepStatus
+import type { Goal, Action, Initiative, GoalStatus, Priority, StepStatus, UserForDisplay } from '@/lib/types'; // Added UserForDisplay
 import { getGoalDetails, getInitiativeDetailsForGoalPage, getRelatedActions } from '@/app/actions/goalActions';
 import { getInitiativeById } from '@/app/actions/initiativeActions';
 import { InitiativeMembershipClient } from '@/lib/types';
+import { SuggestedActionTag } from '@/components/initiatives/SuggestedActionTag'; // Import SuggestedActionTag
 
 function ActionList({ actions, onActionStatusChange }: { actions: Action[], onActionStatusChange: (actionId: string, status: string) => void }) {
   return (
@@ -112,6 +117,10 @@ export default function GoalDetailPage() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [initiativeMembers, setInitiativeMembers] = useState<{ id: string; name: string }[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // State for suggested actions
+  const [suggestedActions, setSuggestedActions] = useState<Array<{ title: string; description: string }>>([]);
+  const [selectedSuggestedAction, setSelectedSuggestedAction] = useState<{ title: string; description: string } | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -254,7 +263,10 @@ export default function GoalDetailPage() {
         const createdAction = await response.json();
         setActions((prevActions) => [...prevActions, createdAction]);
         setIsAddActionModalOpen(false);
+        // Reset new action form state
         setNewAction({ title: '', description: '', dueDate: '', priority: '', assigneeId: '' });
+        // Clear selected suggested action after creation
+        setSelectedSuggestedAction(null);
       } else {
         console.error('Failed to add action');
       }
@@ -262,6 +274,42 @@ export default function GoalDetailPage() {
       console.error('Error adding action:', error);
     }
   };
+
+  const handleSuggestedActionClick = (action: { title: string; description: string }) => {
+    setSelectedSuggestedAction(action);
+    setIsAddActionModalOpen(true);
+    // Also update the newAction state with the suggested action details
+    setNewAction(prevNewAction => ({
+      ...prevNewAction,
+      title: action.title,
+      description: action.description,
+      // dueDate and priority are not part of the suggested action data, so they remain as is or require user input
+    }));
+  };
+
+  // Effect to fetch suggested actions when the goalId changes
+  useEffect(() => {
+    const fetchSuggestedActions = async () => {
+      const goalId = params.goalId as string;
+      if (!goalId) return;
+      console.log('Fetching suggested actions for goal:', goalId);
+      try {
+        const response = await fetch(`/api/goals/${goalId}/suggest-actions`);
+        if (!response.ok) {
+          console.error('Failed to fetch suggested actions:', response.statusText);
+          setSuggestedActions([]); // Clear suggestions on error
+          return;
+        }
+        const data = await response.json();
+        setSuggestedActions(data);
+      } catch (error) {
+        console.error('Error fetching suggested actions:', error);
+        setSuggestedActions([]); // Clear suggestions on error
+      }
+    };
+
+    fetchSuggestedActions();
+  }, [params.goalId, setSuggestedActions]); // Depend on params.goalId and setSuggestedActions
 
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
@@ -391,11 +439,26 @@ export default function GoalDetailPage() {
 
         <TabsContent value="actions" className="space-y-4">
           <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold">Related Actions</h2>
+            <h2 className="text-xl font-semibold">Goal Actions</h2>
             <Button onClick={() => setIsAddActionModalOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Add Action
             </Button>
+          </div>
+          {/* Suggested Actions Section */}
+          <div className="mt-6 p-4 rounded-md bg-muted/50">
+            <h3 className="text-lg font-semibold mb-3">Recommended</h3>
+            {/* Placeholder for suggested actions */}
+            <div className="flex gap-2 overflow-x-auto pb-2 md:flex-wrap">
+              {suggestedActions.map((action, index) => (
+                <SuggestedActionTag
+                  key={index} // Using index as key here, consider a unique ID if available
+                  title={action.title}
+                  description={action.description}
+                  onClick={handleSuggestedActionClick}
+                />
+              ))}
+            </div>
           </div>
           <ActionList actions={actions} onActionStatusChange={(actionId, status) => {
             setActions((prevActions) =>
@@ -428,88 +491,99 @@ export default function GoalDetailPage() {
 
         {/* Add Action Modal */}
         <Dialog open={isAddActionModalOpen} onOpenChange={setIsAddActionModalOpen}>
-          <DialogContent>
+          <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
-              <DialogTitle>Add New Action</DialogTitle>
+              <DialogTitle>Create New Action</DialogTitle>
+              <DialogDescription>
+                Define a new action for this goal. Click Add when you're done.
+              </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
-              <Input
-                placeholder="Title"
-                value={newAction.title}
-                onChange={(e) => setNewAction({ ...newAction, title: e.target.value })}
-              />
-              <Textarea
-                placeholder="Description"
-                value={newAction.description}
-                onChange={(e) => setNewAction({ ...newAction, description: e.target.value })}
-              />
-              {/* Updated Due Date Field */}
-              <Popover open={dueDatePickerOpen} onOpenChange={setDueDatePickerOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start">
-                    {selectedDate ? selectedDate.toLocaleString() : "Pick a due date and time"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <div className="p-4">
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="title" className="text-right">
+                  Title
+                </Label>
+                <Input
+                  id="title"
+                  value={selectedSuggestedAction?.title || newAction.title}
+                  onChange={(e) => setNewAction({ ...newAction, title: e.target.value })}
+                  placeholder="E.g., Research potential venues"
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="description" className="text-right">
+                  Description
+                </Label>
+                <Textarea
+                  id="description"
+                  value={selectedSuggestedAction?.description || newAction.description}
+                  onChange={(e) => setNewAction({ ...newAction, description: e.target.value })}
+                  placeholder="Provide more details about the action"
+                  className="col-span-3"
+                />
+              </div>
+              {/* Due Date Picker */}
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="dueDate" className="text-right">Due Date</Label>
+                <Popover open={dueDatePickerOpen} onOpenChange={setDueDatePickerOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={"outline"}
+                      className={cn(
+                        "col-span-3 justify-start text-left font-normal",
+                        !selectedDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
                     <Calendar
                       mode="single"
                       selected={selectedDate}
-                      onSelect={(date) => {
-                        if (date instanceof Date) {
-                          setSelectedDate(date);
-                        }
-                      }}
+                      onSelect={handleDateSelect}
+                      initialFocus
                     />
-                    <div className="mt-4">
-                      <label htmlFor="time" className="block text-sm font-medium text-muted-foreground">Select Time</label>
-                      <input
-                        id="time"
-                        type="time"
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                        onChange={(e) => {
-                          if (selectedDate) {
-                            const [hours, minutes] = e.target.value.split(":");
-                            const updatedDate = new Date(selectedDate);
-                            updatedDate.setHours(parseInt(hours, 10));
-                            updatedDate.setMinutes(parseInt(minutes, 10));
-                            setSelectedDate(updatedDate);
-                            setNewAction({ ...newAction, dueDate: updatedDate.toISOString() });
-                          }
-                        }}
-                      />
-                    </div>
-                  </div>
-                </PopoverContent>
-              </Popover>
-              {/* Updated priority dropdown to send enum values */}
-              <Select
-                value={newAction.priority}
-                onValueChange={(value) => setNewAction({ ...newAction, priority: value })} // Send case-sensitive values directly
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select Priority" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="High">High</SelectItem>
-                  <SelectItem value="Medium">Medium</SelectItem>
-                  <SelectItem value="Low">Low</SelectItem>
-                </SelectContent>
-              </Select>
-              {/* Assignee Select - New field for assigning actions */}
-              <Select
-                value={newAction.assigneeId}
-                onValueChange={(value) => setNewAction({ ...newAction, assigneeId: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select Assignee" />
-                </SelectTrigger>
-                <SelectContent>
-                  {initiativeMembers.map((member) => (
-                    <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                  </PopoverContent>
+                </Popover>
+              </div>
+              {/* Priority Select */}
+              <div className="grid grid-cols-4 items-center gap-4">
+                 <Label htmlFor="priority" className="text-right">Priority</Label>
+                 <Select
+                   value={newAction.priority}
+                   onValueChange={(value) => setNewAction({ ...newAction, priority: value })} // Send case-sensitive values directly
+                 >
+                   <SelectTrigger className="col-span-3">
+                     <SelectValue placeholder="Select Priority" />
+                   </SelectTrigger>
+                   <SelectContent>
+                     {/* Assuming Priority enum has values like High, Medium, Low */}
+                     <SelectItem value="High">High</SelectItem>
+                     <SelectItem value="Medium">Medium</SelectItem>
+                     <SelectItem value="Low">Low</SelectItem>
+                   </SelectContent>
+                 </Select>
+               </div>
+               {/* Assignee Select - New field for assigning actions */}
+              <div className="grid grid-cols-4 items-center gap-4">
+                 <Label htmlFor="assignee" className="text-right">Assignee</Label>
+                 <Select
+                   value={newAction.assigneeId}
+                   onValueChange={(value) => setNewAction({ ...newAction, assigneeId: value })}
+                 >
+                   <SelectTrigger className="col-span-3">
+                     <SelectValue placeholder="Select Assignee" />
+                   </SelectTrigger>
+                   <SelectContent>
+                     {initiativeMembers.map((member) => (
+                       <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>
+                     ))}
+                   </SelectContent>
+                 </Select>
+               </div>
             </div>
             <DialogFooter>
               <Button variant="secondary" onClick={() => setIsAddActionModalOpen(false)}>

@@ -28,6 +28,7 @@ import {
 import { useToast } from '@/components/ui/use-toast';
 import { createGoal } from '@/app/actions/goalActions';
 import { useSession } from 'next-auth/react';
+import type { Goal } from '@/lib/types'; // Import Goal type
 
 const goalSchema = z.object({
   title: z.string().min(3, 'Title must be at least 3 characters long').max(100),
@@ -43,7 +44,9 @@ interface CreateGoalDialogProps {
   initiativeId: string;
   isOpen: boolean;
   onClose: () => void;
-  onGoalCreated: () => void; // To refresh the goals list
+  onGoalCreated: (goal: Goal) => void; // To refresh the goals list, now passing the new goal
+  initialTitle?: string;
+  initialDescription?: string;
 }
 
 export function CreateGoalDialog({
@@ -51,6 +54,8 @@ export function CreateGoalDialog({
   isOpen,
   onClose,
   onGoalCreated,
+  initialTitle,
+  initialDescription,
 }: CreateGoalDialogProps) {
   const { data: session } = useSession();
   const [isPending, startTransition] = useTransition();
@@ -59,8 +64,8 @@ export function CreateGoalDialog({
   const form = useForm<GoalFormData>({
     resolver: zodResolver(goalSchema),
     defaultValues: {
-      title: '',
-      description: '',
+      title: initialTitle || '',
+      description: initialDescription || '',
       status: GoalStatus.NotStarted,
       priority: Priority.Medium,
       // dueDate: null,
@@ -94,7 +99,7 @@ export function CreateGoalDialog({
             title: 'Goal Created!',
             description: `Successfully created goal: ${result.goal.title}`,
           });
-          onGoalCreated();
+          onGoalCreated(result.goal); // Pass the created goal
           form.reset();
           onClose();
         } else {

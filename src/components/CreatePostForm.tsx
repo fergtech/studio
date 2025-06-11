@@ -70,14 +70,30 @@ export default function CreatePostForm({ onPostCreated }: { onPostCreated: () =>
 
     setIsSubmitting(true);
     try {
-      const backgroundToSend = selectedMedia ? undefined : selectedBackground;
-      // For now, selectedMedia is not being sent to the backend.
-      // The backend action createGeneralPost currently doesn't handle file uploads.
-      const result = await createGeneralPost({ 
-        content,
-        background: backgroundToSend,
-        // linkedInitiativeId: undefined, // Add if you have a way to link posts to initiatives from this form
-       });
+      const formData = new FormData();
+      formData.append('content', content);
+
+      if (selectedMedia) {
+        formData.append('mediaFiles', selectedMedia); // selectedMedia is the File object
+        let mediaType = '';
+        if (selectedMedia.type.startsWith('image/')) {
+          mediaType = 'image';
+        } else if (selectedMedia.type.startsWith('video/')) {
+          mediaType = 'video';
+        }
+        // Add more types as needed (pdf, etc.) and ensure your MediaType enum in Prisma supports them
+        if (mediaType) {
+          formData.append('mediaTypes', mediaType);
+        }
+      } else if (selectedBackground) {
+        // Only send formBackground if no media is selected
+        formData.append('formBackground', selectedBackground);
+      }
+
+      // linkedInitiativeId is not currently part of this form's state or props to send
+      // If it were, it would be: formData.append('linkedInitiativeId', linkedInitiativeIdValue);
+
+      const result = await createGeneralPost(formData);
 
       if (result.success && result.post) {
         setContent('');
@@ -129,10 +145,11 @@ export default function CreatePostForm({ onPostCreated }: { onPostCreated: () =>
       {(mediaPreview || !selectedMedia) && (
         <div
           className="h-32 bg-cover bg-center relative flex items-center justify-center text-muted-foreground"
-          style={{
-            backgroundImage: mediaPreview ? `url(${mediaPreview})` : undefined,
-            background: !mediaPreview ? selectedBackground : undefined,
-          }}
+          style={
+            mediaPreview
+              ? { backgroundImage: `url(${mediaPreview})` }
+              : { background: selectedBackground }
+          }
         >
           {!mediaPreview && <Palette className="w-8 h-8" />} {/* Show palette icon on color bg */}
           {mediaPreview && <div className="absolute inset-0 bg-black/20"></div>} {/* Overlay on image */}

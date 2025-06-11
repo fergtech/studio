@@ -21,6 +21,11 @@ import { createInitiative } from '@/app/actions/initiativeActions'; // Import th
 // Update Zod type for status options to align with Prisma
 const initiativeStatusOptions: PrismaInitiativeStatus[] = Object.values(PrismaInitiativeStatus);
 
+// Format status for display
+const formatStatus = (status: PrismaInitiativeStatus): string => {
+  return status.replace(/([A-Z])/g, ' $1').trim();
+};
+
 // Define the form schema
 const formSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters").max(100),
@@ -250,7 +255,7 @@ export function CreateInitiativeForm({ setOpen }: CreateInitiativeFormProps) {
                 </FormControl>
                 <SelectContent>
                   {initiativeStatusOptions.map((status) => (
-                    <SelectItem key={status} value={status}>{status}</SelectItem>
+                    <SelectItem key={status} value={status}>{formatStatus(status)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

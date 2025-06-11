@@ -7,6 +7,12 @@ import { revalidatePath } from "next/cache";
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { Initiative as FrontendInitiativeType } from '@/lib/types'; // Removed RoleType as FrontendRoleType
+import { GoogleGenerativeAI } from "@google/generative-ai";
+
+// Initialize the Google Generative AI model
+console.log("GOOGLE_AI_API_KEY:", process.env.GOOGLE_AI_API_KEY);
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY!); // Use non-null assertion as we expect this to be set
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 
 interface CreateInitiativeArgs {
   title: string;
@@ -18,6 +24,8 @@ interface CreateInitiativeArgs {
 
 export async function createInitiative(args: CreateInitiativeArgs) {
   const session = await getServerSession(authOptions);
+
+  console.log("createInitiative: After getServerSession");
 
   if (!session?.user?.id) {
     return { error: "User not authenticated." };
@@ -34,13 +42,18 @@ export async function createInitiative(args: CreateInitiativeArgs) {
       where: { id: userId },
     });
 
+    console.log("createInitiative: After userExists check, userExists:", !!userExists);
+
     if (!userExists) {
       return { error: "Creator ID does not exist in the database." };
     }
 
     if (!Object.values(InitiativeStatus).includes(args.status)) {
+      console.log("createInitiative: Invalid initiative status:", args.status);
       return { error: "Invalid initiative status provided." };
     }
+
+    console.log("createInitiative: After status validation");
 
     const newInitiative = await prisma.initiative.create({
       data: {
@@ -71,13 +84,65 @@ export async function createInitiative(args: CreateInitiativeArgs) {
       },
     });
 
+    console.log("createInitiative: Immediately after prisma.initiative.create call.");
+    console.log("createInitiative: After prisma.initiative.create, newInitiative.id:", newInitiative.id);
+
+    console.log("Attempting to generate AI guidance..."); // Existing log
+    let aiGuidanceText = null;
+
+    try { // Inner try for AI generation
+      console.log("createInitiative: Inside AI generation try block");
+      // Generate AI guidance based on the initiative's title and description
+      const prompt = `Generate helpful getting started guidance for a new initiative titled "${newInitiative.title}" with the description: "${newInitiative.description}". Provide actionable steps or key considerations for someone looking to contribute or get involved. Format the response as a concise, easy-to-read text block.`;
+      console.log("Sending prompt to Gemini:", prompt);
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      aiGuidanceText = response.text();
+      console.log("Received guidance from Gemini:", aiGuidanceText);
+
+      // Update the initiative with the generated AI guidance
+      if (aiGuidanceText) {
+        console.log("createInitiative: Attempting to update initiative with AI guidance...");
+        await prisma.initiative.update({
+          where: { id: newInitiative.id },
+          data: {
+            aiGuidance: aiGuidanceText,
+          },
+        });
+        console.log(`Updated initiative ${newInitiative.id} with AI guidance.`);
+      }
+    } catch (aiError) { // Inner catch for AI generation errors
+      console.error("Caught error in AI generation try block:", aiError);
+      // The main catch block will also be triggered, so no need to re-throw
+    }
+
     revalidatePath("/");
     revalidatePath("/initiatives");
     revalidatePath(`/profile/${userId}`);
     revalidatePath(`/initiatives/${newInitiative.id}`);
 
-    return { success: true, initiative: newInitiative };
-  } catch (error) {
+    console.log("createInitiative: After revalidatePath calls");
+
+    // Fetch the initiative again to include the AI guidance before returning
+    console.log("createInitiative: Attempting to fetch updated initiative...");
+    const updatedInitiative = await prisma.initiative.findUnique({
+      where: { id: newInitiative.id },
+      include: { // Include necessary relations as in getInitiativeById
+        creator: { select: { id: true, name: true, image: true } },
+        memberships: { include: { user: { select: { id: true, name: true, image: true } } } },
+        updates: { orderBy: { createdAt: 'desc' }, include: { user: true, media: true } },
+        chatMessages: { orderBy: { timestamp: 'asc' }, include: { sender: true } },
+        milestones: { orderBy: { order: 'asc' }, include: { creator: true, steps: true } },
+        goals: { orderBy: { createdAt: 'asc' }, include: { owner: true } },
+      },
+    });
+
+    console.log("createInitiative: After fetching updated initiative, updatedInitiative.aiGuidance:", updatedInitiative?.aiGuidance);
+
+    return { success: true, initiative: updatedInitiative };
+
+  } catch (error) { // Main catch block
+    console.error("Caught error in createInitiative main catch block:", error);
     console.error("Error creating initiative:", error);
 
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -112,7 +177,7 @@ export async function getInitiativeById(id: string) {
           },
         },
         updates: {
-          orderBy: { timestamp: 'desc' },
+          orderBy: { createdAt: 'desc' },
           include: {
             user: {
               select: {
@@ -132,13 +197,7 @@ export async function getInitiativeById(id: string) {
         },
         chatMessages: {
           orderBy: { timestamp: 'asc' },
-          select: {
-            id: true,
-            initiativeId: true,
-            senderId: true,
-            senderName: true,
-            text: true,
-            timestamp: true,
+          include: {
             sender: {
               select: {
                 id: true,
@@ -276,7 +335,7 @@ export async function joinInitiativeAction(
         include: { 
           creator: true,
           memberships: { include: { user: {select: {id: true, name: true, image: true}}/*, role: true*/ } }, // REMOVED: role is a scalar
-          updates: { include: { user: true, media: true }, orderBy: { timestamp: 'desc' } },
+          updates: { include: { user: true, media: true }, orderBy: { createdAt: 'desc' } },
           chatMessages: { include: { sender: true }, orderBy: { timestamp: 'asc' } },
           milestones: { include: { creator: true, steps: true }, orderBy: { order: 'asc' } },
           goals: { include: { owner: true }, orderBy: { createdAt: 'asc' } },
@@ -330,7 +389,7 @@ export async function joinInitiativeAction(
       include: { 
         creator: true,
         memberships: { include: { user: {select: {id: true, name: true, image: true}} } },
-        updates: { include: { user: true, media: true }, orderBy: { timestamp: 'desc' } },
+        updates: { include: { user: true, media: true }, orderBy: { createdAt: 'desc' } },
         chatMessages: { include: { sender: true }, orderBy: { timestamp: 'asc' } },
         milestones: { include: { creator: true, steps: true }, orderBy: { order: 'asc' } },
         goals: { include: { owner: true }, orderBy: { createdAt: 'asc' } },
@@ -355,87 +414,66 @@ interface UpdateInitiativeArgs {
   initiativeId: string;
   title?: string;
   description?: string;
-  imageUrl?: string | null; 
+  imageUrl?: string;
+  roles?: string[];
+  status?: "DRAFT" | "PUBLISHED" | "ARCHIVED";
 }
 
-export async function updateInitiativeAction(args: UpdateInitiativeArgs): Promise<{ success: boolean; error?: string; initiative?: FrontendInitiativeType | Prisma.InitiativeGetPayload<{ include: { creator: true, memberships: { include: { user: { select: { id: true, name: true, image: true } } } }, updates: { orderBy: { timestamp: 'desc' }, include: { user: true, media: true } }, chatMessages: { orderBy: { timestamp: 'asc' }, include: { sender: true } }, milestones: { orderBy: { order: 'asc' }, include: { creator: true, steps: true } }, goals: { orderBy: { createdAt: 'asc' }, include: { owner: true } } } }> | any }> {
+export async function updateInitiative({
+  initiativeId,
+  title,
+  description,
+  imageUrl,
+  roles,
+  status,
+}: UpdateInitiativeArgs) {
   const session = await getServerSession(authOptions);
 
-  if (!session?.user?.id) {
-    return { success: false, error: "User not authenticated." };
+  if (!session?.user) {
+    return { error: "You must be logged in to update an initiative." };
   }
-  const userId = session.user.id;
 
   try {
-    const membership = await prisma.initiativeMembership.findUnique({
-      where: {
-        userId_initiativeId: {
-          userId: userId,
-          initiativeId: args.initiativeId,
-        },
-      },
+    const initiative = await prisma.initiative.findUnique({
+      where: { id: initiativeId },
+      select: { creatorId: true },
     });
 
-    if (!membership || membership.role !== InitiativeRoleType.ADMIN) {
-      return { success: false, error: "User is not authorized to edit this initiative or is not a member." };
+    if (!initiative) {
+      return { error: "Initiative not found." };
     }
 
-    const updateData: Prisma.InitiativeUpdateInput = {};
-    let hasChanges = false;
-    if (args.title !== undefined) {
-      updateData.title = args.title;
-      hasChanges = true;
-    }
-    if (args.description !== undefined) {
-      updateData.description = args.description;
-      hasChanges = true;
-    }
-    if (args.imageUrl !== undefined) { // This handles both string URL and null for clearing the image
-      updateData.imageUrl = args.imageUrl;
-      hasChanges = true;
+    if (initiative.creatorId !== session.user.id) {
+      return { error: "You are not authorized to update this initiative." };
     }
 
-    if (!hasChanges) {
-      // No actual update fields were provided.
-      const currentInitiativeData = await getInitiativeById(args.initiativeId);
-      if (currentInitiativeData.initiative) {
-        return { success: true, initiative: currentInitiativeData.initiative };
-      } else {
-        return { success: false, error: currentInitiativeData.error || "No changes provided and failed to fetch current initiative data." };
-      }
+    const updateData: any = {};
+    if (title) updateData.title = title;
+    if (description) updateData.description = description;
+    if (roles) updateData.roles = roles;
+    if (status) updateData.status = status;
+
+    // Handle imageUrl updates
+    if (imageUrl !== undefined) { // Check if imageUrl was provided in the update, even if null
+      // No direct media items table for initiatives, just update the URL.
+      // If imageUrl is null, it means the user wants to remove the image.
+      updateData.imageUrl = imageUrl;
     }
 
     const updatedInitiative = await prisma.initiative.update({
-      where: { id: args.initiativeId },
+      where: { id: initiativeId },
       data: updateData,
-      include: {
-        creator: true,
-        memberships: {
-          include: {
-            user: { select: { id: true, name: true, image: true } }
-          }
-        },
-        updates: { orderBy: { timestamp: 'desc' }, include: { user: true, media: true } },
-        chatMessages: { orderBy: { timestamp: 'asc' }, include: { sender: true } },
-        milestones: { orderBy: { order: 'asc' }, include: { creator: true, steps: true } },
-        goals: { orderBy: { createdAt: 'asc' }, include: { owner: true } },
-      },
     });
 
-    revalidatePath(`/initiatives/${args.initiativeId}`);
-    revalidatePath('/');
+    revalidatePath("/");
+    revalidatePath("/initiatives");
+    revalidatePath(`/initiatives/${initiativeId}`);
+    revalidatePath(`/profile/${session.user.id}`);
 
     return { success: true, initiative: updatedInitiative };
-
-  } catch (error: any) {
-    console.error(`Error updating initiative ${args.initiativeId}:`, error);
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      if (error.code === 'P2025') {
-        return { success: false, error: "Initiative not found or could not be updated." };
-      }
-      return { success: false, error: `Database error: ${error.code}` };
-    }
-    return { success: false, error: "An unexpected error occurred while updating the initiative." };
+  } catch (error) {
+    console.error("Error updating initiative:", error);
+    return { error: "Failed to update initiative." };
   }
 }
 

@@ -34,8 +34,9 @@ export interface InitiativeMembershipClient {
   // joinedAt?: Date; // Optional: if needed from Prisma model
 }
 
-export interface MediaItem extends Omit<PrismaMediaItem, 'initiativeId' | 'updateId' | 'chatMessageId' | 'postId' | 'issueId' | 'ideaId'> {
-  // Prisma MediaItem is fine, just ensure it's used consistently
+export interface MediaItem extends Omit<PrismaMediaItem, 'initiativeId' | 'updateId' | 'chatMessageId' | 'postId'> {
+  issueId: string | null;
+  ideaId: string | null;
 }
 
 export interface Milestone {
@@ -60,8 +61,7 @@ export interface Goal extends Omit<PrismaGoal,
   'dueDate' | 
   'priority' | 
   'ownerName' | // No longer directly on PrismaGoal
-  'ownerAvatar' | // No longer directly on PrismaGoal
-  'progress' // No longer directly on PrismaGoal
+  'ownerAvatar' // Removed 'progress' exclusion
 > {
   // Client-specific transformations or additions:
   owner?: UserForDisplay | null; // Client-side object for display
@@ -70,6 +70,7 @@ export interface Goal extends Omit<PrismaGoal,
   dueDate?: Date | null; // Overridden for consistent Date type
   
   priority?: Priority | null; // Redefined: optional and nullable client-side priority
+  progress: number | null; // Explicitly define progress as number | null
 }
 
 // UpdateType for activity feed items.
@@ -288,6 +289,7 @@ export interface Comment {
 export interface EnhancedChatMessage extends ChatMessage {
   user: UserForDisplay; // Added user property
   // content: string; // Removed redundant content property, text from ChatMessage should be used
+  createdAt: Date; // Added createdAt property
 }
 
 export interface OnlineMember {

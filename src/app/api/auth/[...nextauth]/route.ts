@@ -57,6 +57,7 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (session.user) {
         (session.user as any).id = token.id;
+        (session.user as any).image = token.image; // Ensure image field is included
         console.log('Session user:', session.user); // Log session user details
       } else {
         console.warn('Session user is undefined');

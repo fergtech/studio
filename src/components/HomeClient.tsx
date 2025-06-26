@@ -1,5 +1,6 @@
 'use client';
 
+import React, { useState, useEffect } from 'react'; // Import React hooks
 import { InitiativeCard } from "@/components/InitiativeCard";
 import { GeneralPostCard } from "@/components/GeneralPostCard";
 import CreatePostForm from "@/components/CreatePostForm";
@@ -48,15 +49,47 @@ function isTaggedContent(item: FeedItemDb): item is IssueWithCreator | IdeaWithC
 }
 
 interface HomeClientProps {
-  feedItems: FeedItemDb[];
+  // feedItems: FeedItemDb[]; // Removed as HomeClient will fetch its own data
   currentUserId?: string; // Add currentUserId prop
 }
 
-export function HomeClient({ feedItems, currentUserId }: HomeClientProps) {
+export function HomeClient({ /* feedItems, */ currentUserId }: HomeClientProps) {
+  const [feedItems, setFeedItems] = useState<FeedItemDb[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchFeedItems = async () => {
+      try {
+        setIsLoading(true);
+        const response = await fetch('/api/feed'); // Adjust if pagination is needed
+        if (!response.ok) {
+          throw new Error(`Failed to fetch feed items: ${response.statusText}`);
+        }
+        const data = await response.json();
+        setFeedItems(data);
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchFeedItems();
+  }, []);
+
   const handlePostCreated = async () => {
     // This will be handled by the server action in CreatePostForm
     window.location.reload(); // Simple refresh for now
   };
+
+  if (isLoading) {
+    return <div className="flex justify-center items-center min-h-screen">Loading feed...</div>;
+  }
+
+  if (error) {
+    return <div className="flex justify-center items-center min-h-screen text-red-500">Error loading feed: {error}</div>;
+  }
 
   return (
     <div className="flex flex-col items-center space-y-6 w-full max-w-xl mx-auto">
@@ -151,6 +184,39 @@ export function HomeClient({ feedItems, currentUserId }: HomeClientProps) {
             const hasMedia = taggedItem.media && taggedItem.media.length > 0 && taggedItem.media[0].url; // Check for media
             const mediaUrl = hasMedia ? taggedItem.media![0].url : undefined;
 
+            // Transform taggedItem to conform to the expected type for PostActions
+            const creatorForPostActions: UserForDisplay = taggedItem.creator
+            ? {
+                id: taggedItem.creator.id,
+                name: taggedItem.creator.name || 'Anonymous', // Handle null name
+                image: taggedItem.creator.image,
+              }
+            : {
+                id: taggedItem.creatorId || 'anonymous-creator',
+                name: 'Anonymous',
+                image: null,
+              };
+
+            const postForActions = {
+              ...taggedItem,
+              creator: creatorForPostActions,
+              // Ensure all fields expected by Initiative | Issue | Idea are present
+              // For Issue:
+              ...(isCurrentItemAnIssue && {
+                // Assuming 'location' and other Issue-specific fields are already in taggedItem
+              }),
+              // For Idea:
+              ...(!isCurrentItemAnIssue && {
+                // Assuming Idea-specific fields are already in taggedItem
+              }),
+              // Fields potentially missing or needing type adjustment for PostActions:
+              // Add any other fields required by the union type Initiative | Issue | Idea
+              // that might not be directly on taggedItem or need transformation.
+              // For example, if PostActions expects a specific structure for 'tags' or other properties.
+              // Based on the error, the primary issue is 'creator', which is addressed above.
+            };
+
+
             return (
               <div key={taggedItem.id} className="relative mb-4 rounded-lg overflow-hidden shadow-lg flex flex-col text-card-foreground aspect-[9/12]">
                 {/* Media Layer (or background if no media) */}
@@ -202,7 +268,7 @@ export function HomeClient({ feedItems, currentUserId }: HomeClientProps) {
                           onEdit={() => console.log("Edit", isCurrentItemAnIssue ? "issue" : "idea", taggedItem.id)}
                           onDelete={async () => console.log("Delete", isCurrentItemAnIssue ? "issue" : "idea", taggedItem.id)}
                           className="ml-2"
-                          post={taggedItem}
+                          post={postForActions}
                         />
                       )}
                     </div>

@@ -1,6 +1,7 @@
 generator client {
-  provider = "prisma-client-js"
-  output   = "../node_modules/.prisma/client" // Explicitly set output path
+  provider      = "prisma-client-js"
+  output        = "../node_modules/.prisma/client" // Explicitly set output path
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
@@ -124,6 +125,8 @@ model User {
   createdIdeas                Idea[]         @relation("CreatorOfIdea")  // New: Ideas created by this user
   championedIssues            Issue[]        @relation("ChampionedIssueBy") // New: Issues championed by this user
   championedIdeas             Idea[]         @relation("ChampionedIdeaBy")  // New: Ideas championed by this user
+  posts                       Post[]         @relation("UserPosts")
+  comments                    Comment[]      @relation("UserComments")
 }
 
 model Initiative {
@@ -226,7 +229,7 @@ model Update {
 
   // Relationships based on details or content, potentially denormalized
   goalId String? // Optional field to link update to a Goal
-  goal   Goal? @relation(fields: [goalId], references: [id])
+  goal   Goal? @relation("GoalUpdates", fields: [goalId], references: [id])
 }
 
 model GeneralPost {
@@ -265,21 +268,24 @@ model ContributionItem {
 }
 
 model Goal {
-  id            String           @id @default(cuid())
+  id            String   @id @default(cuid())
   initiativeId  String
-  initiative    Initiative       @relation(fields: [initiativeId], references: [id])
+  initiative    Initiative @relation(fields: [initiativeId], references: [id])
   title         String
   description   String?
   status        GoalStatus
   priority      Priority?
   dueDate       DateTime?
   ownerId       String?
-  owner         User?            @relation("OwnerOfGoal", fields: [ownerId], references: [id])
-  tags          String[]         @default([])
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+  owner         User?     @relation("OwnerOfGoal", fields: [ownerId], references: [id])
+  ownerName     String?   // Added for denormalized owner display name
+  ownerAvatar   String?   // Added for denormalized owner avatar
+  tags          String[]  @default([])
+  progress      Int?      // Added progress property
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
   actions       Action[]
-  updates       Update[]
+  updates       Update[]  @relation("GoalUpdates")
 }
 
 model Action { // Renamed from Task in types.ts
@@ -353,4 +359,25 @@ model Idea {
   championedBy              User?       @relation("ChampionedIdeaBy", fields: [championedById], references: [id])
   championedByInitiativeId  String?     @unique 
   championedByInitiative    Initiative? @relation("ChampionedIdea", fields: [championedByInitiativeId], references: [id])
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  postId    String
+  userId    String
+  text      String
+  timestamp DateTime @default(now())
+
+  Post      Post     @relation(fields: [postId], references: [id])
+  User      User     @relation("UserComments", fields: [userId], references: [id])
+}
+
+model Post {
+  id        String     @id @default(uuid())
+  content   String
+  creatorId String
+  timestamp DateTime   @default(now())
+
+  comments  Comment[]
+  User      User       @relation("UserPosts", fields: [creatorId], references: [id])
 }

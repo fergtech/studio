@@ -19,46 +19,19 @@ interface GoalCreateData {
 
 export async function createGoal(data: GoalCreateData) {
   try {
-    let ownerName;
-    let ownerAvatar;
-
-    if (data.ownerId) {
-      const owner = await prisma.user.findUnique({ where: { id: data.ownerId } });
-      if (owner) {
-        ownerName = owner.name;
-        ownerAvatar = owner.image;
-      }
-    }
-
     const goal = await prisma.goal.create({
       data: {
         initiativeId: data.initiativeId,
         title: data.title,
         description: data.description,
-        ownerId: data.ownerId, // Prisma handles undefined for optional relations correctly
-        ownerName: ownerName ?? "Unnamed Owner", // Provide default if ownerName is null or undefined
-        ownerAvatar: ownerAvatar !== undefined ? ownerAvatar : null, // Ensure null if undefined
-        status: data.status || GoalStatus.NotStarted, // Default status
+        ownerId: data.ownerId,
+        status: data.status || GoalStatus.NotStarted,
         priority: data.priority,
         dueDate: data.dueDate,
         tags: data.tags,
-        // progress will be handled by updates or a separate action
       },
     });
 
-    // Create an update for the activity feed
-    await createUpdate({
-      initiativeId: data.initiativeId,
-      // Consider a more specific UpdateType like 'goal_creation' if you add it to schema
-      type: UpdateType.post, // Using 'post' as a generic type for new goal
-      userId: data.creatorId,
-      content: `New goal added: ${goal.title}`,
-      details: { goalId: goal.id, goalTitle: goal.title, owner: ownerName },
-    });
-
-    revalidatePath(`/initiatives/${data.initiativeId}`);
-    // Also revalidate the specific goal page if it exists and you navigate there
-    revalidatePath(`/initiatives/${data.initiativeId}/goals/${goal.id}`);
     return { success: true, goal };
   } catch (error) {
     console.error("Error creating goal:", error);

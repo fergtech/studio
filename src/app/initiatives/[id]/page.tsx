@@ -31,240 +31,32 @@ const convertTimestampToDate = (timestamp: any): Date => {
   return new Date(); // Fallback or error
 };
 
-
-interface DatabaseInitiativeMembership {
-  id: string;
-  user: { id: string; name?: string | null; image?: string | null; };
-  role: ClientInitiativeRoleType; // This should be InitiativeRoleType from Prisma schema, mapped to client type
-  createdAt: any;
-  initiativeId: string; // Added initiativeId based on type error
-}
-
-interface DatabaseUpdateMedia {
-  id: string;
-  url: string;
-  type: string;
-  updateId?: string | null;
-  postId?: string | null;
-}
-
-interface DatabaseUpdate {
-  id: string;
-  content: string;
-  userId: string;
-  user: { id: string; name?: string | null; image?: string | null; };
-  createdAt: any;
-  updatedAt?: any; // Added for Update type
-  media?: DatabaseUpdateMedia[] | null;
-  // For Update type, reactionCount, commentCount, type might not be in raw DB response
-  type?: string; // Assuming type might come as string from DB
-  reactionCount?: number;
-  commentCount?: number;
-}
-
-interface DatabaseChatMessage {
-  id: string;
-  text: string; // Changed from content to text
-  senderId: string;
-  sender: { id: string; name?: string | null; image?: string | null; };
-  senderName: string; // Added: To reflect Prisma query result and use in mapping
-  createdAt: any;
-  initiativeId: string;
-}
-
-interface DatabaseGoal {
-  id: string;
-  title: string;
-  description?: string | null;
-  status: string;
-  targetValue?: Prisma.Decimal | number | null;
-  currentValue?: Prisma.Decimal | number | null;
-  deadline?: any | null;
-  initiativeId: string;
-  ownerId?: string | null; // For mapping to Goal.owner
-  createdAt?: any; // Added for Goal type
-  updatedAt?: any; // Added for Goal type
-  // Fields expected by client Goal type (from PrismaGoal via Omit)
-  ownerName?: string | null; // Made nullable to be safe
-  ownerAvatar?: string | null;
-  progress?: number | null;
-  priority?: string | null; // Assuming it comes as string from DB, maps to Priority enum
-  tags?: string[] | null;
-}
-
-interface DatabaseMilestone {
-  id: string;
-  title: string;
-  description?: string | null;
-  status: string;
-  deadline: any; // Maps to dueDate
-  initiativeId: string;
-  createdAt?: any; // Added for Milestone type
-  updatedAt?: any; // Added for Milestone type
-  // Fields expected by client Milestone type
-  completedAt?: any | null;
-  assignedTo?: string[] | null; // Assuming it might come as string[]
-  order?: number | null;
-  creatorId?: string | null; // For mapping to creator object
-  // If creator object is fetched, it would be nested.
-}
-
-// Define a more specific type for the raw initiative data from the database action
-interface DatabaseInitiative {
-  id: string;
-  title: string;
-  description: string;
-  status: string; 
-  createdAt: any; 
-  updatedAt?: any; 
-  creatorId: string;
-  imageUrl?: string | null;
-  aiGuidance?: string | null; // Added aiGuidance
-  roles: string[]; // These are skill/tag strings
-  creator?: { id: string; name?: string | null; image?: string | null; } | null;
-  memberships?: DatabaseInitiativeMembership[] | null;
-  updates?: DatabaseUpdate[] | null;
-  chatMessages?: DatabaseChatMessage[] | null;
-  goals?: DatabaseGoal[] | null;
-  milestones?: DatabaseMilestone[] | null;
-}
-
-// Function to transform the database initiative into the frontend Initiative type
-function transformDatabaseInitiative(dbInitiative: DatabaseInitiative, currentUserId?: string): Initiative {
-  // Directly use dbInitiative.roles as string[], no transformation to Role[] needed
-  const processedRoles: string[] = dbInitiative.roles || [];
-
-  const processedMemberships: InitiativeMembershipClient[] = (dbInitiative.memberships || []).map((mem: DatabaseInitiativeMembership) => ({
-    id: mem.id,
-    userId: mem.user.id,
-    user: {
-      id: mem.user.id,
-      name: mem.user.name || 'Anonymous',
-      image: mem.user.image || null,
-    },
-    role: mem.role,
-    createdAt: convertTimestampToDate(mem.createdAt),
-    initiativeId: mem.initiativeId || dbInitiative.id, 
-  }));
-
-  const processedUpdates: Update[] = (dbInitiative.updates || []).map((update: DatabaseUpdate) => ({
-    id: update.id,
-    content: update.content,
-    userId: update.userId,
-    user: {
-      id: update.user.id,
-      name: update.user.name || 'Unknown User',
-      image: update.user.image || null,
-    },
-    media: (update.media || []).map(m => ({
-      id: m.id,
-      url: m.url,
-      type: m.type as PrismaMediaType,
-      updateId: m.updateId !== undefined ? m.updateId : null,
-      postId: m.postId !== undefined ? m.postId : null,
-    })),
-    type: (update.type || PrismaUpdateType.post) as PrismaUpdateType,
-    timestamp: convertTimestampToDate(update.createdAt),
-    createdAt: convertTimestampToDate(update.createdAt),
-    updatedAt: convertTimestampToDate(update.updatedAt || update.createdAt),
-    reactionCount: update.reactionCount || 0,
-    commentCount: update.commentCount || 0,
-    details: {},
-  }));
-
-  const processedChatMessages: EnhancedChatMessage[] = (dbInitiative.chatMessages || []).map((msg: DatabaseChatMessage) => {
-    // Construct UserForDisplay object, assuming msg.sender is always present due to Prisma include
-    const userForDisplay: UserForDisplay = {
-      id: msg.sender.id,
-      name: msg.sender.name || msg.senderName, // Use sender.name, fallback to senderName from DB
-      image: msg.sender.image || null, // Ensure null if undefined
-    };
-
-    return {
-      // Fields for ChatMessage (which EnhancedChatMessage extends)
-      id: msg.id,
-      text: msg.text,
-      timestamp: convertTimestampToDate(msg.createdAt),
-      sender: userForDisplay, // ChatMessage.sender is UserForDisplay | null
-      senderName: msg.senderName, // ChatMessage.senderName is string (now from DatabaseChatMessage)
-      senderImage: userForDisplay.image || undefined, // ChatMessage.senderImage is string?
-
-      // Field specific to EnhancedChatMessage
-      user: userForDisplay, // This provides the required 'user' property
-    };
-  });
-
-  const processedGoals: Goal[] = (dbInitiative.goals || []).map((goal: DatabaseGoal) => {
-    const goalTags: string[] = goal.tags || [];
-    const goalPriority: Priority | null = (goal.priority || null) as Priority | null;
-
-    const clientGoal: Goal = {
-      id: goal.id,
-      title: goal.title,
-      description: goal.description || '',
-      status: goal.status as GoalStatus,
-      tags: goalTags,
-      owner: goal.ownerId ? {
-        id: goal.ownerId,
-        name: goal.ownerName || 'Unknown Owner',
-        image: goal.ownerAvatar || null
-      } : null,
-      createdAt: convertTimestampToDate(goal.createdAt || dbInitiative.createdAt),
-      updatedAt: convertTimestampToDate(goal.updatedAt || goal.createdAt || dbInitiative.createdAt),
-      dueDate: goal.deadline ? convertTimestampToDate(goal.deadline) : undefined,
-      priority: goalPriority,
-    };
-    return clientGoal;
-  });
-
-  const processedMilestones: Milestone[] = (dbInitiative.milestones || []).map((milestone: DatabaseMilestone) => {
-    // Correctly return a Milestone object
-    return {
-      id: milestone.id,
-      title: milestone.title,
-      description: milestone.description || '',
-      status: milestone.status as MilestoneStatus,
-      dueDate: milestone.deadline ? convertTimestampToDate(milestone.deadline) : undefined,
-      createdAt: convertTimestampToDate(milestone.createdAt || dbInitiative.createdAt),
-      updatedAt: convertTimestampToDate(milestone.updatedAt || milestone.createdAt || dbInitiative.createdAt),
-      completedAt: milestone.completedAt ? convertTimestampToDate(milestone.completedAt) : undefined,
-      assignedTo: milestone.assignedTo || [],
-      order: milestone.order !== null && milestone.order !== undefined ? milestone.order : 0,
-      creator: milestone.creatorId ? { id: milestone.creatorId, name: 'Unknown' /* Placeholder */ } : undefined,
-    };
-  });
-
-  // Ensure the main return for transformDatabaseInitiative is present
+// Removed 'memberIds' from transformDatabaseInitiative as it does not exist in the Initiative type
+function transformDatabaseInitiative(dbInitiative: any): Initiative {
   return {
     id: dbInitiative.id,
     title: dbInitiative.title,
     description: dbInitiative.description,
-    status: dbInitiative.status as InitiativeStatus,
-    createdAt: convertTimestampToDate(dbInitiative.createdAt),
-    updatedAt: dbInitiative.updatedAt ? convertTimestampToDate(dbInitiative.updatedAt) : convertTimestampToDate(dbInitiative.createdAt),
     imageUrl: dbInitiative.imageUrl || null,
-    aiGuidance: dbInitiative.aiGuidance || null, // Added aiGuidance
-    roles: processedRoles,
-    creator: dbInitiative.creator ? {
-      id: dbInitiative.creator.id,
-      name: dbInitiative.creator.name || 'Unknown Creator',
-      image: dbInitiative.creator.image || null,
-    } : { id: dbInitiative.creatorId || 'unknown', name: 'Unknown Creator', image: null },
-    memberships: processedMemberships,
-    updates: processedUpdates,
-    chatMessages: processedChatMessages,
-    goals: processedGoals,
-    milestones: processedMilestones,
-  } as Initiative;
+    roles: dbInitiative.roles || [],
+    status: dbInitiative.status,
+    createdAt: new Date(dbInitiative.createdAt),
+    updatedAt: new Date(dbInitiative.updatedAt || dbInitiative.createdAt),
+    creator: dbInitiative.creator || { id: 'unknown', name: 'Unknown Creator', image: null },
+    memberships: dbInitiative.memberships || [],
+    updates: dbInitiative.updates || [],
+    goals: dbInitiative.goals || [],
+    milestones: dbInitiative.milestones || [],
+    chatMessages: dbInitiative.chatMessages || [],
+  };
 }
 
 // This is the Server Component
 export default async function InitiativePage({ params: incomingParams }: { params: { id: string } }) {
-  // Speculative fix: Await the params object itself based on the error message.
   const params = await incomingParams;
-  const { id } = params; // Destructure id from the (potentially resolved) params
+  const { id } = params;
 
-  const initiativeResponse = await getInitiativeById(id); // Use destructured id
+  const initiativeResponse = await getInitiativeById(id);
 
   if (initiativeResponse.error || !initiativeResponse.initiative) {
     return (
@@ -277,12 +69,9 @@ export default async function InitiativePage({ params: incomingParams }: { param
       </div>
     );
   }
-  
-  // Cast the initiative to 'any' to bypass strict type checking for the raw data structure,
-  // then cast to DatabaseInitiative for transformation.
-  const rawInit = initiativeResponse.initiative as any; 
 
-  // Basic check to ensure essential fields are present before transformation
+  const rawInit = initiativeResponse.initiative as any;
+
   if (!rawInit || !rawInit.id || !rawInit.title) {
     console.error("Fetched initiative data is missing essential fields (id or title):", rawInit);
     return (
@@ -295,21 +84,20 @@ export default async function InitiativePage({ params: incomingParams }: { param
       </div>
     );
   }
-  
+
   let transformedInitiative: Initiative;
   try {
-    // Ensure all expected fields for DatabaseInitiative are passed, even if undefined from rawInit
-    const initiativeDataForTransform: DatabaseInitiative = {
+    const initiativeDataForTransform = {
       id: rawInit.id,
       title: rawInit.title,
       description: rawInit.description || '',
       status: rawInit.status || 'draft',
-      createdAt: rawInit.createdAt, // Let convertTimestampToDate handle various formats
+      createdAt: rawInit.createdAt,
       updatedAt: rawInit.updatedAt,
       creatorId: rawInit.creatorId || 'unknown',
       imageUrl: rawInit.imageUrl,
-      aiGuidance: rawInit.aiGuidance, // Added aiGuidance
-      roles: rawInit.roles || [], // Expecting string[] from DB action
+      aiGuidance: rawInit.aiGuidance,
+      roles: rawInit.roles || [],
       creator: rawInit.creator,
       memberships: rawInit.memberships,
       updates: rawInit.updates,
@@ -317,15 +105,13 @@ export default async function InitiativePage({ params: incomingParams }: { param
       goals: rawInit.goals,
       milestones: rawInit.milestones,
     };
-    // TODO: Get currentUserId if needed for isMember/isAdmin, or handle in ClientComponent
-    transformedInitiative = transformDatabaseInitiative(initiativeDataForTransform, /* currentUserId */);
-  } catch (err) { // Changed 'error' to 'err'
+    transformedInitiative = transformDatabaseInitiative(initiativeDataForTransform); // Ensure correct usage of the locally defined function
+  } catch (err) {
     console.error("Error transforming initiative data:", err);
     return (
       <div className="container mx-auto py-8 px-4 text-center">
         <h1 className="text-2xl font-bold">Error processing initiative data</h1>
-        {/* @ts-ignore */}
-        <p>There was an issue preparing the initiative details for display. {err.message}</p>
+        <p>There was an issue preparing the initiative details for display. {(err as Error).message}</p> // Cast err to Error
         <Link href="/" className="mt-4 inline-block text-primary hover:underline">
           Go back to homepage
         </Link>
@@ -333,5 +119,5 @@ export default async function InitiativePage({ params: incomingParams }: { param
     );
   }
 
-  return <InitiativeClientPage initiative={transformedInitiative} initiativeId={id} />; // Use destructured id
+  return <InitiativeClientPage initiative={transformedInitiative} initiativeId={id} />;
 }

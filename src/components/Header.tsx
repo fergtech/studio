@@ -43,6 +43,9 @@ export function Header() {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
 
+  console.log("Session data in Header:", session); // Log session data
+  console.log("Session status:", status); // Log session status
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-14 items-center px-4 sm:px-6 lg:px-8"> {/* Added responsive padding */}

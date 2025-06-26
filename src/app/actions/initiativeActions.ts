@@ -419,7 +419,8 @@ interface UpdateInitiativeArgs {
   status?: "DRAFT" | "PUBLISHED" | "ARCHIVED";
 }
 
-export async function updateInitiative({
+// Renamed from updateInitiative to updateInitiativeAction to avoid conflict with the type
+export async function updateInitiativeAction({
   initiativeId,
   title,
   description,

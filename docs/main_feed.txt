@@ -1,0 +1,30 @@
+Okay, let's define the content for the main feed, keeping the MVP's social and collaborative focus in mind, drawing inspiration from familiar feeds but centered around **Initiatives**.
+
+The main feed should primarily surface activity and progress from the initiatives the user is involved in or follows, along with relevant discovery opportunities.
+
+**Core Content for the Main Feed (MVP):**
+
+1.  **Initiative Updates/Posts:**
+    *   **What:** Text posts, images, videos, or shared resources posted by members *within* initiatives the user is a member of or is following.
+    *   **Why:** This is the primary "activity stream" content, showing progress, questions, and engagement within projects the user cares about. Directly aligns with the blueprint's "Initiative Updates (The Feed)" requirement.
+    *   **Example:** "Alice posted an update in 'Community Garden Project': 'Finalized the planting schedule! Check the doc.'" (Potentially showing the image if included).
+
+2.  **Significant Initiative Achievements:**
+    *   **What:** Notifications when an initiative the user is involved in or follows completes a **Milestone** or a major **Goal**.
+    *   **Why:** Highlights progress and success, fostering a sense of accomplishment and keeping users informed about key advancements. More engaging than granular task updates.
+    *   **Example:** "'Neighborhood Park Cleanup' completed the milestone: 'First Cleanup Session'. Great job!"
+
+3.  **New Relevant Initiative Discovery:**
+    *   **What:** Cards showcasing newly created initiatives that match the user's profile (skills, interests) or are geographically relevant (hyperlocal focus).
+    *   **Why:** Facilitates the "discover and join" core feature, helping users find new collaboration opportunities.
+    *   **Example:** "New Initiative Nearby: 'Local History Documentation'. Needs: #Researcher, #Writer. [View/Join Button]"
+
+**Content Explicitly *Excluded* from the Main Feed (MVP):**
+
+*   **Individual Chat Messages:** Chat is for real-time, internal initiative communication, not broad feed content.
+*   **Individual Task/Step Completions:** Too granular for the main feed; risks making it noisy. Progress is better represented by milestone/goal completions or explicit update posts.
+*   **User Joins Initiative:** Can become repetitive and less engaging than actual content or achievements. Discovery happens via the "New Initiative" cards.
+*   **General User Profile Posts (Not tied to an Initiative):** While a potential future feature, the MVP focuses on *initiative-centric* collaboration. Keep the feed focused on that.
+*   **Comments/Reactions:** These are interactions *on* feed items, not standalone feed content.
+
+In essence, the feed should feel like a dynamic dashboard showing **what's happening** in the user's collaborative world (updates, achievements) and **what new opportunities** are available (discovery).

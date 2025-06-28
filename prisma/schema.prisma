@@ -1,0 +1,467 @@
+generator client {
+  provider      = "prisma-client-js"
+  output        = "../node_modules/.prisma/client" // Explicitly set output path
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums from types.ts
+
+enum InitiativeStatus {
+  Idea
+  Planning
+  SeekingMembers
+  InProgress
+  Completed
+}
+
+enum MilestoneStatus {
+  Planned
+  InProgress
+  Completed
+  OnHold
+}
+
+enum StepStatus {
+  ToDo
+  InProgress
+  Blocked
+  InReview
+  Done
+}
+
+enum UpdateType {
+  join
+  status
+  post
+  role_add
+  milestone
+  step_creation
+  step_completion
+  endorsement
+  resource_share
+  milestone_creation
+  milestone_status
+}
+
+enum ContributionType {
+  commit
+  post_contribution // Renamed from 'post' to avoid conflict if 'post' is a model name
+  comment
+  initiative_join
+  initiative_creation
+  pull_request
+  issue_comment
+  code_commit
+  post_creation
+  step_completion
+  resource_share
+}
+
+enum GoalStatus {
+  NotStarted
+  InProgress
+  Completed
+  Blocked
+}
+
+enum Priority {
+  Low
+  Medium
+  High
+}
+
+enum MediaType {
+  image
+  video
+}
+
+enum InitiativeRoleType {
+  ADMIN
+  MEMBER
+  CONTRIBUTOR
+  GUEST
+  SPONSOR
+  MENTOR
+}
+
+// Models from types.ts
+
+model User {
+  id                          String         @id @default(cuid())
+  email                       String         @unique
+  passwordHash                String
+  name                        String?
+  username                    String?        @unique
+  gender                      String?
+  websites                    String[]       @default([])
+  image                       String?
+  bannerImageUrl              String?        // New field for banner image
+  dateCreated                 DateTime       @default(now())
+  // UserProfile fields merged
+  bio                         String?
+  skills                      String[]       @default([])
+  interests                   String[]       @default([])
+  profession                  String?
+  organization                String?
+  institution                 String?
+  createdInitiatives          Initiative[]   @relation("CreatorOfInitiative")
+  initiativeMemberships       InitiativeMembership[]
+  createdMilestones           Milestone[]    @relation("CreatorOfMilestone")
+  createdSteps                Step[]         @relation("CreatorOfStep")
+  assignedSteps               Step[]         @relation("AssigneeOfStep")
+  sentChatMessages            ChatMessage[]  @relation("SenderOfChatMessage")
+  receivedChatMessages        ChatMessage[]  @relation("ReceiverOfChatMessage")
+  createdUpdates              Update[]       @relation("CreatorOfUpdate")
+  createdGeneralPosts         GeneralPost[]  @relation("CreatorOfGeneralPost")
+  ownedGoals                  Goal[]         @relation("OwnerOfGoal")
+  assignedActions             Action[]       @relation("AssigneeOfAction")
+  completedActionsBy          Action[]       @relation("CompleterOfAction")
+  createdActions              Action[]       @relation("CreatorOfAction") // If creatorId is added to Action
+  createdIssues               Issue[]        @relation("CreatorOfIssue") // New: Issues created by this user
+  createdIdeas                Idea[]         @relation("CreatorOfIdea")  // New: Ideas created by this user
+  championedIssues            Issue[]        @relation("ChampionedIssueBy") // New: Issues championed by this user
+  championedIdeas             Idea[]         @relation("ChampionedIdeaBy")  // New: Ideas championed by this user
+  posts                       Post[]         @relation("UserPosts")
+  comments                    Comment[]      @relation("UserComments")
+  generalPostLikes            GeneralPostLike[]
+  generalPostShares           GeneralPostShare[]
+  generalPostComments         GeneralPostComment[]
+  userFollowers               UserFollow[]   @relation("UserFollowers")
+  userFollowing               UserFollow[]   @relation("UserFollowing")
+  notifications               Notification[] @relation("UserNotifications")
+}
+
+model Initiative {
+  id            String           @id @default(cuid())
+  title         String
+  description   String
+  imageUrl      String?
+  roles         String[]         @default([]) // Array of roles/skills needed (tags)
+  status        InitiativeStatus
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime?        @updatedAt // Made updatedAt optional for existing records
+  creatorId     String
+  creator       User             @relation("CreatorOfInitiative", fields: [creatorId], references: [id])
+  memberships   InitiativeMembership[]
+  milestones    Milestone[]
+  steps         Step[]
+  chatMessages  ChatMessage[]
+  updates       Update[]
+  goals         Goal[]
+  actions       Action[]
+  linkedPosts   GeneralPost[]    @relation("LinkedInitiativePosts")
+  aiGuidance    String? // Store AI-generated getting started guidance
+  championedIssue     Issue?       @relation("ChampionedIssue") // New: Link to an Issue this initiative championed
+  championedIdea      Idea?        @relation("ChampionedIdea")  // New: Link to an Idea this initiative championed
+  location      String?           // Optional location for MVP
+  progress      Int?              // Overall progress percentage (0-100)
+}
+
+model Milestone {
+  id            String          @id @default(cuid())
+  initiativeId  String
+  initiative    Initiative      @relation(fields: [initiativeId], references: [id])
+  title         String
+  description   String?
+  status        MilestoneStatus
+  order         Int?
+  createdAt     DateTime        @default(now())
+  creatorId     String
+  creator       User            @relation("CreatorOfMilestone", fields: [creatorId], references: [id])
+  dueDate       DateTime?
+  steps         Step[]
+}
+
+model Step {
+  id            String        @id @default(cuid())
+  initiativeId  String
+  initiative    Initiative    @relation(fields: [initiativeId], references: [id])
+  milestoneId   String
+  milestone     Milestone     @relation(fields: [milestoneId], references: [id])
+  title         String
+  description   String?
+  status        StepStatus
+  assigneeId    String?
+  assignee      User?         @relation("AssigneeOfStep", fields: [assigneeId], references: [id])
+  dueDate       DateTime?
+  createdAt     DateTime      @default(now())
+  creatorId     String
+  creator       User          @relation("CreatorOfStep", fields: [creatorId], references: [id])
+  completedAt   DateTime?
+}
+
+model ChatMessage {
+  id            String     @id @default(cuid())
+  initiativeId  String? // Optional for direct messages
+  initiative    Initiative? @relation(fields: [initiativeId], references: [id])
+  senderId      String
+  sender        User       @relation("SenderOfChatMessage", fields: [senderId], references: [id])
+  receiverId    String? // For direct messages (when initiativeId is null)
+  receiver      User?      @relation("ReceiverOfChatMessage", fields: [receiverId], references: [id])
+  senderName    String // Denormalized, consider removing if always fetching sender
+  text          String
+  timestamp     DateTime   @default(now())
+}
+
+model MediaItem {
+  id        String    @id @default(cuid())
+  url       String
+  type      MediaType
+  updateId  String?   // Link to Update if part of an update
+  update    Update?   @relation(fields: [updateId], references: [id])
+  postId    String?   // Link to GeneralPost if part of a post
+  post      GeneralPost? @relation(fields: [postId], references: [id])
+  issueId   String?     // New: Link to Issue if part of an issue
+  issue     Issue?      @relation("IssueMedia", fields: [issueId], references: [id])
+  ideaId    String?     // New: Link to Idea if part of an idea
+  idea      Idea?       @relation("IdeaMedia", fields: [ideaId], references: [id])
+  // alt    String?
+  // width  Int?
+  // height Int?
+}
+
+model Update {
+  id            String    @id @default(cuid())
+  initiativeId  String
+  initiative    Initiative @relation(fields: [initiativeId], references: [id])
+  userId        String
+  user          User      @relation("CreatorOfUpdate", fields: [userId], references: [id])
+  type          UpdateType
+  content       String
+  details       Json? // Store arbitrary details about the update, e.g., { goalId: "...", milestoneId: "..." }
+  media         MediaItem[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime? @updatedAt // Make updatedAt optional
+
+  // Relationships based on details or content, potentially denormalized
+  goalId String? // Optional field to link update to a Goal
+  goal   Goal? @relation("GoalUpdates", fields: [goalId], references: [id])
+}
+
+model GeneralPost {
+  id                  String      @id @default(cuid())
+  creatorId           String
+  creator             User        @relation("CreatorOfGeneralPost", fields: [creatorId], references: [id])
+  creatorName         String // Denormalized
+  creatorAvatar       String? // Denormalized
+  content             String
+  media               MediaItem[] // One-to-many relation to MediaItem
+  background          String?
+  timestamp           DateTime    @default(now())
+  linkedInitiativeId  String?
+  linkedInitiative    Initiative? @relation("LinkedInitiativePosts", fields: [linkedInitiativeId], references: [id])
+  // likeCount        Int?     @default(0)
+  // commentCount     Int?     @default(0)
+  likes               GeneralPostLike[]
+  shares              GeneralPostShare[]
+  comments            GeneralPostComment[]
+}
+
+model GeneralPostLike {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  post      GeneralPost @relation(fields: [postId], references: [id])
+  user      User        @relation(fields: [userId], references: [id])
+
+  @@unique([postId, userId])
+}
+
+model GeneralPostShare {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  post      GeneralPost @relation(fields: [postId], references: [id])
+  user      User        @relation(fields: [userId], references: [id])
+
+  @@unique([postId, userId])
+}
+
+model GeneralPostComment {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  text      String
+  timestamp DateTime @default(now())
+
+  post      GeneralPost @relation(fields: [postId], references: [id])
+  user      User        @relation(fields: [userId], references: [id])
+}
+
+// User Follow Relationships
+model UserFollow {
+  id          String   @id @default(cuid())
+  followerId  String   // The user who is following
+  followingId String   // The user being followed
+  createdAt   DateTime @default(now())
+
+  follower    User     @relation("UserFollowers", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("UserFollowing", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+}
+
+// User Notifications
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String           // User receiving the notification
+  user      User             @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String
+  message   String
+  data      Json?            // Additional data (e.g., senderId, initiativeId, etc.)
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+}
+
+enum NotificationType {
+  DIRECT_MESSAGE
+  FOLLOW
+  INITIATIVE_INVITE
+  GOAL_COMPLETED
+  MILESTONE_REACHED
+}
+
+// ContributionItem might be better as a derived view or logged differently,
+// but if direct storage is needed:
+model ContributionItem {
+  id                  String            @id @default(cuid())
+  type                ContributionType
+  title               String
+  date                DateTime          @default(now())
+  link                String?
+  details             String?
+  relatedInitiativeId String?
+  // relatedInitiative Initiative?    @relation(fields: [relatedInitiativeId], references: [id]) // Needs careful thought on relations
+  relatedMilestoneId  String?
+  // relatedMilestone  Milestone?       @relation(fields: [relatedMilestoneId], references: [id])
+  relatedStepId       String?
+  // relatedStep       Step?            @relation(fields: [relatedStepId], references: [id])
+  userId              String? // Who made the contribution
+  // user             User?            @relation(fields: [userId], references: [id])
+}
+
+model Goal {
+  id            String   @id @default(cuid())
+  initiativeId  String
+  initiative    Initiative @relation(fields: [initiativeId], references: [id])
+  title         String
+  description   String?
+  status        GoalStatus
+  priority      Priority?
+  dueDate       DateTime?
+  ownerId       String?
+  owner         User?     @relation("OwnerOfGoal", fields: [ownerId], references: [id])
+  ownerName     String?   // Added for denormalized owner display name
+  ownerAvatar   String?   // Added for denormalized owner avatar
+  tags          String[]  @default([])
+  progress      Int?      // Added progress property
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  actions       Action[]
+  updates       Update[]  @relation("GoalUpdates")
+}
+
+model Action { // Renamed from Task in types.ts
+  id            String     @id @default(cuid())
+  initiativeId  String
+  initiative    Initiative @relation(fields: [initiativeId], references: [id])
+  goalId        String?
+  goal          Goal?      @relation(fields: [goalId], references: [id])
+  title         String
+  description   String?
+  status        StepStatus // Reusing StepStatus as per types.ts
+  assigneeId    String?
+  assignee      User?      @relation("AssigneeOfAction", fields: [assigneeId], references: [id])
+  assigneeName  String? // Denormalized
+  assigneeAvatar String? // Denormalized
+  dueDate       DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  completedAt   DateTime?
+  completedById String?
+  completedBy   User?      @relation("CompleterOfAction", fields: [completedById], references: [id])
+  priority      Priority?
+  creatorId     String? // Assuming actions also have a creator
+  creator       User?      @relation("CreatorOfAction", fields: [creatorId], references: [id])
+}
+
+model InitiativeMembership {
+  id           String             @id @default(cuid())
+  user         User               @relation(fields: [userId], references: [id])
+  userId       String
+  initiative   Initiative         @relation(fields: [initiativeId], references: [id])
+  initiativeId String
+  role         InitiativeRoleType
+  customRole   String?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@unique([userId, initiativeId])
+}
+
+// New Model for Issues
+model Issue {
+  id                        String      @id @default(cuid())
+  title                     String
+  description               String
+  creatorId                 String
+  creator                   User        @relation("CreatorOfIssue", fields: [creatorId], references: [id])
+  createdAt                 DateTime    @default(now())
+  tags                      String[]    @default([])
+  location                  String?     
+  media                     MediaItem[] @relation("IssueMedia") // Corrected: Added @relation attribute
+  championCount             Int         @default(0)
+  championedById            String?
+  championedBy              User?       @relation("ChampionedIssueBy", fields: [championedById], references: [id])
+  championedByInitiativeId  String?     @unique 
+  championedByInitiative    Initiative? @relation("ChampionedIssue", fields: [championedByInitiativeId], references: [id])
+}
+
+// New Model for Ideas
+model Idea {
+  id                        String      @id @default(cuid())
+  title                     String
+  description               String
+  creatorId                 String
+  creator                   User        @relation("CreatorOfIdea", fields: [creatorId], references: [id])
+  createdAt                 DateTime    @default(now())
+  tags                      String[]    @default([])
+  location                  String?     
+  media                     MediaItem[] @relation("IdeaMedia") // Corrected: Added @relation attribute
+  championCount             Int         @default(0)
+  championedById            String?
+  championedBy              User?       @relation("ChampionedIdeaBy", fields: [championedById], references: [id])
+  championedByInitiativeId  String?     @unique 
+  championedByInitiative    Initiative? @relation("ChampionedIdea", fields: [championedByInitiativeId], references: [id])
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  postId    String
+  userId    String
+  text      String
+  timestamp DateTime @default(now())
+
+  Post      Post     @relation(fields: [postId], references: [id])
+  User      User     @relation("UserComments", fields: [userId], references: [id])
+}
+
+model Post {
+  id        String     @id @default(uuid())
+  content   String
+  creatorId String
+  timestamp DateTime   @default(now())
+
+  comments  Comment[]
+  User      User       @relation("UserPosts", fields: [creatorId], references: [id])
+}

@@ -106,6 +106,7 @@ model User {
   bio                         String?
   skills                      String[]       @default([])
   interests                   String[]       @default([])
+  primaryIntent               String?        // User's main reason for joining
   profession                  String?
   organization                String?
   institution                 String?

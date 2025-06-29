@@ -35,6 +35,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Receiver not found' }, { status: 404 });
     }
 
+    console.log('API /api/direct-messages POST: Creating message with data:', {
+      text,
+      timestamp: new Date(),
+      senderName: session.user.name || 'Anonymous',
+      senderId: session.user.id,
+      receiverId: receiverId,
+    });
+
     const message = await prisma.chatMessage.create({
       data: {
         text,
@@ -50,22 +58,31 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Create notification for the receiver
-    await prisma.notification.create({
-      data: {
-        userId: receiverId,
-        type: 'DIRECT_MESSAGE',
-        title: 'New Message',
-        message: `${session.user.name || 'Someone'} sent you a message`,
-        data: {
-          senderId: session.user.id,
-          senderName: session.user.name,
-          messageId: message.id,
-        },
-      },
-    });
+    console.log('API /api/direct-messages POST: Message created successfully:', message);
 
-    // Emit real-time notification
+    // Create notification for the receiver
+    try {
+      await prisma.notification.create({
+        data: {
+          userId: receiverId,
+          type: 'DIRECT_MESSAGE',
+          title: 'New Message',
+          message: `${session.user.name || 'Someone'} sent you a message`,
+          data: {
+            senderId: session.user.id,
+            senderName: session.user.name,
+            messageId: message.id,
+          },
+        },
+      });
+      console.log('API /api/direct-messages POST: Notification created successfully');
+    } catch (notificationError) {
+      console.error('API /api/direct-messages POST: Error creating notification:', notificationError);
+      // Don't fail the entire request if notification fails
+    }
+
+    // Emit real-time notification (temporarily commented out to isolate issue)
+    /*
     const notification = {
       id: 'temp-id', // Will be replaced with actual notification
       type: 'DIRECT_MESSAGE',
@@ -81,11 +98,17 @@ export async function POST(req: NextRequest) {
     };
     
     emitNotification(receiverId, notification);
+    */
 
     console.log('API /api/direct-messages POST: Message saved successfully:', message);
     return NextResponse.json(message, { status: 201 });
   } catch (error) {
     console.error('API /api/direct-messages POST: Error creating direct message:', error);
+    console.error('API /api/direct-messages POST: Error details:', {
+      name: (error as Error).name,
+      message: (error as Error).message,
+      stack: (error as Error).stack,
+    });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

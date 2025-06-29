@@ -110,6 +110,30 @@ export default async function ProfilePage({ params: incomingParams }: ProfilePag
           timestamp: 'desc'
         }
       },
+      userFollowers: {
+        select: {
+          follower: {
+            select: {
+              id: true,
+              name: true,
+              username: true,
+              image: true,
+            },
+          },
+        },
+      },
+      userFollowing: {
+        select: {
+          following: {
+            select: {
+              id: true,
+              name: true,
+              username: true,
+              image: true,
+            },
+          },
+        },
+      },
     }
   } as const;
 
@@ -122,6 +146,10 @@ export default async function ProfilePage({ params: incomingParams }: ProfilePag
   if (!user) {
     notFound();
   }
+
+  // Flatten followers/following arrays
+  const followers = user.userFollowers.map((f: any) => f.follower);
+  const following = user.userFollowing.map((f: any) => f.following);
 
   // Assert the type of the user object
   const typedUser = user as UserWithInitiativesAndPosts;
@@ -265,7 +293,11 @@ export default async function ProfilePage({ params: incomingParams }: ProfilePag
   // Add follow data to transformed user
   const userWithFollowData = {
     ...transformedUser,
-    ...followData,
+    followers,
+    following,
+    followersCount: typeof followData.followersCount === 'number' && !isOwnProfile ? followData.followersCount : followers.length,
+    followingCount: typeof followData.followingCount === 'number' && !isOwnProfile ? followData.followingCount : following.length,
+    isFollowing: followData.isFollowing,
   };
 
   return <ProfileClient user={userWithFollowData} isOwnProfile={isOwnProfile} activityFeed={activityFeed} />;

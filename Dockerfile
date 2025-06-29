@@ -11,7 +11,7 @@ ENV HOSTNAME="0.0.0.0"
 
 # 2. Dependencies Stage: Installs npm packages
 FROM base AS deps
-RUN apt-get update && apt-get install -y python3 make g++ openssl --no-install-recommends && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y python3 make g++ openssl libssl-dev --no-install-recommends && rm -rf /var/lib/apt/lists/*
 COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* ./
 # Unset HTTPS_PROXY before npm ci to avoid proxy errors
 RUN unset HTTPS_PROXY && npm ci

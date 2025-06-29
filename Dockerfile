@@ -70,4 +70,4 @@ USER nextjs
 EXPOSE 3000
 
 # Define the command to run the application
-CMD ["node", "server.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node server.js"]

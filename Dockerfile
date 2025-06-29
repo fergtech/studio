@@ -1,7 +1,7 @@
 # Dockerfile for Next.js application
 
 # 1. Base Stage: Provides the basic Node.js environment
-FROM node:20-alpine AS base
+FROM node:20-slim AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
@@ -13,7 +13,7 @@ ENV HOSTNAME="0.0.0.0"
 
 # 2. Dependencies Stage: Installs npm packages
 FROM base AS deps
-RUN apk add --no-cache libc6-compat python3 make g++
+RUN apt-get update && apt-get install -y python3 make g++ --no-install-recommends && rm -rf /var/lib/apt/lists/*
 COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* ./
 # Ensure all dependencies, including devDependencies, are installed for the build
 RUN npm ci

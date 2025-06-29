@@ -15,8 +15,8 @@ ENV HOSTNAME="0.0.0.0"
 FROM base AS deps
 RUN apt-get update && apt-get install -y python3 make g++ --no-install-recommends && rm -rf /var/lib/apt/lists/*
 COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* ./
-# Ensure all dependencies, including devDependencies, are installed for the build
-RUN npm ci
+# Unset HTTPS_PROXY before npm ci to avoid proxy errors
+RUN unset HTTPS_PROXY && npm ci
 
 # 3. Builder Stage: Builds the Next.js application
 FROM base AS builder
@@ -24,8 +24,9 @@ FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npx prisma generate
-RUN npm run build
+# Unset HTTPS_PROXY before prisma generate and build
+RUN unset HTTPS_PROXY && npx prisma generate
+RUN unset HTTPS_PROXY && npm run build
 
 # Diagnostic commands (can be kept for now to verify build stage)
 RUN echo "--- Contents of /app/.next/standalone in builder ---" && ls -R /app/.next/standalone || echo "/app/.next/standalone not found or empty"
@@ -38,6 +39,9 @@ WORKDIR /app
 
 # Set NODE_ENV to production only for the runner stage
 ENV NODE_ENV=production
+
+# Set HTTPS_PROXY only in the runtime stage for Azure uploads
+ENV HTTPS_PROXY=${HTTPS_PROXY}
 
 # Create a non-root user for security
 RUN addgroup --system --gid 1001 nodejs

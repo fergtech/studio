@@ -41,7 +41,8 @@ ENV NODE_ENV=production
 
 # Create a non-root user for security
 RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+RUN adduser --system --uid 1001 --home /home/nextjs nextjs
+ENV HOME=/home/nextjs
 
 # Copy the wait-for-it script and make it executable
 # This assumes you have a `scripts` folder in your project root

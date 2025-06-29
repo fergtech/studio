@@ -156,7 +156,7 @@ export function RegisterForm() {
         title: "Welcome to society+! 🎉",
         description: "Your account has been created and you are now signed in.",
       });
-      router.push('/feed');
+      router.push('/');
     } catch (error: any) {
       console.error('Registration Error:', error);
       toast({

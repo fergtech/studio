@@ -70,4 +70,4 @@ USER nextjs
 EXPOSE 3000
 
 # Define the command to run the application
-CMD ["wait-for-it.sh", "db:5432", "--", "node", "server.js"]
+CMD ["node", "server.js"]

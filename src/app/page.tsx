@@ -10,7 +10,7 @@ function LandingPage() {
       className="flex flex-1 flex-col items-center justify-center min-h-dvh w-full overflow-y-auto bg-background text-foreground"
     >
       <img
-        src="src\public\diverse-crowd-people-different-ages-races.png"
+        src="/diverse-crowd-people-different-ages-races.png"
         alt="Diverse crowd of people of different ages and races"
         className="w-full max-w-xl mb-8 rounded-lg shadow-lg object-contain bg-card"
         draggable="false"

@@ -13,8 +13,8 @@ ENV HOSTNAME="0.0.0.0"
 FROM base AS deps
 RUN apt-get update && apt-get install -y python3 make g++ openssl libssl-dev --no-install-recommends && rm -rf /var/lib/apt/lists/*
 COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* ./
-# Unset HTTPS_PROXY before npm ci to avoid proxy errors
-RUN unset HTTPS_PROXY && npm ci
+# Unset HTTPS_PROXY and HTTP_PROXY before npm ci to avoid proxy errors
+RUN unset HTTPS_PROXY && unset HTTP_PROXY && npm ci
 
 # 3. Builder Stage: Builds the Next.js application
 FROM base AS builder
@@ -22,10 +22,10 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 # Copy only prisma schema and generate client for better cache
 COPY ./prisma ./prisma
-RUN unset HTTPS_PROXY && npx prisma generate
+RUN unset HTTPS_PROXY && unset HTTP_PROXY && npx prisma generate
 # Copy the rest of the application code
 COPY . .
-RUN unset HTTPS_PROXY && npm run build
+RUN unset HTTPS_PROXY && unset HTTP_PROXY && npm run build
 
 # Diagnostic commands (optional, for debugging build output)
 RUN echo "--- Contents of /app/.next/standalone in builder ---" && ls -R /app/.next/standalone || echo "/app/.next/standalone not found or empty"
@@ -40,8 +40,9 @@ ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 --home /home/nextjs nextjs
 ENV HOME=/home/nextjs
-# Set HTTPS_PROXY only in the runtime stage for Azure uploads
+# Set HTTPS_PROXY and HTTP_PROXY only in the runtime stage for Azure uploads
 ENV HTTPS_PROXY=${HTTPS_PROXY}
+ENV HTTP_PROXY=${HTTP_PROXY}
 
 # Copy the wait-for-it script and make it executable
 COPY scripts/wait-for-it.sh /usr/local/bin/wait-for-it.sh

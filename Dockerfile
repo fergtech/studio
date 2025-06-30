@@ -43,8 +43,8 @@ RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 --home /home/nextjs nextjs
 ENV HOME=/home/nextjs
 # Set HTTPS_PROXY and HTTP_PROXY only in the runtime stage for Azure uploads
-ENV HTTPS_PROXY=${HTTPS_PROXY}
-ENV HTTP_PROXY=${HTTP_PROXY}
+ENV HTTPS_PROXY="http://fixie:dh4rVklwtNCXvH4@criterium.usefixie.com:80"
+ENV HTTP_PROXY="http://fixie:dh4rVklwtNCXvH4@criterium.usefixie.com:80"
 
 # Copy the wait-for-it script and make it executable
 COPY scripts/wait-for-it.sh /usr/local/bin/wait-for-it.sh

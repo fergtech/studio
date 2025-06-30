@@ -17,11 +17,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Initiative } from "@/lib/types";
-import { updateInitiative } from "@/app/actions/initiativeActions";
+import { updateInitiativeAction } from "@/app/actions/initiativeActions";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Paperclip } from "lucide-react";
 import { useState, useRef } from "react";
+import imageCompression from 'browser-image-compression';
 
 const formSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -58,15 +59,53 @@ export function EditInitiativeForm({ setOpen, initiative }: EditInitiativeFormPr
     },
   });
 
-  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      setSelectedImage(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      try {
+        // First, try with higher quality settings
+        let options = {
+          maxSizeMB: 4.5, // Target just under 5MB
+          maxWidthOrHeight: 1920,
+          useWebWorker: true,
+        };
+        let compressedFile = await imageCompression(file, options);
+        console.log('Compressed file size (1st pass):', compressedFile.size);
+        // If still too large, try a more aggressive compression
+        if (compressedFile.size > 5 * 1024 * 1024) {
+          options = {
+            maxSizeMB: 2, // More aggressive
+            maxWidthOrHeight: 1024,
+            useWebWorker: true,
+          };
+          compressedFile = await imageCompression(file, options);
+          console.log('Compressed file size (2nd pass):', compressedFile.size);
+        }
+        if (compressedFile.size > 5 * 1024 * 1024) {
+          toast({
+            title: "Image Too Large",
+            description: "Image is still too large after compression. Please choose a smaller image.",
+            variant: "destructive",
+          });
+          setSelectedImage(null);
+          setImagePreview(null);
+          return;
+        }
+        setSelectedImage(compressedFile);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setImagePreview(reader.result as string);
+        };
+        reader.readAsDataURL(compressedFile);
+      } catch (err) {
+        console.error('Image compression error:', err);
+        setSelectedImage(file); // fallback to original if compression fails
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setImagePreview(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+      }
     } else {
       setSelectedImage(null);
       setImagePreview(initiative.imageUrl || null);
@@ -134,10 +173,10 @@ export function EditInitiativeForm({ setOpen, initiative }: EditInitiativeFormPr
     }
 
     try {
-      const result = await updateInitiative({
+      const result = await updateInitiativeAction({
         initiativeId: initiative.id,
         ...values,
-        imageUrl: finalImageUrl, // Pass the potentially updated or cleared imageUrl
+        imageUrl: finalImageUrl === null ? undefined : finalImageUrl,
       });
 
       if (result.error) {

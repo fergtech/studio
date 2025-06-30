@@ -52,11 +52,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+    const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
     if (file.size > MAX_FILE_SIZE) {
       console.error(`File size exceeds limit: ${file.size}`);
       return NextResponse.json(
-        { success: false, message: 'File size must be less than 5MB' },
+        { success: false, message: 'File size must be less than 20MB' },
         { status: 400 }
       );
     }

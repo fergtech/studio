@@ -6,16 +6,47 @@ import { HomeClient } from '@/components/HomeClient'; // Assuming FeedItem type 
 
 function LandingPage() {
   return (
-    <main className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-purple-100 p-8">
-      <h1 className="text-4xl md:text-6xl font-bold mb-4 text-center text-blue-900">Welcome to Delightful Education</h1>
-      <p className="text-lg md:text-2xl text-gray-700 mb-8 text-center max-w-xl">
+    <main
+      className="flex flex-1 flex-col items-center justify-center min-h-dvh w-full overflow-y-auto bg-background text-foreground"
+    >
+      <img
+        src="src\public\diverse-crowd-people-different-ages-races.png"
+        alt="Diverse crowd of people of different ages and races"
+        className="w-full max-w-xl mb-8 rounded-lg shadow-lg object-contain bg-card"
+        draggable="false"
+      />
+      <h1 className="text-4xl md:text-6xl font-bold mb-4 text-center flex items-center justify-center gap-2">
+        society
+        <span className="inline-block align-middle">
+          <svg
+            width="36"
+            height="36"
+            viewBox="0 0 36 36"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            className="text-primary"
+            style={{ verticalAlign: 'middle' }}
+          >
+            <g>
+              {/* Sparkle rays */}
+              <rect x="16" y="4" width="4" height="8" rx="2" fill="currentColor"/>
+              <rect x="16" y="24" width="4" height="8" rx="2" fill="currentColor"/>
+              <rect x="4" y="16" width="8" height="4" rx="2" fill="currentColor"/>
+              <rect x="24" y="16" width="8" height="4" rx="2" fill="currentColor"/>
+              {/* Center sparkle */}
+              <rect x="15" y="15" width="6" height="6" rx="3" fill="currentColor"/>
+            </g>
+          </svg>
+        </span>
+      </h1>
+      <p className="text-lg md:text-2xl mb-8 text-center max-w-xl">
         Connect, collaborate, and create impact. Join a community of changemakers, share ideas, and drive real-world initiatives.
       </p>
       <div className="flex gap-4">
-        <a href="/register" className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold shadow hover:bg-blue-700 transition">Get Started</a>
-        <a href="/login" className="px-6 py-3 bg-white border border-blue-600 text-blue-600 rounded-lg font-semibold shadow hover:bg-blue-50 transition">Log In</a>
+        <a href="/register" className="px-6 py-3 bg-primary text-primary-foreground rounded-lg font-semibold shadow hover:bg-primary/90 transition">Get Started</a>
+        <a href="/login" className="px-6 py-3 bg-background border border-primary text-primary rounded-lg font-semibold shadow hover:bg-muted transition">Log In</a>
       </div>
-      <div className="mt-12 text-gray-500 text-sm text-center max-w-lg">
+      <div className="mt-12 text-muted-foreground text-sm text-center max-w-lg">
         <p>Spot issues, share ideas, join initiatives, and learn new skills. <br/>Be part of a social platform built for positive change.</p>
       </div>
     </main>

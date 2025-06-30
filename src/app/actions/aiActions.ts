@@ -149,16 +149,28 @@ Please provide the suggested goals in a JSON array format, where each element is
     const text = response.text();
     console.log("Raw AI suggested goals response:", text);
 
-    // Attempt to parse the JSON response
-    // The AI might include markdown fences (```json ... ```), so try to strip them
-    const jsonString = text.replace(/^```json\n/m, '').replace(/\n```$/m, '').trim();
-
-    const suggestedGoals = JSON.parse(jsonString);
+    // Improved: Try to extract the first valid JSON array from the response
+    let jsonString = text.trim();
+    // Remove markdown code fences if present
+    jsonString = jsonString.replace(/^```json[\r\n]+/i, '').replace(/```$/i, '').trim();
+    // Try to find the first JSON array in the string
+    const arrayMatch = jsonString.match(/\[[\s\S]*\]/);
+    if (!arrayMatch) {
+      console.error("No JSON array found in AI response:", jsonString);
+      return [];
+    }
+    let suggestedGoals;
+    try {
+      suggestedGoals = JSON.parse(arrayMatch[0]);
+    } catch (parseError) {
+      console.error("Failed to parse JSON array from AI response:", arrayMatch[0], parseError);
+      return [];
+    }
 
     // Validate the parsed structure (basic check)
     if (!Array.isArray(suggestedGoals) || suggestedGoals.some(goal => typeof goal.title !== 'string' || typeof goal.description !== 'string')) {
-       console.error("AI response is not in the expected format:", suggestedGoals);
-       return []; // Return empty array if parsing or validation fails
+      console.error("AI response is not in the expected format:", suggestedGoals);
+      return [];
     }
 
     // Limit to a maximum of 5 suggestions, just in case the AI returns more
@@ -166,7 +178,7 @@ Please provide the suggested goals in a JSON array format, where each element is
 
   } catch (aiError) {
     console.error("Error calling Gemini API for suggested goals or parsing response:", aiError);
-    return []; // Return empty array on error
+    return [];
   }
 }
 

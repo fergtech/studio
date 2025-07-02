@@ -39,7 +39,7 @@ export default function DirectMessageClient({
   useEffect(() => {
     const socketUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'http://localhost:9003';
     const socketInstance = io(socketUrl, {
-      path: '/api/socketio',
+      // path: '/api/socketio',
       transports: ['websocket', 'polling']
     });
 

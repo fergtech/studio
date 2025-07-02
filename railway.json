@@ -1,0 +1,24 @@
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "services": {
+    "delightful-education": {
+      "build": {
+        "watchPatterns": [
+          "/src/**"
+        ]
+      }
+    },
+    "chat-server": {
+      "build": {
+        "builder": "DOCKERFILE",
+        "dockerfilePath": "./chat.Dockerfile",
+        "watchPatterns": [
+          "/src/app/api/socket-server.ts"
+        ]
+      },
+      "deploy": {
+        "startCommand": "npx tsx src/app/api/socket-server.ts"
+      }
+    }
+  }
+}

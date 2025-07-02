@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { BlobServiceClient, BlockBlobUploadOptions, newPipeline } from '@azure/storage-blob';
+import { BlobServiceClient, BlockBlobUploadOptions } from '@azure/storage-blob';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { v4 as uuidv4 } from 'uuid';
 import { prisma } from '@/lib/prisma'; // Added prisma import
-import { HttpsProxyAgent } from "https-proxy-agent";
-import { StorageSharedKeyCredential } from "@azure/storage-blob";
-import { createPipelineFromOptions, Pipeline } from "@azure/core-rest-pipeline";
-import { DefaultHttpClient } from '@azure/core-http';
+//import { HttpsProxyAgent } from "https-proxy-agent";
+//import { StorageSharedKeyCredential } from "@azure/storage-blob";
+//import { createPipelineFromOptions, Pipeline } from "@azure/core-rest-pipeline";
+//import { DefaultHttpClient } from '@azure/core-http';
 
 export async function POST(request: NextRequest) {
   console.log("Upload API route hit");
@@ -65,6 +65,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    /*
+     *
+     * COMMENTING OUT THE PROBLEMATIC PROXY/PIPELINE CODE
+     *
     const proxyUrl = process.env.FIXIE_URL;
     const agent = proxyUrl ? new HttpsProxyAgent(proxyUrl) : undefined;
     const pipeline = newPipeline(undefined, {
@@ -76,10 +80,10 @@ export async function POST(request: NextRequest) {
             },
           }
         : undefined,
-    });
-    const blobServiceClient = new BlobServiceClient(
-      AZURE_STORAGE_CONNECTION_STRING,
-      pipeline
+    });*/
+    // ✅ ADDING THE CORRECT, SIMPLIFIED CLIENT INITIALIZATION
+    const blobServiceClient = BlobServiceClient.fromConnectionString(
+      AZURE_STORAGE_CONNECTION_STRING
     );
     const containerClient = blobServiceClient.getContainerClient(AZURE_STORAGE_CONTAINER_NAME);
     // Optional: Ensure container exists. Usually, it's better to ensure it's created beforehand.

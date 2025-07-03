@@ -7,7 +7,10 @@ ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
 WORKDIR /app
 
-# Copy the dependency manifests
+# Add this line to install OpenSSL
+RUN apt-get update && apt-get install -y openssl libssl-dev --no-install-recommends
+
+# Copy dependency manifests
 COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* ./
 
 # Install all dependencies from your lockfile

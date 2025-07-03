@@ -37,10 +37,14 @@ export default function DirectMessageClient({
 
   // Initialize socket connection
   useEffect(() => {
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'http://localhost:9003';
-    const socketInstance = io(socketUrl, {
-      // path: '/api/socketio',
-      transports: ['websocket', 'polling']
+    // Determine the WebSocket URL based on the environment
+    const SOCKET_URL = process.env.NODE_ENV === 'production'
+      ? process.env.NEXT_PUBLIC_WEBSOCKET_URL // Use this variable for production
+      : 'http://localhost:9003'; // Fallback for local development
+
+    // Use this variable to connect
+    const socketInstance = io(SOCKET_URL, {
+        transports: ['websocket', 'polling']
     });
 
     socketInstance.on('connect', () => {

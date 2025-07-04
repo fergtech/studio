@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { getServerSession } from 'next-auth';
-import { authOptions } from "@/app/api/auth/[...nextauth]/route"; // Corrected path
+import { authOptions } from "@/lib/auth"; // Corrected path
 import { emitNotification } from '@/lib/socket';
 
 // Define a schema for profile update validation

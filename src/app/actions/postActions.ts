@@ -2,7 +2,7 @@
 
 import { PrismaClient, MediaType } from "@prisma/client"; // Added MediaType
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { prisma } from '@/lib/prisma';
 import { BlobServiceClient, BlockBlobClient } from "@azure/storage-blob"; // Added Azure SDK

@@ -1,5 +1,5 @@
 import { getServerSession } from "next-auth/next"; // Import getServerSession
-import { authOptions } from "@/app/api/auth/[...nextauth]/route"; // Import authOptions
+import { authOptions } from "@/lib/auth"; // Import authOptions
 
 // Create a new client component for the feed
 import { HomeClient } from '@/components/HomeClient'; // Assuming FeedItem type is exported from HomeClient or a shared types file

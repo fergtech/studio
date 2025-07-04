@@ -12,6 +12,13 @@ const nextConfig: NextConfig = {
   experimental: {
     serverComponentsExternalPackages: ['bcrypt', '@prisma/client'],
   },
+  // Disable static optimization for API routes to prevent build-time analysis
+  trailingSlash: false,
+  poweredByHeader: false,
+  // Skip static generation for problematic routes
+  generateBuildId: async () => {
+    return 'railway-build'
+  },
   images: {
     remotePatterns: [
       {

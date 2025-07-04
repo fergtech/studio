@@ -26,7 +26,7 @@ COPY ./prisma ./prisma
 RUN unset HTTPS_PROXY && unset HTTP_PROXY && npx prisma generate
 # Copy the rest of the application code
 COPY . .
-RUN unset HTTPS_PROXY && unset HTTP_PROXY && npm run build
+RUN unset HTTPS_PROXY && unset HTTP_PROXY && pnpm run build
 
 # Diagnostic commands (optional, for debugging build output)
 RUN echo "--- Contents of /app/.next/standalone in builder ---" && ls -R /app/.next/standalone || echo "/app/.next/standalone not found or empty"

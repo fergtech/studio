@@ -16,7 +16,6 @@ ENV https_proxy=""
 RUN apt-get update && apt-get install -y python3 make g++ openssl libssl-dev --no-install-recommends && rm -rf /var/lib/apt/lists/*
 COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* ./
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
-RUN pnpm config set registry https://registry.npmmirror.com
 RUN pnpm install --frozen-lockfile
 
 # 3. Builder Stage: Builds the Next.js application

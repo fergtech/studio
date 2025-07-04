@@ -25,6 +25,8 @@ COPY --from=deps /app/node_modules ./node_modules
 # Copy only prisma schema and generate client for better cache
 COPY ./prisma ./prisma
 RUN unset HTTPS_PROXY && unset HTTP_PROXY && npx prisma generate
+# Debug: Check if Prisma client was generated
+RUN ls -la node_modules/.prisma/client/ || echo "Prisma client not found"
 # Copy the rest of the application code
 COPY . .
 RUN unset HTTPS_PROXY && unset HTTP_PROXY && pnpm run build

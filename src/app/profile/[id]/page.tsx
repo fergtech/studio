@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 import { Initiative, Update, ChatMessage, ContributionItem } from "@/lib/types";
 import ProfileClient from './ProfileClient';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth';
 import { notFound } from 'next/navigation';
 
 interface ProfilePageProps {

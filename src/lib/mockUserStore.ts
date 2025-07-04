@@ -1,4 +1,4 @@
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { User } from './types'; // Assuming User type might be defined here or elsewhere
 
 // Define a basic User type for the mock store if not already defined

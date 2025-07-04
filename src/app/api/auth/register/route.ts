@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma'; // Changed from PrismaClient
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 
 // const prisma = new PrismaClient(); // Removed local instantiation

@@ -2,7 +2,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth';
 import { notFound, redirect } from 'next/navigation';
 import EditProfileForm from './EditProfileForm'; // We'll create this next
 import { User } from '@prisma/client';

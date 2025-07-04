@@ -9,9 +9,7 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  experimental: {
-    serverComponentsExternalPackages: ['bcrypt', '@prisma/client'],
-  },
+  serverExternalPackages: ['bcrypt', 'bcryptjs', '@prisma/client'],
   // Disable static optimization for API routes to prevent build-time analysis
   trailingSlash: false,
   poweredByHeader: false,

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { BlobServiceClient, BlockBlobUploadOptions } from '@azure/storage-blob';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth';
 import { v4 as uuidv4 } from 'uuid';
 import { prisma } from '@/lib/prisma'; // Added prisma import
 //import { HttpsProxyAgent } from "https-proxy-agent";

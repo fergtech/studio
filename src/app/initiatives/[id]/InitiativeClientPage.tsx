@@ -91,6 +91,8 @@ export function InitiativeClientPage({
     // Add a listener here to see if the socket object itself connects
     socketInstance.on('connect', () => {
       console.log('InitiativeClientPage: Socket instance connected successfully!');
+      // Join the initiative room for scoped chat
+      socketInstance.emit('joinInitiativeRoom', initiativeId);
     });
 
     // Cleanup on unmount

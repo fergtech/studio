@@ -24,10 +24,16 @@ export const initializeSocket = (server: any) => {
         console.log(`User ${userId} joined their notification room`);
       });
 
-      // Handle initiative chat messages (existing functionality)
+      // Join initiative-specific room for initiative chat
+      socket.on('joinInitiativeRoom', (initiativeId: string) => {
+        socket.join(`initiative_${initiativeId}`);
+        console.log(`User ${socket.id} joined initiative room: initiative_${initiativeId}`);
+      });
+
+      // Handle initiative chat messages (now scoped to initiative room)
       socket.on('sendMessage', (message) => {
-        if (io) {
-          io.emit('receiveMessage', message);
+        if (io && message.initiativeId) {
+          io.to(`initiative_${message.initiativeId}`).emit('receiveMessage', message);
         }
       });
 

@@ -7,13 +7,13 @@ import { HomeClient } from '@/components/HomeClient'; // Assuming FeedItem type 
 function LandingPage() {
   return (
     <main
-      className="flex flex-1 flex-col items-center justify-center min-h-dvh w-full overflow-y-auto bg-background text-foreground"
+      className="flex flex-1 flex-col items-center justify-center w-full overflow-y-auto bg-background text-foreground"
     >
+      {/* Replace the image with a bare img tag for debugging */}
       <img
         src="/diverse-crowd-people-different-ages-races.png"
         alt="Diverse crowd of people of different ages and races"
-        className="w-full max-w-xl mb-8 rounded-lg shadow-lg object-contain bg-card"
-        draggable="false"
+        style={{ maxWidth: '400px', width: '100%', margin: '2rem auto 1.5rem auto', display: 'block' }}
       />
       <h1 className="text-4xl md:text-6xl font-bold mb-4 text-center flex items-center justify-center gap-2">
         society

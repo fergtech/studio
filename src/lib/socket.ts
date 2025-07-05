@@ -6,6 +6,9 @@ const socketServerDefaultUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'htt
 // Client URL for CORS, default to Next.js dev server
 const clientUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
 
+// In-memory map of online users (userId -> socketId[])
+const onlineUsers: Record<string, Set<string>> = {};
+
 export const initializeSocket = (server: any) => {
   if (!io) {
     io = new Server(server, {
@@ -18,9 +21,17 @@ export const initializeSocket = (server: any) => {
     io.on('connection', (socket: import('socket.io').Socket) => {
       console.log('A user connected:', socket.id);
 
+      // Track which user this socket belongs to
+      let currentUserId: string | null = null;
+
       // Join user-specific room for notifications
       socket.on('joinUserRoom', (userId: string) => {
         socket.join(`user_${userId}`);
+        currentUserId = userId;
+        // Add to online users
+        if (!onlineUsers[userId]) onlineUsers[userId] = new Set();
+        onlineUsers[userId].add(socket.id);
+        broadcastOnlineUsers();
         console.log(`User ${userId} joined their notification room`);
       });
 
@@ -54,6 +65,13 @@ export const initializeSocket = (server: any) => {
       });
 
       socket.on('disconnect', () => {
+        if (currentUserId && onlineUsers[currentUserId]) {
+          onlineUsers[currentUserId].delete(socket.id);
+          if (onlineUsers[currentUserId].size === 0) {
+            delete onlineUsers[currentUserId];
+          }
+          broadcastOnlineUsers();
+        }
         console.log('A user disconnected:', socket.id);
       });
     });
@@ -61,6 +79,13 @@ export const initializeSocket = (server: any) => {
 
   return io;
 };
+
+function broadcastOnlineUsers() {
+  if (io) {
+    const onlineUserIds = Object.keys(onlineUsers);
+    io.emit('onlineUsers', onlineUserIds);
+  }
+}
 
 export const getSocketInstance = () => io;
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useRouter } from 'next/navigation';
+import { io, Socket } from 'socket.io-client';
 
 interface ProfileClientProps {
   user: any; // We'll type this properly once we have the transformed data structure
@@ -32,6 +33,21 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
   const [showFollowersModal, setShowFollowersModal] = useState(false);
   const [showFollowingModal, setShowFollowingModal] = useState(false);
   const router = useRouter();
+  const [isOnline, setIsOnline] = useState(false);
+
+  useEffect(() => {
+    const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'http://localhost:9003';
+    const socket: Socket = io(SOCKET_URL, {
+      path: '/api/socketio',
+      transports: ['websocket', 'polling'],
+    });
+    socket.on('onlineUsers', (ids: string[]) => {
+      setIsOnline(ids.includes(user.id));
+    });
+    return () => {
+      socket.disconnect();
+    };
+  }, [user.id]);
 
   const handleFollow = async () => {
     if (isFollowing || isFollowLoading) return; // Prevent duplicate follow
@@ -83,7 +99,7 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
       <div className="relative w-full max-w-3xl mx-auto -mt-[14rem] z-10">
         {/* Avatar overlaps card and banner */}
         <div className="absolute left-1/2 -top-16 transform -translate-x-1/2 z-20">
-          <div className="w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-white dark:border-gray-700 shadow-lg overflow-hidden bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+          <div className={`w-32 h-32 md:w-40 md:h-40 rounded-full border-4 shadow-lg overflow-hidden flex items-center justify-center bg-gray-200 dark:bg-gray-700 ${isOnline ? 'border-green-500' : 'border-gray-700'}`}>
             {user.image ? (
               <Image
                 src={user.image}

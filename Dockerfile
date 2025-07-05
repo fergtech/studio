@@ -54,8 +54,7 @@ RUN sed -i 's/\r$//' /usr/local/bin/wait-for-it.sh
 # Copy the built application files from the builder stage
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-# If your app has a root /public folder that 'standalone' isn't picking up, uncomment:
-# COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 
 USER nextjs

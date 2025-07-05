@@ -1,7 +1,76 @@
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Users } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import Image from 'next/image';
+import Link from 'next/link';
+import { io, Socket } from 'socket.io-client';
+
+interface SuggestedUser {
+  id: string;
+  name: string | null;
+  username: string | null;
+  image: string | null;
+  online?: boolean;
+}
+
+const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'http://localhost:9003';
 
 export default function SuggestionsWidget() {
+  const [users, setUsers] = useState<SuggestedUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [following, setFollowing] = useState<string[]>([]);
+  const [onlineUserIds, setOnlineUserIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    async function fetchSuggestions() {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch('/api/users');
+        if (!res.ok) throw new Error('Failed to fetch suggestions');
+        const data = await res.json();
+        setUsers(data.users || []);
+      } catch (err: any) {
+        setError(err.message || 'Error fetching suggestions');
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchSuggestions();
+  }, []);
+
+  // Socket logic for online status
+  useEffect(() => {
+    const socket: Socket = io(SOCKET_URL, {
+      path: '/api/socketio',
+      transports: ['websocket', 'polling'],
+    });
+    socket.on('connect', () => {
+      // Optionally, join a room if needed
+    });
+    socket.on('onlineUsers', (ids: string[]) => {
+      setOnlineUserIds(ids);
+    });
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
+
+  // Merge online status into users
+  const usersWithOnline = users.map(u => ({ ...u, online: onlineUserIds.includes(u.id) }));
+
+  async function handleFollow(userId: string) {
+    setFollowing(prev => [...prev, userId]);
+    try {
+      await fetch(`/api/users/${userId}/follow`, { method: 'POST' });
+      setUsers(prev => prev.filter(u => u.id !== userId));
+    } catch {
+      setFollowing(prev => prev.filter(id => id !== userId));
+    }
+  }
+
   return (
     <Card>
       <CardHeader className="py-2 px-3">
@@ -11,7 +80,47 @@ export default function SuggestionsWidget() {
         </CardTitle>
       </CardHeader>
       <CardContent className="py-2 px-3">
-        <div className="text-xs text-muted-foreground">Suggestions coming soon.</div>
+        {loading ? (
+          <div className="text-xs text-muted-foreground">Loading...</div>
+        ) : error ? (
+          <div className="text-xs text-red-500">{error}</div>
+        ) : usersWithOnline.length === 0 ? (
+          <div className="text-xs text-muted-foreground">No suggestions at the moment.</div>
+        ) : (
+          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-muted/40 scrollbar-track-transparent">
+            {usersWithOnline.map(user => (
+              <div key={user.id} className="flex flex-col items-center min-w-[120px] max-w-[140px] bg-muted/40 rounded-lg p-3 shadow-sm">
+                <div className="relative mb-2">
+                  <span className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-background ${user.online ? 'bg-green-500' : 'bg-gray-400'}`}></span>
+                  {user.image ? (
+                    <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center bg-muted">
+                      <Image src={user.image} alt={user.name || user.username || 'User'} width={48} height={48} className="w-12 h-12 rounded-full object-cover" />
+                    </div>
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center text-lg font-bold text-muted-foreground">
+                      {user.name?.[0] || user.username?.[0] || '?'}
+                    </div>
+                  )}
+                </div>
+                <Link href={`/profile/${user.id}`} className="font-medium text-sm truncate hover:underline text-center w-full">
+                  {user.name || user.username || 'User'}
+                </Link>
+                {user.username && (
+                  <span className="block text-xs text-muted-foreground truncate text-center w-full">@{user.username}</span>
+                )}
+                <Button
+                  size="sm"
+                  className="text-xs px-3 py-1 mt-2 w-full"
+                  disabled={following.includes(user.id)}
+                  onClick={() => handleFollow(user.id)}
+                  variant="secondary"
+                >
+                  {following.includes(user.id) ? 'Following...' : 'Follow'}
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

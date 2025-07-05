@@ -15,7 +15,7 @@ COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* ./
 
 # Install all dependencies from your lockfile
 # This will include `tsx` if it's in your package.json
-RUN npm ci
+RUN pnpm install --frozen-lockfile
 
 # Copy all of your source code into the container
 # This makes sure socket-server.ts is available

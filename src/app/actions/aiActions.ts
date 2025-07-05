@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { Initiative } from "@prisma/client";
+import { Initiative } from "@/lib/types";
 import { GoogleGenerativeAI } from '@google/generative-ai'; // Import the library
 
 export async function getOrCreateAiGuidance(initiativeId: string): Promise<{ success: boolean; guidance?: string; error?: string }> {

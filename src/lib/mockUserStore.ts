@@ -2,26 +2,24 @@ import bcrypt from 'bcryptjs';
 import { User } from './types'; // Assuming User type might be defined here or elsewhere
 
 // Define a basic User type for the mock store if not already defined
-// export interface User {
-//   id: string;
-//   email: string;
-//   passwordHash: string;
-//   dateCreated: Date;
-// }
+interface MockUser extends User {
+  passwordHash: string;
+  dateCreated: Date;
+}
 
 // In-memory store
-const users: User[] = [];
+const users: MockUser[] = [];
 const saltRounds = 10; // Cost factor for bcrypt hashing
 
 export const mockUserStore = {
-  async findByEmail(email: string): Promise<User | undefined> {
+  async findByEmail(email: string): Promise<MockUser | undefined> {
     console.log('Mock Store: Searching for email:', email);
     const user = users.find((user) => user.email === email);
     console.log('Mock Store: Found user:', user ? user.email : 'None');
     return user;
   },
 
-  async addUser(email: string, password: string): Promise<User | null> {
+  async addUser(email: string, password: string): Promise<MockUser | null> {
     console.log('Mock Store: Attempting to add email:', email);
     const existingUser = await this.findByEmail(email);
     if (existingUser) {
@@ -30,7 +28,7 @@ export const mockUserStore = {
     }
 
     const passwordHash = await bcrypt.hash(password, saltRounds);
-    const newUser: User = {
+    const newUser: MockUser = {
       id: crypto.randomUUID(), // Generate a simple unique ID
       email,
       passwordHash,
@@ -53,7 +51,7 @@ export const mockUserStore = {
   },
 
   // Helper to see current users (for debugging)
-  getAllUsers(): User[] {
+  getAllUsers(): MockUser[] {
     return [...users];
   }
 };

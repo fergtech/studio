@@ -150,7 +150,8 @@ export async function createInitiative(args: CreateInitiativeArgs) {
       return { error: `Database error: ${error.message}` };
     }
 
-    return { error: "Failed to create initiative. Please try again." };
+    const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+    return { error: `Failed to create initiative: ${errorMessage}` };
   }
 }
 
@@ -410,7 +411,8 @@ export async function joinInitiativeAction(
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       return { success: false, error: `Database error: ${error.code}` };
     }
-    return { success: false, error: "An unexpected error occurred while joining the initiative." };
+    const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+    return { success: false, error: `An unexpected error occurred while joining the initiative: ${errorMessage}` };
   }
 }
 
@@ -478,7 +480,8 @@ export async function updateInitiativeAction({
     return { success: true, initiative: updatedInitiative };
   } catch (error) {
     console.error("Error updating initiative:", error);
-    return { error: "Failed to update initiative." };
+    const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+    return { error: `Failed to update initiative: ${errorMessage}` };
   }
 }
 
@@ -540,7 +543,7 @@ export async function updateInitiativeMembershipAction(
     return { success: false, error: "Cannot change role to ADMIN through this action." };
   }
   // Ensure newRole is a valid enum value (excluding ADMIN which is already checked)
-  const validRoles: string[] = Object.values(InitiativeRoleType).filter(r => r !== InitiativeRoleType.ADMIN);
+  const validRoles: string[] = Object.values(InitiativeRoleType).filter((r: string) => r !== InitiativeRoleType.ADMIN);
   if (!validRoles.includes(newRole)) {
     return { success: false, error: `Invalid role type provided: ${newRole}.` };
   }
@@ -591,7 +594,8 @@ export async function updateInitiativeMembershipAction(
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       return { success: false, error: `Database error: ${error.code}` };
     }
-    return { success: false, error: "An unexpected error occurred while updating membership role." };
+    const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+    return { success: false, error: `An unexpected error occurred while updating membership role: ${errorMessage}` };
   }
 }
 
@@ -658,7 +662,7 @@ export async function leaveInitiativeAction(
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       return { success: false, error: `Database error: ${error.code}` };
     }
-    // Ensure this path also returns the correct type
-    return { success: false, error: "An unexpected error occurred while leaving the initiative." };
+    const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+    return { success: false, error: `An unexpected error occurred while leaving the initiative: ${errorMessage}` };
   }
 }

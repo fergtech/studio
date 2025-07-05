@@ -1,6 +1,6 @@
 "use server";
 
-import { PrismaClient, MediaType } from "@prisma/client"; // Added MediaType
+import { MediaType } from "@prisma/client"; // Added MediaType
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";

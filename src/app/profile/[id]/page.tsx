@@ -148,8 +148,8 @@ export default async function ProfilePage({ params: incomingParams }: ProfilePag
   }
 
   // Flatten followers/following arrays
-  const followers = user.userFollowers.map((f: any) => f.follower);
-  const following = user.userFollowing.map((f: any) => f.following);
+  const followers = user.userFollowers.map((f: { follower: any }) => f.follower);
+  const following = user.userFollowing.map((f: { following: any }) => f.following);
 
   // Assert the type of the user object
   const typedUser = user as UserWithInitiativesAndPosts;
@@ -182,7 +182,7 @@ export default async function ProfilePage({ params: incomingParams }: ProfilePag
   const transformedUser = {
     ...typedUser,
     createdInitiatives: typedUser.createdInitiatives.map(transformInitiative),
-    initiativeMemberships: typedUser.initiativeMemberships.map(membership => ({
+    initiativeMemberships: typedUser.initiativeMemberships.map((membership: any) => ({
       ...membership,
       initiative: transformInitiative(membership.initiative)
     })),
@@ -192,7 +192,7 @@ export default async function ProfilePage({ params: incomingParams }: ProfilePag
   const activityFeed: ContributionItem[] = [];
 
   // Add general posts
-  transformedUser.createdGeneralPosts.forEach(post => {
+  transformedUser.createdGeneralPosts.forEach((post: any) => {
     activityFeed.push({
       id: post.id,
       type: 'post_creation',
@@ -203,7 +203,7 @@ export default async function ProfilePage({ params: incomingParams }: ProfilePag
   });
 
   // Add created initiatives
-  transformedUser.createdInitiatives.forEach(initiative => {
+  transformedUser.createdInitiatives.forEach((initiative: any) => {
     activityFeed.push({
       id: initiative.id,
       type: 'initiative_creation',
@@ -215,7 +215,7 @@ export default async function ProfilePage({ params: incomingParams }: ProfilePag
   });
 
   // Add initiative memberships (user joining an initiative)
-  transformedUser.initiativeMemberships.forEach(membership => {
+  transformedUser.initiativeMemberships.forEach((membership: any) => {
     activityFeed.push({
       id: membership.initiative.id + '-join', // Unique ID for join activity
       type: 'initiative_join',
@@ -227,7 +227,7 @@ export default async function ProfilePage({ params: incomingParams }: ProfilePag
   });
 
   // Add initiative updates (fetched separately)
-  userUpdates.forEach(update => {
+  userUpdates.forEach((update: any) => {
     activityFeed.push({
       id: update.id,
       type: 'post', // Using 'post' type for general updates within an initiative
@@ -239,7 +239,7 @@ export default async function ProfilePage({ params: incomingParams }: ProfilePag
   });
 
   // Add chat messages (fetched separately)
-  userChatMessages.forEach(chatMessage => {
+  userChatMessages.forEach((chatMessage: any) => {
     activityFeed.push({
       id: chatMessage.id,
       type: 'comment', // Using 'comment' type for chat messages as they are textual contributions

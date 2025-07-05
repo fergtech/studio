@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { Idea, MediaItem, User, Prisma } from "@prisma/client";
+import { Idea, MediaItem, User } from "@/lib/types";
 import { revalidatePath } from 'next/cache';
 import { MediaType } from "@prisma/client";
 
@@ -68,7 +68,7 @@ export async function createIdea(data: CreateIdeaData): Promise<CreateIdeaResult
   }
 
   try {
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       const newIdea = await tx.idea.create({
         data: {
           title: data.title,

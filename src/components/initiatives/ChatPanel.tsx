@@ -6,7 +6,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { MessageSquare, X, Send, Wifi, WifiOff } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import type { EnhancedChatMessage } from '@/lib/types';
-import { Socket } from 'socket.io-client';
+import { io, Socket } from 'socket.io-client';
 import { toast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -16,7 +16,6 @@ interface ChatPanelProps {
   onClose: () => void;
   messages: EnhancedChatMessage[];
   onSendMessage: (message: string) => void;
-  socket: Socket | null;
   currentUserId: string | undefined;
 }
 
@@ -25,10 +24,11 @@ export function ChatPanel({
   onClose,
   messages,
   onSendMessage,
-  socket,
   currentUserId
 }: ChatPanelProps) {
-  console.log('ChatPanel rendering. isOpen:', isOpen, 'socket:', socket?.connected);
+  const socketUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'http://localhost:9003';
+  const [socket, setSocket] = useState<Socket | null>(null);
+  console.log('ChatPanel rendering. isOpen:', isOpen);
   const [newMessage, setNewMessage] = useState('');
   const [chatMessages, setChatMessages] = useState<EnhancedChatMessage[]>(messages);
   const [isConnected, setIsConnected] = useState(false);
@@ -36,6 +36,17 @@ export function ChatPanel({
   useEffect(() => {
     setChatMessages(messages);
   }, [messages]);
+
+  useEffect(() => {
+    const socketInstance = io(socketUrl, {
+      path: '/api/socketio',
+      transports: ['websocket', 'polling']
+    });
+    setSocket(socketInstance);
+    return () => {
+      socketInstance.disconnect();
+    };
+  }, []);
 
   useEffect(() => {
     console.log('ChatPanel useEffect [socket]: running. Socket status:', socket?.connected);

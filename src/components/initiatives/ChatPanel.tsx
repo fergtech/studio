@@ -17,6 +17,7 @@ interface ChatPanelProps {
   messages: EnhancedChatMessage[];
   onSendMessage: (message: string) => void;
   currentUserId: string | undefined;
+  socket: Socket | null;
 }
 
 export function ChatPanel({
@@ -24,10 +25,9 @@ export function ChatPanel({
   onClose,
   messages,
   onSendMessage,
-  currentUserId
+  currentUserId,
+  socket
 }: ChatPanelProps) {
-  const socketUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'http://localhost:9003';
-  const [socket, setSocket] = useState<Socket | null>(null);
   console.log('ChatPanel rendering. isOpen:', isOpen);
   const [newMessage, setNewMessage] = useState('');
   const [chatMessages, setChatMessages] = useState<EnhancedChatMessage[]>(messages);
@@ -36,17 +36,6 @@ export function ChatPanel({
   useEffect(() => {
     setChatMessages(messages);
   }, [messages]);
-
-  useEffect(() => {
-    const socketInstance = io(socketUrl, {
-      path: '/api/socketio',
-      transports: ['websocket', 'polling']
-    });
-    setSocket(socketInstance);
-    return () => {
-      socketInstance.disconnect();
-    };
-  }, []);
 
   useEffect(() => {
     console.log('ChatPanel useEffect [socket]: running. Socket status:', socket?.connected);

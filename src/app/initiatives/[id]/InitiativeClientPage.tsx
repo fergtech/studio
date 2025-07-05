@@ -55,6 +55,8 @@ export function InitiativeClientPage({
   // Log stringified chatMessages from initialInitiative right before useState
   console.log('InitiativeClientPage: stringified initialInitiative.chatMessages before useState:', JSON.stringify(initialInitiative.chatMessages));
 
+  console.log('ENV SOCKET URL:', process.env.NEXT_PUBLIC_SOCKET_SERVER_URL);
+
   const { data: session } = useSession();
   const router = useRouter();
   const { toast } = useToast(); // Call useToast to get the toast function
@@ -491,6 +493,7 @@ export function InitiativeClientPage({
         name: dbMessage.senderName || 'Unknown User',
         image: undefined
       },
+      receiverId: dbMessage.receiverId || null,
       createdAt: dbMessage.createdAt ? new Date(dbMessage.createdAt) : new Date(dbMessage.timestamp),
     };
     console.log('transformDatabaseChatMessage: transformed message:', transformedMessage);

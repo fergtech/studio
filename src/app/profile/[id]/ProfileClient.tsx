@@ -123,6 +123,17 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
             <div className="text-2xl font-bold text-white drop-shadow mt-2">{user.name}</div>
             <div className="text-gray-300 text-sm drop-shadow">@{user.username}</div>
             <div className="text-gray-400 text-xs flex items-center gap-1 mt-1 drop-shadow"><span>Joined {new Date(user.dateCreated).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}</span></div>
+            {/* Followers/Following moved here */}
+            <div className="flex flex-wrap justify-center gap-6 mt-2 w-full">
+              <div>
+                <div className="text-xs text-gray-400 mb-1">Followers</div>
+                <div className="text-lg font-semibold text-white">{user.followersCount ?? 0}</div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-400 mb-1">Following</div>
+                <div className="text-lg font-semibold text-white">{user.followingCount ?? 0}</div>
+              </div>
+            </div>
             {/* Action buttons */}
             <div className="mt-3 flex gap-2">
               {isOwnProfile ? (
@@ -156,7 +167,7 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
                 </>
               )}
             </div>
-            {/* Profile meta: bio, websites, skills, interests, followers, following */}
+            {/* Profile meta: bio, websites, followers/following */}
             {user.bio && (
               <div className="max-w-xl mx-auto text-center text-lg italic text-gray-200 bg-blue-900/70 rounded-lg px-6 py-3 mb-2 shadow mt-4">
                 “{user.bio}”
@@ -172,7 +183,38 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
                 ))}
               </div>
             )}
-            <div className="flex flex-wrap justify-center gap-6 mt-2 w-full">
+            {/* Skills and Interests removed from here */}
+          </div>
+        </div>
+      </div>
+
+      {/* Tabs Section */}
+      <div className="border-t border-gray-200 dark:border-gray-700">
+        <Tabs defaultValue="intro" className="w-full">
+          <TabsList className="w-full justify-start border-b rounded-none bg-transparent p-0">
+            <TabsTrigger value="intro" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none">
+              Intro
+            </TabsTrigger>
+            <TabsTrigger value="initiatives" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none">
+              Initiatives
+            </TabsTrigger>
+            <TabsTrigger value="activity" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none">
+              Activity
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="intro" className="p-6">
+            <div className="flex flex-col gap-8">
+              {/* Location section */}
+              {user.location && (
+                <div>
+                  <div className="text-xs text-gray-400 mb-1 flex items-center gap-1">
+                    <MapPin className="inline-block w-4 h-4 text-primary" /> Location
+                  </div>
+                  <div className="text-base font-medium text-white">{user.location}</div>
+                </div>
+              )}
+              {/* Skills section */}
               <div>
                 <div className="text-xs text-gray-400 mb-1">Skills</div>
                 <div className="flex flex-wrap gap-1">
@@ -184,6 +226,7 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
                   }
                 </div>
               </div>
+              {/* Interests section */}
               <div>
                 <div className="text-xs text-gray-400 mb-1">Interests</div>
                 <div className="flex flex-wrap gap-1">
@@ -195,30 +238,22 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
                   }
                 </div>
               </div>
-              <div>
-                <div className="text-xs text-gray-400 mb-1">Followers</div>
-                <div className="text-lg font-semibold text-white">{user.followersCount ?? 0}</div>
-              </div>
-              <div>
-                <div className="text-xs text-gray-400 mb-1">Following</div>
-                <div className="text-lg font-semibold text-white">{user.followingCount ?? 0}</div>
-              </div>
+              {/* Social Links section */}
+              {user.websites && user.websites.length > 0 && (
+                <div>
+                  <div className="text-xs text-gray-400 mb-1">Social Links</div>
+                  <div className="flex flex-wrap gap-3">
+                    {user.websites.map((site: string, idx: number) => (
+                      <Link key={site+idx} href={site.startsWith('http') ? site : `https://${site}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-blue-200 hover:text-blue-100 transition">
+                        <Globe2 className="w-4 h-4" />
+                        <span className="underline text-sm">{site.replace(/^https?:\/\//, '')}</span>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Tabs Section */}
-      <div className="border-t border-gray-200 dark:border-gray-700">
-        <Tabs defaultValue="initiatives" className="w-full">
-          <TabsList className="w-full justify-start border-b rounded-none bg-transparent p-0">
-            <TabsTrigger value="initiatives" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none">
-              Initiatives
-            </TabsTrigger>
-            <TabsTrigger value="activity" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none">
-              Activity
-            </TabsTrigger>
-          </TabsList>
+          </TabsContent>
 
           <TabsContent value="initiatives" className="p-6">
             <div className="flex justify-between items-center mb-4">

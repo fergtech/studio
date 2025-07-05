@@ -54,11 +54,6 @@ export function ChatPanel({
       const handleDisconnect = () => {
         console.log('ChatPanel: Socket disconnected. Updating state.');
         setIsConnected(false);
-        toast({
-          title: "Disconnected",
-          description: "Chat connection lost",
-          variant: "destructive",
-        });
       };
 
       const handleConnectError = (error: any) => {

@@ -9,6 +9,9 @@ import { prisma } from '@/lib/prisma'; // Added prisma import
 //import { createPipelineFromOptions, Pipeline } from "@azure/core-rest-pipeline";
 //import { DefaultHttpClient } from '@azure/core-http';
 
+// Allow larger file uploads (up to 20MB)
+export const maxRequestBodySize = '20mb';
+
 export async function POST(request: NextRequest) {
   console.log("Upload API route hit");
 
@@ -187,4 +190,8 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json({ error: errorMessage, details: errorDetails }, { status: 500 });
   }
+}
+
+export async function GET(request: NextRequest) {
+  return new Response("Upload endpoint is alive", { status: 200 });
 }

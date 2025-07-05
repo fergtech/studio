@@ -388,6 +388,11 @@ export function HomeClient({ currentUserId }: HomeClientProps) {
   const [userInfo, setUserInfo] = useState<any>(null);
   const { toast } = useToast();
 
+  // Add this handler in HomeClient
+  const handlePostDeleted = (postId: string) => {
+    setFeedItems(prev => prev.filter(item => !(isContentItem(item) && isGeneralPost(item.data as any) && item.data.id === postId)));
+  };
+
   useEffect(() => {
     const fetchFeedItems = async () => {
       try {
@@ -460,29 +465,6 @@ export function HomeClient({ currentUserId }: HomeClientProps) {
       </aside>
       {/* Main Feed (centered) */}
       <div className="flex-1 flex flex-col items-center space-y-6 order-2 lg:order-none">
-        {/* Mobile sidebar toggle */}
-        <div className="w-full flex lg:hidden justify-start mb-2">
-          <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-            <SheetTrigger asChild>
-              <button
-                className="inline-flex items-center px-3 py-2 rounded-md text-sm font-medium text-primary bg-muted hover:bg-muted/80 focus:outline-none"
-                aria-label="Open sidebar"
-              >
-                <Menu className="h-5 w-5 mr-2" />
-                Sidebar
-              </button>
-            </SheetTrigger>
-            <SheetContent side="left" className="w-80 p-0 max-h-screen overflow-y-auto">
-              <div className="space-y-6 p-4">
-                <UserHighlightsCard userInfo={userInfo} toast={toast} />
-                <SuggestionsWidget />
-                <TrendingWidget />
-                <TipsWidget />
-                <ShortcutsWidget />
-              </div>
-            </SheetContent>
-          </Sheet>
-        </div>
         <div className="w-full flex flex-col items-center space-y-6">
           <div className="w-full max-w-[500px]">
             <CreatePostForm onPostCreated={handlePostCreated} />
@@ -518,7 +500,7 @@ export function HomeClient({ currentUserId }: HomeClientProps) {
                 };
                 return (
                   <div key={contentData.id} className="w-full max-w-[500px]">
-                    <GeneralPostCard post={displayPost} currentUserId={currentUserId} />
+                    <GeneralPostCard post={displayPost} currentUserId={currentUserId} onPostDeleted={handlePostDeleted} />
                   </div>
                 );
               } else if (isInitiative(contentData)) {
@@ -709,6 +691,26 @@ export function HomeClient({ currentUserId }: HomeClientProps) {
           )}
         </div>
       </div>
+      {/* Floating mobile sidebar toggle button (bottom left) - moved outside feed content */}
+      <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+        <SheetTrigger asChild>
+          <button
+            className="fixed bottom-6 left-6 z-50 lg:hidden flex items-center justify-center w-12 h-12 rounded-full bg-primary text-white shadow-lg hover:bg-primary/90 focus:outline-none"
+            aria-label="Open sidebar"
+          >
+            <Menu className="h-6 w-6" />
+          </button>
+        </SheetTrigger>
+        <SheetContent side="left" className="w-80 p-0 max-h-screen overflow-y-auto">
+          <div className="space-y-6 p-4">
+            <UserHighlightsCard userInfo={userInfo} toast={toast} />
+            <SuggestionsWidget />
+            <TrendingWidget />
+            <TipsWidget />
+            <ShortcutsWidget />
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

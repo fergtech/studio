@@ -70,11 +70,10 @@ export function InitiativeClientPage({
 
   const [socket, setSocket] = useState<Socket | null>(null);
 
-  // Memoize the transformed chat messages, dependent directly on the initialInitiative prop's chatMessages
+  // Memoize the transformed chat messages, dependent directly on the initiative state (not just initialInitiative)
   const transformedMessages = useMemo(() => {
-    console.log('useMemo: Transforming chat messages from initialInitiative prop directly.', initialInitiative?.chatMessages);
-    return initialInitiative.chatMessages?.map(transformDatabaseChatMessage) || [];
-  }, [initialInitiative.chatMessages]); // Depend directly on initialInitiative.chatMessages
+    return initiative.chatMessages?.map(transformDatabaseChatMessage) || [];
+  }, [initiative.chatMessages]);
 
   useEffect(() => {
     // Initialize socket connection

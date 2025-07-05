@@ -70,21 +70,58 @@ export default function CreatePostForm({ onPostCreated }: { onPostCreated: () =>
 
     setIsSubmitting(true);
     try {
+      // First, upload media files if any
+      let uploadedMediaUrls: string[] = [];
+      let uploadedMediaTypes: string[] = [];
+
+      if (selectedMedia) {
+        const uploadFormData = new FormData();
+        uploadFormData.append('file', selectedMedia);
+        
+        try {
+          const uploadResponse = await fetch('/api/upload', {
+            method: 'POST',
+            body: uploadFormData,
+          });
+
+          if (!uploadResponse.ok) {
+            throw new Error(`Upload failed: ${uploadResponse.statusText}`);
+          }
+
+          const uploadResult = await uploadResponse.json();
+          if (uploadResult.imageUrl) {
+            uploadedMediaUrls.push(uploadResult.imageUrl);
+            // Determine media type
+            let mediaType = '';
+            if (selectedMedia.type.startsWith('image/')) {
+              mediaType = 'image';
+            } else if (selectedMedia.type.startsWith('video/')) {
+              mediaType = 'video';
+            }
+            uploadedMediaTypes.push(mediaType);
+          }
+        } catch (uploadError) {
+          console.error('Media upload failed:', uploadError);
+          toast({
+            title: "Upload Error",
+            description: "Failed to upload media. Please try again.",
+            variant: "destructive",
+          });
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
+      // Now create the post with uploaded URLs
       const formData = new FormData();
       formData.append('content', content);
 
-      if (selectedMedia) {
-        formData.append('mediaFiles', selectedMedia); // selectedMedia is the File object
-        let mediaType = '';
-        if (selectedMedia.type.startsWith('image/')) {
-          mediaType = 'image';
-        } else if (selectedMedia.type.startsWith('video/')) {
-          mediaType = 'video';
-        }
-        // Add more types as needed (pdf, etc.) and ensure your MediaType enum in Prisma supports them
-        if (mediaType) {
-          formData.append('mediaTypes', mediaType);
-        }
+      if (uploadedMediaUrls.length > 0) {
+        // Add uploaded media URLs and types
+        uploadedMediaUrls.forEach((url, index) => {
+          formData.append('mediaUrls', url);
+          formData.append('mediaTypes', uploadedMediaTypes[index]);
+        });
       } else if (selectedBackground) {
         // Only send formBackground if no media is selected
         formData.append('formBackground', selectedBackground);

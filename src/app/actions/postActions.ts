@@ -5,8 +5,6 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { prisma } from '@/lib/prisma';
-import { BlobServiceClient, BlockBlobClient } from "@azure/storage-blob"; // Added Azure SDK
-import { v4 as uuidv4 } from 'uuid'; // For unique blob names
 
 // CreatePostArgs is no longer needed if we pass FormData directly
 // interface CreatePostArgs {
@@ -24,16 +22,6 @@ export async function createGeneralPost(formData: FormData) { // Changed signatu
     return { error: "User not authenticated or email missing.", success: false };
   }
 
-  const AZURE_STORAGE_CONNECTION_STRING = process.env.AZURE_STORAGE_CONNECTION_STRING;
-  const AZURE_STORAGE_CONTAINER_NAME = process.env.AZURE_STORAGE_CONTAINER_NAME;
-
-  if (!AZURE_STORAGE_CONNECTION_STRING) {
-    return { error: "Azure Storage connection string is not configured.", success: false };
-  }
-  if (!AZURE_STORAGE_CONTAINER_NAME) {
-    return { error: "Azure Storage container name is not configured.", success: false };
-  }
-
   const userId = session.user.id;
   const userName = session.user.name || session.user.email.split('@')[0];
   const userAvatar = session.user.image || undefined;
@@ -43,7 +31,8 @@ export async function createGeneralPost(formData: FormData) { // Changed signatu
   const formBackground = formData.get('formBackground') as string | undefined; 
   const linkedInitiativeId = formData.get('linkedInitiativeId') as string | undefined;
 
-  const mediaFiles = formData.getAll('mediaFiles') as File[];
+  // Get uploaded media URLs and types (already uploaded via /api/upload)
+  const mediaUrls = formData.getAll('mediaUrls') as string[];
   const mediaTypes = formData.getAll('mediaTypes') as string[]; // e.g., "image", "video"
 
   if (!content || content.trim() === "") {
@@ -54,45 +43,24 @@ export async function createGeneralPost(formData: FormData) { // Changed signatu
     const mediaItemsToCreate: { url: string; type: MediaType }[] = [];
     let postBackground: string | undefined = formBackground; // Default to form background
 
-    const blobServiceClient = BlobServiceClient.fromConnectionString(AZURE_STORAGE_CONNECTION_STRING);
-    const containerClient = blobServiceClient.getContainerClient(AZURE_STORAGE_CONTAINER_NAME);
-    // Ensure container exists - might be good to do this once at app startup or handle errors gracefully
-    // await containerClient.createIfNotExists(); 
-
-    if (mediaFiles && mediaFiles.length > 0 && mediaTypes && mediaTypes.length === mediaFiles.length) {
-      for (let i = 0; i < mediaFiles.length; i++) {
-        const file = mediaFiles[i];
+    if (mediaUrls && mediaUrls.length > 0 && mediaTypes && mediaTypes.length === mediaUrls.length) {
+      for (let i = 0; i < mediaUrls.length; i++) {
+        const mediaUrl = mediaUrls[i];
         const typeString = mediaTypes[i].toLowerCase(); // "image", "video"
 
-        const blobName = `${uuidv4()}-${file.name}`;
-        const blockBlobClient = containerClient.getBlockBlobClient(blobName);
-
-        try {
-          const arrayBuffer = await file.arrayBuffer();
-          await blockBlobClient.uploadData(arrayBuffer, {
-            blobHTTPHeaders: { blobContentType: file.type } // Set content type
-          });
-          const mediaUrl = blockBlobClient.url;
-
-          let dbMediaType: MediaType | undefined = undefined;
-          if (typeString === 'image') {
-            dbMediaType = MediaType.image;
-            if (i === 0) { // If it's the first media item and it's an image
-              postBackground = mediaUrl; // Use its URL as the post's background/cover
-            }
-          } else if (typeString === 'video') {
-            dbMediaType = MediaType.video;
+        let dbMediaType: MediaType | undefined = undefined;
+        if (typeString === 'image') {
+          dbMediaType = MediaType.image;
+          if (i === 0) { // If it's the first media item and it's an image
+            postBackground = mediaUrl; // Use its URL as the post's background/cover
           }
-          // TODO: Add handling for other media types like PDF if MediaType enum is expanded
+        } else if (typeString === 'video') {
+          dbMediaType = MediaType.video;
+        }
+        // TODO: Add handling for other media types like PDF if MediaType enum is expanded
 
-          if (mediaUrl && dbMediaType) {
-            mediaItemsToCreate.push({ url: mediaUrl, type: dbMediaType });
-          }
-        } catch (uploadError) {
-          console.error(`Failed to upload blob ${blobName}:`, uploadError);
-          // Optionally, decide if one failed upload should stop the whole post creation
-          // For now, it continues and tries to create the post with successfully uploaded media
-          // return { error: `Failed to upload file: ${file.name}.`, success: false }; 
+        if (mediaUrl && dbMediaType) {
+          mediaItemsToCreate.push({ url: mediaUrl, type: dbMediaType });
         }
       }
     }
@@ -166,5 +134,33 @@ export async function deletePostAction(postId: string) {
   } catch (error) {
     console.error("Error deleting post:", error);
     return { error: "Failed to delete post. Please try again." };
+  }
+}
+
+export async function updateGeneralPostContent(postId: string, newContent: string) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return { success: false, error: 'Not authenticated' };
+  }
+  const currentUserId = session.user.id;
+  try {
+    // Check if the post exists and belongs to the user
+    const post = await prisma.generalPost.findUnique({
+      where: { id: postId },
+      select: { creatorId: true },
+    });
+    if (!post) {
+      return { success: false, error: 'Post not found' };
+    }
+    if (post.creatorId !== currentUserId) {
+      return { success: false, error: 'Not authorized' };
+    }
+    await prisma.generalPost.update({
+      where: { id: postId },
+      data: { content: newContent },
+    });
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: (error instanceof Error ? error.message : 'Unknown error') };
   }
 }

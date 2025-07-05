@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useModal } from "@/context/ModalContext";
-import { deletePostAction } from '@/app/actions/postActions';
+import { deletePostAction, updateGeneralPostContent } from '@/app/actions/postActions';
 import { ShareModal } from './ShareModal';
 
 // Mock comment data (in a real app, this would come from the database)
@@ -39,9 +39,10 @@ const mockUsers: Record<string, { name: string; avatar?: string }> = {
 interface GeneralPostCardProps {
   post: GeneralPost;
   currentUserId?: string; // Added currentUserId prop
+  onPostDeleted?: (postId: string) => void; // New prop
 }
 
-export function GeneralPostCard({ post, currentUserId }: GeneralPostCardProps) {
+export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralPostCardProps) {
   const { openCreateInitiativeModal } = useModal(); // Use modal context
   // Generate deterministic values based on post ID instead of random numbers
   // This ensures the same values are used on both server and client
@@ -60,6 +61,25 @@ export function GeneralPostCard({ post, currentUserId }: GeneralPostCardProps) {
   const [newComment, setNewComment] = useState('');
   const [loadingComments, setLoadingComments] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
+  // Add state and handler at the top of the component
+  const [editMode, setEditMode] = useState(false);
+  const [editContent, setEditContent] = useState(post.content);
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editContent.trim() && editContent !== post.content) {
+      const result = await updateGeneralPostContent(post.id, editContent);
+      if (result.success) {
+        setEditMode(false);
+        // Optionally, trigger a re-fetch or update the post content in state
+        window.location.reload(); // Simple way to refresh
+      } else {
+        alert(result.error || 'Failed to update post');
+      }
+    } else {
+      setEditMode(false);
+    }
+  };
 
   // Fetch likes, shares, and comments count on mount
   useEffect(() => {
@@ -219,9 +239,7 @@ export function GeneralPostCard({ post, currentUserId }: GeneralPostCardProps) {
         setDeleteError(result.error);
       } else {
         // Post was deleted successfully.
-        // The page will revalidate, so no need to manually remove the post from UI here
-        // unless you want an immediate optimistic update.
-        console.log(result.success);
+        if (onPostDeleted) onPostDeleted(post.id);
       }
     } catch (error) {
       console.error("Error in handleDelete:", error);
@@ -272,14 +290,35 @@ export function GeneralPostCard({ post, currentUserId }: GeneralPostCardProps) {
           )}
         </div>
 
-        {/* Main Content Text - Always present */}
-        <div className="my-4">
-          <p className="text-lg font-medium whitespace-pre-wrap text-center px-2">{post.content}</p>
+        {/* Main Content Text - Move to bottom, now editable if user is creator */}
+        <div className="mt-auto mb-2 flex items-end gap-2">
+          {currentUserId && post.creatorId === currentUserId && !showComments ? (
+            editMode ? (
+              <form onSubmit={handleEditSubmit} className="flex items-end gap-2 w-full">
+                <input
+                  type="text"
+                  value={editContent}
+                  onChange={e => setEditContent(e.target.value)}
+                  className="text-base font-medium whitespace-pre-wrap px-2 bg-black/40 rounded-md py-1 w-full max-w-full border border-border"
+                  autoFocus
+                />
+                <Button type="submit" size="sm" className="h-7 px-2">Save</Button>
+                <Button type="button" size="sm" variant="ghost" className="h-7 px-2" onClick={() => setEditMode(false)}>Cancel</Button>
+              </form>
+            ) : (
+              <>
+                <p className="text-base font-medium whitespace-pre-wrap text-left px-2 bg-black/40 rounded-md py-1 w-fit max-w-full" style={{marginLeft: 0}}>{post.content}</p>
+                <Button size="icon" variant="ghost" className="h-7 w-7 ml-1" onClick={() => { setEditContent(post.content); setEditMode(true); }} aria-label="Edit post"><svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a2 2 0 01-2.828 0L9 13zm-6 6h6v-2H5v-2H3v4z"/></svg></Button>
+              </>
+            )
+          ) : (
+            <p className="text-base font-medium whitespace-pre-wrap text-left px-2 bg-black/40 rounded-md py-1 w-fit max-w-full" style={{marginLeft: 0}}>{post.content}</p>
+          )}
         </div>
 
         {/* Footer Actions - Only show when comments are hidden */}
         {!showComments && (
-          <div className="space-y-3 mt-auto pt-3">
+          <div className="space-y-3 pt-1">
             {/* Social Actions Bar */}
             <div className="flex justify-around items-center px-1 py-2 backdrop-blur-sm bg-card/50 rounded-full">
               {/* Interest Button */}

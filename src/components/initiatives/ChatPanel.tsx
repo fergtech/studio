@@ -64,11 +64,11 @@ export function ChatPanel({
       const handleConnectError = (error: any) => {
         console.error('ChatPanel: Socket connection error:', error);
         setIsConnected(false);
-        toast({
-          title: "Connection Error",
-          description: "Failed to connect to chat server",
-          variant: "destructive",
-        });
+        // toast({
+        //   title: "Connection Error",
+        //   description: "Failed to connect to chat server",
+        //   variant: "destructive",
+        // });
       };
 
       const handleReceiveMessage = (message: EnhancedChatMessage) => {

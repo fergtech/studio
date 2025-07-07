@@ -18,8 +18,7 @@ ENV HTTPS_PROXY=""
 WORKDIR /app
 RUN npm install -g pnpm@10.12.4
 RUN npm uninstall -g corepack || true
-RUN rm -f /usr/local/bin/pnpm /usr/local/bin/corepack
-RUN ln -s $(which pnpm) /usr/local/bin/pnpm
+RUN rm -f /usr/local/bin/corepack
 COPY package.json pnpm-lock.yaml ./
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 RUN /usr/local/bin/pnpm install --frozen-lockfile

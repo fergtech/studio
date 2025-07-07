@@ -17,10 +17,12 @@ ENV HTTP_PROXY=""
 ENV HTTPS_PROXY=""
 WORKDIR /app
 RUN npm install -g pnpm@10.12.4
-RUN ln -sf $(which pnpm) /usr/local/bin/corepack
+RUN npm uninstall -g corepack || true
+RUN rm -f /usr/local/bin/pnpm /usr/local/bin/corepack
+RUN ln -s $(which pnpm) /usr/local/bin/pnpm
 COPY package.json pnpm-lock.yaml ./
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
-RUN pnpm install --frozen-lockfile
+RUN /usr/local/bin/pnpm install --frozen-lockfile
 
 # 3. Builder Stage: Builds the Next.js application
 FROM base AS builder

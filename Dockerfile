@@ -15,9 +15,8 @@ ENV http_proxy=""
 ENV https_proxy=""
 ENV HTTP_PROXY=""
 ENV HTTPS_PROXY=""
-RUN corepack enable
-RUN corepack prepare pnpm@10.12.4 --activate
 WORKDIR /app
+RUN npm install -g pnpm@10.12.4
 COPY package.json pnpm-lock.yaml ./
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 RUN pnpm install --frozen-lockfile

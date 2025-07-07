@@ -13,8 +13,12 @@ ENV HOSTNAME="0.0.0.0"
 FROM base AS deps
 ENV http_proxy=""
 ENV https_proxy=""
-RUN apt-get update && apt-get install -y python3 make g++ openssl libssl-dev --no-install-recommends && rm -rf /var/lib/apt/lists/*
-COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* ./
+ENV HTTP_PROXY=""
+ENV HTTPS_PROXY=""
+RUN corepack enable
+RUN corepack prepare pnpm@10.12.4 --activate
+WORKDIR /app
+COPY package.json pnpm-lock.yaml ./
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 RUN pnpm install --frozen-lockfile
 

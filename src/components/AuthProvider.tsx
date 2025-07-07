@@ -1,20 +1,33 @@
 'use client';
 
-import { SessionProvider } from "next-auth/react";
-import { ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
+import { io, Socket } from 'socket.io-client';
 
 interface AuthProviderProps {
   children: ReactNode;
 }
 
 export default function AuthProvider({ children }: AuthProviderProps) {
-  return (
-    <SessionProvider 
-      refetchInterval={0} 
-      refetchOnWindowFocus={false}
-      refetchWhenOffline={false}
-    >
-      {children}
-    </SessionProvider>
-  );
+  const { data: session } = useSession();
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'http://localhost:9003';
+    const socket: Socket = io(SOCKET_URL, {
+      path: '/api/socketio',
+      transports: ['websocket', 'polling'],
+    });
+    socket.on('connect', () => {
+      socket.emit('joinUserRoom', session.user.id);
+    });
+    socket.on('reconnect', () => {
+      socket.emit('joinUserRoom', session.user.id);
+    });
+    return () => {
+      socket.disconnect();
+    };
+  }, [session?.user?.id]);
+
+  return <>{children}</>;
 }

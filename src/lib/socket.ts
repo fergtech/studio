@@ -8,6 +8,7 @@ const clientUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
 
 // In-memory map of online users (userId -> socketId[])
 const onlineUsers: Record<string, Set<string>> = {};
+const userLastSeen: Record<string, number> = {}; // userId -> timestamp
 
 export const initializeSocket = (server: any) => {
   if (!io) {
@@ -62,6 +63,17 @@ export const initializeSocket = (server: any) => {
             io.to(conversationId).emit('receiveDirectMessage', message);
           }
         }
+      });
+
+      // Add checkUserStatus event for real-time profile checks
+      socket.on('userHeartbeat', (userId: string) => {
+        userLastSeen[userId] = Date.now();
+      });
+
+      socket.on('checkUserStatus', (userId: string, callback: (isOnline: boolean) => void) => {
+        const lastSeen = userLastSeen[userId];
+        const isOnline = lastSeen && (Date.now() - lastSeen < 5 * 60 * 1000); // 5 minutes
+        callback(!!isOnline);
       });
 
       socket.on('disconnect', () => {

@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster"; // Keep Toaster if needed glo
 import AuthProvider from "@/components/AuthProvider"; // Import the AuthProvider
 import { ModalProvider } from "@/context/ModalContext"; // Import ModalProvider
 import { ThemeProvider } from "next-themes";
+import { SessionProvider } from "next-auth/react";
 
 export default function RootLayout({
   children,
@@ -22,15 +23,17 @@ export default function RootLayout({
       </head>
       <body className="antialiased min-h-screen flex flex-col bg-background text-foreground"> 
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-          <AuthProvider> {/* Wrap content with AuthProvider */}
-            <ModalProvider> {/* Wrap with ModalProvider */}
-              <Header />
-              <main className="flex-grow container mx-auto px-4 py-8 md:px-6"> {/* Keep main styling */}
-                {children}
-              </main>
-              <Toaster /> {/* Keep Toaster */}
-            </ModalProvider>
-          </AuthProvider>
+          <SessionProvider refetchInterval={0} refetchOnWindowFocus={false} refetchWhenOffline={false}>
+            <AuthProvider>
+              <ModalProvider>
+                <Header />
+                <main className="flex-grow container mx-auto px-4 py-8 md:px-6"> {/* Keep main styling */}
+                  {children}
+                </main>
+                <Toaster /> {/* Keep Toaster */}
+              </ModalProvider>
+            </AuthProvider>
+          </SessionProvider>
         </ThemeProvider>
       </body>
     </html>

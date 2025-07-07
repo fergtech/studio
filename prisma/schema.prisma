@@ -132,6 +132,12 @@ model User {
   generalPostLikes            GeneralPostLike[]
   generalPostShares           GeneralPostShare[]
   generalPostComments         GeneralPostComment[]
+  issueLikes                  IssueLike[]
+  issueShares                 IssueShare[]
+  issueComments               IssueComment[]
+  ideaLikes                   IdeaLike[]
+  ideaShares                  IdeaShare[]
+  ideaComments                IdeaComment[]
   userFollowers               UserFollow[]   @relation("UserFollowers")
   userFollowing               UserFollow[]   @relation("UserFollowing")
   notifications               Notification[] @relation("UserNotifications")
@@ -426,6 +432,9 @@ model Issue {
   championedBy              User?       @relation("ChampionedIssueBy", fields: [championedById], references: [id])
   championedByInitiativeId  String?     @unique 
   championedByInitiative    Initiative? @relation("ChampionedIssue", fields: [championedByInitiativeId], references: [id])
+  likes                     IssueLike[]
+  shares                    IssueShare[]
+  comments                  IssueComment[]
 }
 
 // New Model for Ideas
@@ -444,6 +453,81 @@ model Idea {
   championedBy              User?       @relation("ChampionedIdeaBy", fields: [championedById], references: [id])
   championedByInitiativeId  String?     @unique 
   championedByInitiative    Initiative? @relation("ChampionedIdea", fields: [championedByInitiativeId], references: [id])
+  likes                     IdeaLike[]
+  shares                    IdeaShare[]
+  comments                  IdeaComment[]
+}
+
+// Issue Like, Share, and Comment models
+model IssueLike {
+  id        String   @id @default(cuid())
+  issueId   String
+  userId    String
+  createdAt DateTime @default(now())
+
+  issue     Issue    @relation(fields: [issueId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([issueId, userId])
+}
+
+model IssueShare {
+  id        String   @id @default(cuid())
+  issueId   String
+  userId    String
+  createdAt DateTime @default(now())
+
+  issue     Issue    @relation(fields: [issueId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([issueId, userId])
+}
+
+model IssueComment {
+  id        String   @id @default(cuid())
+  issueId   String
+  userId    String
+  text      String
+  timestamp DateTime @default(now())
+
+  issue     Issue    @relation(fields: [issueId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+// Idea Like, Share, and Comment models
+model IdeaLike {
+  id        String   @id @default(cuid())
+  ideaId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  idea      Idea     @relation(fields: [ideaId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([ideaId, userId])
+}
+
+model IdeaShare {
+  id        String   @id @default(cuid())
+  ideaId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  idea      Idea     @relation(fields: [ideaId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([ideaId, userId])
+}
+
+model IdeaComment {
+  id        String   @id @default(cuid())
+  ideaId    String
+  userId    String
+  text      String
+  timestamp DateTime @default(now())
+
+  idea      Idea     @relation(fields: [ideaId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
 }
 
 model Comment {

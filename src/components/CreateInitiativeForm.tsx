@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react'; // Import useEffect
+import { useState, useEffect, useRef } from 'react'; // Import useEffect and useRef
 import { useForm, useFieldArray, FieldValues, FieldArrayPath } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -15,8 +15,19 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { useToast } from "@/hooks/use-toast";
 // Use Prisma's InitiativeStatus for type safety with the server action & Zod schema
 import { InitiativeStatus as PrismaInitiativeStatus } from '@prisma/client';
-import { Upload, X, Plus, Tag, AlertCircle } from 'lucide-react';
+import { Upload, X, Plus, Tag, AlertCircle, Palette } from 'lucide-react';
 import { createInitiative } from '@/app/actions/initiativeActions'; // Import the server action
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+
+// Define background options like in CreatePostForm
+const backgroundOptions = [
+  'linear-gradient(to right, #ff7e5f, #feb47b)', // Peach
+  'linear-gradient(to right, #6a11cb, #2575fc)', // Purple/Blue
+  'linear-gradient(to right, #00c6ff, #0072ff)', // Sky Blue
+  'linear-gradient(to right, #f7971e, #ffd200)', // Orange/Yellow
+  'linear-gradient(to right, #d38312, #a83279)', // Brown/Pink
+  '#333333', // Dark Grey
+];
 
 // Update Zod type for status options to align with Prisma
 const initiativeStatusOptions: PrismaInitiativeStatus[] = Object.values(PrismaInitiativeStatus);
@@ -30,7 +41,8 @@ const formatStatus = (status: PrismaInitiativeStatus): string => {
 const formSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters").max(100),
   description: z.string().min(20, "Description must be at least 20 characters").max(1000),
-  imageUrl: z.string().url("Please enter a valid image URL (optional)").optional().or(z.literal('')),
+  imageFile: z.any().optional(), // Accept file or undefined
+  backgroundColor: z.string().optional(),
   roles: z.array(z.string().min(2, "Role must be at least 2 characters").max(30)).min(1, "At least one role is required"),
   status: z.nativeEnum(PrismaInitiativeStatus, { 
     errorMap: (issue, ctx) => ({ message: "Please select a valid status." })
@@ -42,14 +54,19 @@ type InitiativeFormData = z.infer<typeof formSchema>;
 
 interface CreateInitiativeFormProps {
   setOpen: (open: boolean) => void; // Prop to control dialog visibility
+  onCreated?: (initiative: any) => void;
 }
 
-export function CreateInitiativeForm({ setOpen }: CreateInitiativeFormProps) {
+export function CreateInitiativeForm({ setOpen, onCreated }: CreateInitiativeFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams(); // Get search params
   const { data: session } = useSession();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedMedia, setSelectedMedia] = useState<File | null>(null);
+  const [mediaPreview, setMediaPreview] = useState<string | null>(null);
+  const [selectedBackground, setSelectedBackground] = useState<string>(backgroundOptions[1]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Get postContent from URL query params for initial description
   const initialDescription = searchParams.get('postContent') || "";
@@ -58,10 +75,11 @@ export function CreateInitiativeForm({ setOpen }: CreateInitiativeFormProps) {
     resolver: zodResolver(formSchema),
     defaultValues: {
       title: "",
-      description: decodeURIComponent(initialDescription), // Set initial description
-      imageUrl: "",
+      description: decodeURIComponent(initialDescription),
+      imageFile: undefined,
+      backgroundColor: selectedBackground,
       roles: [""],
-      status: PrismaInitiativeStatus.Idea, // Default to Prisma enum value
+      status: PrismaInitiativeStatus.Idea,
       location: "",
     },
   });
@@ -76,6 +94,29 @@ export function CreateInitiativeForm({ setOpen }: CreateInitiativeFormProps) {
       }
     }
   }, [searchParams, form]);
+
+  // Handle image preview
+  const handleMediaChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setSelectedMedia(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setMediaPreview(reader.result as string);
+        form.setValue("imageFile", file);
+      };
+      reader.readAsDataURL(file);
+      setSelectedBackground(''); // Clear background if media is selected
+    } else {
+      setSelectedMedia(null);
+      setMediaPreview(null);
+      form.setValue("imageFile", undefined);
+    }
+  };
+
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
+  };
 
   const roleArray = useFieldArray({
     control: form.control,
@@ -92,26 +133,43 @@ export function CreateInitiativeForm({ setOpen }: CreateInitiativeFormProps) {
       setIsSubmitting(false);
       return;
     }
-
     setIsSubmitting(true);
-    console.log("Form submitted with values:", values);
+    let imageUrl: string | undefined = undefined;
+    let backgroundColor: string | undefined = undefined;
+
+    if (values.imageFile) {
+      const file = values.imageFile as File;
+      const reader = new FileReader();
+      const fileReadPromise = new Promise<string>((resolve) => {
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(file);
+      });
+      imageUrl = await fileReadPromise;
+    } else {
+      backgroundColor = selectedBackground;
+    }
 
     try {
       const result = await createInitiative({
         ...values,
-        imageUrl: values.imageUrl || undefined, // Pass undefined if empty string
-        location: values.location || undefined, // Pass undefined if empty string
+        imageUrl: imageUrl || undefined,
+        location: values.location || undefined,
       });
-
       if (result.success && result.initiative) {
         toast({
           title: "Initiative Created!",
           description: `"${result.initiative.title}" is now live.`,
           variant: "default",
         });
-        setOpen(false); // Close the dialog
-        form.reset();   // Reset form fields
-        // router.push(`/initiatives/${result.initiative.id}`); // Optionally redirect
+        setOpen(false);
+        form.reset();
+        setSelectedMedia(null);
+        setMediaPreview(null);
+        setSelectedBackground(backgroundOptions[1]);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+        if (onCreated) onCreated(result.initiative);
       } else {
         toast({
           title: "Error Creating Initiative",
@@ -146,6 +204,21 @@ export function CreateInitiativeForm({ setOpen }: CreateInitiativeFormProps) {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
+        {/* Media Preview or Selected Background Preview */}
+        {(mediaPreview || !selectedMedia) && (
+          <div
+            className="h-32 bg-cover bg-center relative flex items-center justify-center text-muted-foreground rounded-lg"
+            style={
+              mediaPreview
+                ? { backgroundImage: `url(${mediaPreview})` }
+                : { background: selectedBackground }
+            }
+          >
+            {!mediaPreview && <Palette className="w-8 h-8" />}
+            {mediaPreview && <div className="absolute inset-0 bg-black/20"></div>}
+          </div>
+        )}
+
         <FormField
           control={form.control}
           name="title"
@@ -178,28 +251,44 @@ export function CreateInitiativeForm({ setOpen }: CreateInitiativeFormProps) {
           )}
         />
 
-        <FormField
-          control={form.control}
-          name="imageUrl"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Featured Image/Video URL (Optional)</FormLabel>
-              <FormControl>
-                <div className="flex items-center gap-2">
-                  <Input
-                    placeholder="https://example.com/image.jpg"
-                    {...field}
-                  />
-                  <Button type="button" variant="outline" size="icon" disabled>
-                    <Upload className="h-4 w-4" />
-                  </Button>
+        {/* Media Upload and Background Selection */}
+        <div className="flex items-center gap-2">
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleMediaChange}
+            accept="image/*"
+            style={{ display: 'none' }}
+          />
+          <Button type="button" variant="outline" onClick={triggerFileInput}>
+            <Upload className="mr-2 h-4 w-4" />
+            {mediaPreview ? "Change Image" : "Upload Image"}
+          </Button>
+
+          {!selectedMedia && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" type="button">
+                  <Palette className="mr-2 h-4 w-4" />
+                  Background
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-2">
+                <div className="grid grid-cols-3 gap-2">
+                  {backgroundOptions.map((bg) => (
+                    <button
+                      key={bg}
+                      type="button"
+                      className={`w-8 h-8 rounded border ${selectedBackground === bg ? 'ring-2 ring-primary ring-offset-2' : ''}`}
+                      style={{ background: bg }}
+                      onClick={() => setSelectedBackground(bg)}
+                    />
+                  ))}
                 </div>
-              </FormControl>
-              <FormDescription>Paste a URL to an image or video.</FormDescription>
-              <FormMessage />
-            </FormItem>
+              </PopoverContent>
+            </Popover>
           )}
-        />
+        </div>
 
         <FormItem>
           <FormLabel>Roles/Skills Needed</FormLabel>
@@ -274,19 +363,17 @@ export function CreateInitiativeForm({ setOpen }: CreateInitiativeFormProps) {
             <FormItem>
               <FormLabel>Location (Optional)</FormLabel>
               <FormControl>
-                <Input placeholder="e.g., Brooklyn, NY or London" {...field} />
+                <Input placeholder="e.g., Downtown Cityville, New York" {...field} />
               </FormControl>
-              <FormDescription>Leave blank if not location-specific.</FormDescription>
+              <FormDescription>Specify a location if this initiative is geographically specific.</FormDescription>
               <FormMessage />
             </FormItem>
           )}
         />
 
-        <div className="flex justify-end pt-4">
-          <Button type="submit" className="bg-accent text-accent-foreground hover:bg-accent/90" disabled={isSubmitting}>
-            {isSubmitting ? "Creating..." : "Create Initiative"}
-          </Button>
-        </div>
+        <Button type="submit" className="w-full" disabled={isSubmitting}>
+          {isSubmitting ? "Creating Initiative..." : "Create Initiative"}
+        </Button>
       </form>
     </Form>
   );

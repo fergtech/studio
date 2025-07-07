@@ -666,3 +666,31 @@ export async function leaveInitiativeAction(
     return { success: false, error: `An unexpected error occurred while leaving the initiative: ${errorMessage}` };
   }
 }
+
+export async function deleteInitiative(initiativeId: string) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return { error: 'Not authenticated' };
+  }
+  // Check if the user is the creator
+  const initiative = await prisma.initiative.findUnique({ where: { id: initiativeId } });
+  if (!initiative) return { error: 'Initiative not found' };
+  if (initiative.creatorId !== session.user.id) return { error: 'Not authorized' };
+  try {
+    // Delete associated media (if any, e.g., banner images, updates, etc.)
+    await prisma.mediaItem.deleteMany({ where: { postId: initiativeId } });
+    // Delete memberships, updates, chatMessages, milestones, goals, etc. as needed
+    await prisma.initiativeMembership.deleteMany({ where: { initiativeId } });
+    await prisma.update.deleteMany({ where: { initiativeId } });
+    await prisma.chatMessage.deleteMany({ where: { initiativeId } });
+    await prisma.milestone.deleteMany({ where: { initiativeId } });
+    await prisma.goal.deleteMany({ where: { initiativeId } });
+    // Delete the initiative itself
+    await prisma.initiative.delete({ where: { id: initiativeId } });
+    revalidatePath('/');
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting initiative:', error);
+    return { error: 'Failed to delete initiative.' };
+  }
+}

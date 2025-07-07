@@ -6,6 +6,8 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
+export const dynamic = "force-dynamic";
+
 export default function CreateInitiativePage() {
   // If the form should be standalone here, import and use CreateInitiativeForm
   // but it needs adjustments as it currently expects a `setOpen` prop for a dialog.

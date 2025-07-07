@@ -41,13 +41,21 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
       path: '/api/socketio',
       transports: ['websocket', 'polling'],
     });
-    socket.on('onlineUsers', (ids: string[]) => {
-      setIsOnline(ids.includes(user.id));
-    });
+    let interval: NodeJS.Timeout | null = null;
+    function checkStatus() {
+      if (user?.id) {
+        socket.emit('checkUserStatus', user.id, (status: boolean) => {
+          setIsOnline(status);
+        });
+      }
+    }
+    checkStatus();
+    interval = setInterval(checkStatus, 30000);
     return () => {
+      if (interval) clearInterval(interval);
       socket.disconnect();
     };
-  }, [user.id]);
+  }, [user?.id]);
 
   const handleFollow = async () => {
     if (isFollowing || isFollowLoading) return; // Prevent duplicate follow
@@ -83,123 +91,78 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Hero Section with Banner */}
-      <div className="relative w-full h-[22rem] bg-gradient-to-r from-blue-900 to-blue-700 rounded-t-xl overflow-hidden">
-        {user.bannerImageUrl ? (
-          <Image src={user.bannerImageUrl} alt="Banner" fill className="object-cover w-full h-full" />
-        ) : (
-          <div className="w-full h-full bg-gradient-to-r from-blue-900 to-blue-700" />
-        )}
-        {/* Gradient overlay at bottom for contrast */}
-        <div className="absolute bottom-0 left-0 w-full h-20 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
-      </div>
-
-      {/* Profile Card overlaps banner */}
-      <div className="relative w-full max-w-3xl mx-auto -mt-[14rem] z-10">
-        {/* Avatar overlaps card and banner */}
-        <div className="absolute left-1/2 -top-16 transform -translate-x-1/2 z-20">
-          <div className={`w-32 h-32 md:w-40 md:h-40 rounded-full border-4 shadow-lg overflow-hidden flex items-center justify-center bg-gray-200 dark:bg-gray-700 ${isOnline ? 'border-green-500' : 'border-gray-700'}`}>
-            {user.image ? (
-              <Image
-                src={user.image}
-                alt={user.name ?? 'User profile'}
-                width={160}
-                height={160}
-                priority
-                className="object-cover w-full h-full"
-              />
-            ) : (
-              <User2 className="w-16 h-16 text-gray-400" />
-            )}
-          </div>
-        </div>
-        {/* Profile card with extra top padding for avatar */}
-        <div
-          className="relative rounded-xl shadow-xl px-6 py-6 flex flex-col items-center overflow-hidden pt-20"
-        >
-          {/* Blurred, faint background image */}
-          {user.bannerImageUrl && (
-            <div
-              className="absolute inset-0 w-full h-full z-0"
-              style={{
-                backgroundImage: `url(${user.bannerImageUrl})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                filter: 'blur(6px) brightness(0.9)',
-                opacity: 1,
-              }}
-            />
+    <div className="min-h-screen bg-background">
+      {/* Modern Profile Header Section */}
+      <div className="relative w-full mb-8">
+        {/* Banner */}
+        <div className="relative h-40 sm:h-56 md:h-64 w-full rounded-t-xl overflow-hidden bg-muted">
+          {user.bannerImageUrl ? (
+            <Image src={user.bannerImageUrl} alt="Profile banner" fill className="object-cover w-full h-full" />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-r from-primary/80 to-secondary/80" />
           )}
-          {/* Solid/semi-solid overlay for content readability */}
-          <div className="absolute inset-0 bg-gray-900/70 z-0" />
-          {/* Card content */}
-          <div className="relative z-10 flex flex-col items-center w-full">
-            {/* Name, username, join date */}
-            <div className="text-2xl font-bold text-white drop-shadow mt-2">{user.name}</div>
-            <div className="text-gray-300 text-sm drop-shadow">@{user.username}</div>
-            <div className="text-gray-400 text-xs flex items-center gap-1 mt-1 drop-shadow"><span>Joined {new Date(user.dateCreated).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}</span></div>
-            {/* Followers/Following moved here */}
-            <div className="flex flex-wrap justify-center gap-6 mt-2 w-full">
-              <div>
-                <div className="text-xs text-gray-400 mb-1">Followers</div>
-                <div className="text-lg font-semibold text-white">{user.followersCount ?? 0}</div>
+          {isOwnProfile && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="absolute right-4 top-4 z-10 bg-white/80 hover:bg-white"
+              onClick={() => router.push(`/profile/${user.id}/edit?banner=1`)}
+            >
+              Edit Cover Photo
+            </Button>
+          )}
+        </div>
+        {/* Meta Card with Avatar Overlap */}
+        <div className="relative max-w-3xl mx-auto -mt-16 z-10">
+          {/* Avatar - centered and overlapping banner/meta card */}
+          <div className="absolute left-1/2 -top-16 transform -translate-x-1/2 z-20">
+            <Avatar className="h-32 w-32 border-4 border-background shadow-lg">
+              <AvatarImage src={user.image || undefined} alt={user.name || 'User'} />
+              <AvatarFallback>{user.name?.charAt(0).toUpperCase() || '?'}</AvatarFallback>
+            </Avatar>
+          </div>
+          {/* Meta Card */}
+          <div className="relative rounded-xl shadow px-6 py-8 flex flex-col items-center pt-20 bg-white dark:bg-background min-h-[180px]">
+            <div className="flex flex-col items-center w-full">
+              <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 w-full justify-center">
+                <h1 className="text-2xl font-bold text-primary text-center">{user.name}</h1>
+                {user.profession && <span className="text-base text-muted-foreground">{user.profession}</span>}
+                {isOwnProfile ? (
+                  <Button size="sm" variant="outline" className="ml-2" onClick={() => router.push(`/profile/${user.id}/edit`)}>Edit Profile</Button>
+                ) : (
+                  <>
+                    {!isFollowing && (
+                      <Button size="sm" onClick={handleFollow} disabled={isFollowLoading}>Follow</Button>
+                    )}
+                    {isFollowing && (
+                      <Button size="sm" variant="outline" onClick={handleUnfollow} disabled={isFollowLoading}>Unfollow</Button>
+                    )}
+                    <Button size="sm" variant="secondary" onClick={() => router.push(`/chat/${user.id}`)}>Message</Button>
+                  </>
+                )}
               </div>
-              <div>
-                <div className="text-xs text-gray-400 mb-1">Following</div>
-                <div className="text-lg font-semibold text-white">{user.followingCount ?? 0}</div>
+              {/* Stats */}
+              <div className="flex space-x-4 sm:space-x-6 text-sm mt-2">
+                <div><span className="font-semibold">{user.followersCount ?? 0}</span> followers</div>
+                <div><span className="font-semibold">{user.followingCount ?? 0}</span> following</div>
               </div>
-            </div>
-            {/* Action buttons */}
-            <div className="mt-3 flex gap-2">
-              {isOwnProfile ? (
-                <button className="px-4 py-1 rounded bg-blue-600 text-white font-semibold shadow hover:bg-blue-700 transition" onClick={() => router.push(`/profile/${user.id}/edit`)}>Edit Profile</button>
-              ) : (
-                <>
-                  {isFollowing ? (
-                    <>
-                      <button
-                        className="px-4 py-1 rounded bg-gray-700 text-white font-semibold shadow hover:bg-gray-800 transition"
-                        onClick={handleUnfollow}
-                      >
-                        Unfollow
-                      </button>
-                      <button
-                        className="px-4 py-1 rounded bg-blue-600 text-white font-semibold shadow hover:bg-blue-700 transition flex items-center gap-2"
-                        onClick={() => router.push(`/chat/${user.id}`)}
-                      >
-                        <Mail className="w-4 h-4" /> Message
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      className="px-4 py-1 rounded bg-blue-600 text-white font-semibold shadow hover:bg-blue-700 transition"
-                      onClick={handleFollow}
-                      disabled={isFollowLoading || isFollowing}
-                    >
-                      {isFollowLoading ? 'Following...' : 'Follow'}
-                    </button>
-                  )}
-                </>
+              {/* Bio */}
+              {user.bio && <div className="mt-3 text-center text-base text-muted-foreground max-w-xl">{user.bio}</div>}
+              {/* Websites */}
+              {user.websites && user.websites.length > 0 && (
+                <div className="flex flex-wrap gap-3 mt-3 justify-center">
+                  {user.websites.map((site: string, idx: number) => (
+                    <Link key={site+idx} href={site.startsWith('http') ? site : `https://${site}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-blue-500 hover:text-blue-700 transition underline">
+                      <span className="truncate max-w-[160px]">{site.replace(/^https?:\/\//, '')}</span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+              {/* Joined Date */}
+              {user.dateCreated && (
+                <div className="text-xs text-muted-foreground mt-2">Joined {new Date(user.dateCreated).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}</div>
               )}
             </div>
-            {/* Profile meta: bio, websites, followers/following */}
-            {user.bio && (
-              <div className="max-w-xl mx-auto text-center text-lg italic text-gray-200 bg-blue-900/70 rounded-lg px-6 py-3 mb-2 shadow mt-4">
-                “{user.bio}”
-              </div>
-            )}
-            {user.websites && user.websites.length > 0 && (
-              <div className="flex justify-center gap-4 mb-2 mt-2">
-                {user.websites.slice(0,2).map((site: string, idx: number) => (
-                  <Link key={site+idx} href={site.startsWith('http') ? site : `https://${site}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-blue-200 hover:text-blue-100 transition">
-                    <Globe2 className="w-4 h-4" />
-                    <span className="underline text-sm">{site.replace(/^https?:\/\//, '')}</span>
-                  </Link>
-                ))}
-              </div>
-            )}
-            {/* Skills and Interests removed from here */}
           </div>
         </div>
       </div>
@@ -236,7 +199,9 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
                 <div className="flex flex-wrap gap-1">
                   {user.skills && user.skills.length > 0
                     ? user.skills.map((skill: string, idx: number) => (
-                        <span key={skill+idx} className="bg-green-700 text-white px-2 py-0.5 rounded-full text-xs font-medium">{skill}</span>
+                        <Link key={skill+idx} href={`/explore?skill=${encodeURIComponent(skill)}`} passHref legacyBehavior>
+                          <span className="bg-green-700 text-white px-2 py-0.5 rounded-full text-xs font-medium cursor-pointer hover:bg-green-800 transition">{skill}</span>
+                        </Link>
                       ))
                     : <span className="text-gray-500">None</span>
                   }
@@ -248,7 +213,9 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
                 <div className="flex flex-wrap gap-1">
                   {user.interests && user.interests.length > 0
                     ? user.interests.map((interest: string, idx: number) => (
-                        <span key={interest+idx} className="bg-blue-700 text-white px-2 py-0.5 rounded-full text-xs font-medium">{interest}</span>
+                        <Link key={interest+idx} href={`/explore?interest=${encodeURIComponent(interest)}`} passHref legacyBehavior>
+                          <span className="bg-blue-700 text-white px-2 py-0.5 rounded-full text-xs font-medium cursor-pointer hover:bg-blue-800 transition">{interest}</span>
+                        </Link>
                       ))
                     : <span className="text-gray-500">None</span>
                   }

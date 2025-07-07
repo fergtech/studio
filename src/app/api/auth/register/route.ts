@@ -10,12 +10,8 @@ const saltRounds = 10; // For bcrypt
 const registerSchema = z.object({
   email: z.string().email({ message: "Invalid email address" }),
   password: z.string().min(6, { message: "Password must be at least 6 characters long" }),
-  name: z.string().min(2, { message: "Name must be at least 2 characters" }),
-  username: z.string().min(3, { message: "Username must be at least 3 characters" }),
-  bio: z.string().max(500, { message: "Bio must be less than 500 characters" }).optional(),
-  skills: z.array(z.string()).optional(),
-  interests: z.array(z.string()).min(1, { message: "At least one interest is required" }),
-  primaryIntent: z.enum(['spot_issues', 'share_ideas', 'join_initiatives', 'learn_skills', 'organize_communities']),
+  name: z.string().min(2, { message: "Name must be at least 2 characters" }).optional(),
+  // Remove username, bio, skills, interests, primaryIntent as required fields
 });
 
 export async function POST(req: NextRequest) {
@@ -33,7 +29,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { email, password, name, username, bio, skills, interests, primaryIntent } = validationResult.data;
+    const { email, password, name } = validationResult.data;
 
     // Check if user already exists by email
     const existingUserByEmail = await prisma.user.findUnique({
@@ -48,34 +44,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check if username is already taken
-    const existingUserByUsername = await prisma.user.findUnique({
-      where: { username },
-    });
-
-    if (existingUserByUsername) {
-      console.log('Register API: Username already taken:', username);
-      return NextResponse.json(
-        { message: "Username is already taken" },
-        { status: 409 } // Conflict
-      );
-    }
-
     // Hash password
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
-    // Create new user with all the onboarding data
+    // Create new user with only the required fields
     const newUser = await prisma.user.create({
       data: {
         email,
         passwordHash,
-        name,
-        username,
-        bio,
-        skills: skills || [],
-        interests,
-        // Store primaryIntent in a way that can be used for recommendations
-        // For now, we'll add it to the bio or create a separate field later
+        name: name || null, // Optional name
       },
     });
 

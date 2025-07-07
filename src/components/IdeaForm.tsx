@@ -12,14 +12,25 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import { AlertCircle, Paperclip } from 'lucide-react';
+import { AlertCircle, Paperclip, Palette } from 'lucide-react';
 import { createIdea } from "@/app/actions/ideaActions";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+
+// Define background options like in CreatePostForm
+const backgroundOptions = [
+  'linear-gradient(to right, #ff7e5f, #feb47b)', // Peach
+  'linear-gradient(to right, #6a11cb, #2575fc)', // Purple/Blue
+  'linear-gradient(to right, #00c6ff, #0072ff)', // Sky Blue
+  'linear-gradient(to right, #f7971e, #ffd200)', // Orange/Yellow
+  'linear-gradient(to right, #d38312, #a83279)', // Brown/Pink
+  '#333333', // Dark Grey
+];
 
 // Define the form schema for an Idea
 const formSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters").max(100),
   description: z.string().min(20, "Description must be at least 20 characters").max(1000),
-  tags: z.string().optional().transform(val => val ? val.split(',').map(tag => tag.trim()) : []),
+  tags: z.string().optional(), // Optional string, not array
   location: z.string().optional(),
   mediaUrl: z.string().optional().nullable(),
 });
@@ -28,15 +39,17 @@ type IdeaFormData = z.infer<typeof formSchema>;
 
 interface CreateIdeaFormProps {
   setOpen: (open: boolean) => void;
+  onCreated?: (idea: any) => void;
 }
 
-export function IdeaForm({ setOpen }: CreateIdeaFormProps) {
+export function IdeaForm({ setOpen, onCreated }: CreateIdeaFormProps) {
   const router = useRouter();
   const { data: session } = useSession();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState<File | null>(null);
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
+  const [selectedBackground, setSelectedBackground] = useState<string>(backgroundOptions[1]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<IdeaFormData>({
@@ -44,7 +57,7 @@ export function IdeaForm({ setOpen }: CreateIdeaFormProps) {
     defaultValues: {
       title: "",
       description: "",
-      tags: [],
+      tags: "",
       location: "",
       mediaUrl: "",
     },
@@ -57,11 +70,14 @@ export function IdeaForm({ setOpen }: CreateIdeaFormProps) {
       const reader = new FileReader();
       reader.onloadend = () => {
         setMediaPreview(reader.result as string);
+        form.setValue("mediaUrl", reader.result as string);
       };
       reader.readAsDataURL(file);
+      setSelectedBackground(''); // Clear background if media is selected
     } else {
       setSelectedMedia(null);
       setMediaPreview(null);
+      form.setValue("mediaUrl", null);
     }
   };
 
@@ -88,33 +104,41 @@ export function IdeaForm({ setOpen }: CreateIdeaFormProps) {
       setIsSubmitting(false);
       return;
     }
-
     setIsSubmitting(true);
+    let mediaUrl = values.mediaUrl;
+    if (!mediaUrl) {
+      // No image, use background color
+      mediaUrl = selectedBackground;
+    }
     console.log("Form submitted with values:", values);
 
     try {
+      // Convert tags to array if present, else empty array
+      const tagsArray = values.tags ? values.tags.split(',').map(tag => tag.trim()).filter(Boolean) : [];
       // TODO: Implement createIdea server action
       // For now, we'll just show a success message
       // const result = await Promise.resolve({ success: true, idea: { title: values.title } }); // Mock success
       const result = await createIdea({
         ...values,
-        mediaUrl: mediaPreview || null, // Pass mediaUrl to the action
+        tags: tagsArray,
+        mediaUrl: mediaUrl,
       });
 
       if (result.success && result.idea) {
         toast({
           title: "Idea Created!",
-          description: `"${result.idea.title}" has been successfully submitted.`,
+          description: `"${result.idea.title}" is now live.`,
           variant: "default",
         });
         setOpen(false);
         form.reset();
         setSelectedMedia(null);
         setMediaPreview(null);
+        setSelectedBackground(backgroundOptions[1]);
         if (fileInputRef.current) {
           fileInputRef.current.value = "";
         }
-        router.refresh();
+        if (onCreated) onCreated(result.idea);
       } else {
         toast({
           title: "Error Creating Idea",
@@ -149,11 +173,18 @@ export function IdeaForm({ setOpen }: CreateIdeaFormProps) {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
-        {mediaPreview && (
-          <div className="w-full h-48 relative rounded-md overflow-hidden bg-muted flex items-center justify-center">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={mediaPreview} alt="Media Preview" className="object-cover w-full h-full" />
-            <div className="absolute inset-0 bg-black/20"></div>
+        {/* Media Preview or Selected Background Preview */}
+        {(mediaPreview || !selectedMedia) && (
+          <div
+            className="h-32 bg-cover bg-center relative flex items-center justify-center text-muted-foreground rounded-lg"
+            style={
+              mediaPreview
+                ? { backgroundImage: `url(${mediaPreview})` }
+                : { background: selectedBackground }
+            }
+          >
+            {!mediaPreview && <Palette className="w-8 h-8" />}
+            {mediaPreview && <div className="absolute inset-0 bg-black/20"></div>}
           </div>
         )}
         <FormField
@@ -218,20 +249,49 @@ export function IdeaForm({ setOpen }: CreateIdeaFormProps) {
           )}
         />
 
+        {/* Media Upload and Background Selection */}
+        <div className="flex items-center gap-2">
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleMediaChange}
+            accept="image/*"
+            style={{ display: 'none' }}
+          />
+          <Button type="button" variant="outline" onClick={triggerFileInput}>
+            <Paperclip className="mr-2 h-4 w-4" />
+            {mediaPreview ? "Change Image" : "Upload Image"}
+          </Button>
+
+          {!selectedMedia && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" type="button">
+                  <Palette className="mr-2 h-4 w-4" />
+                  Background
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-2">
+                <div className="grid grid-cols-3 gap-2">
+                  {backgroundOptions.map((bg) => (
+                    <button
+                      key={bg}
+                      type="button"
+                      className={`w-8 h-8 rounded border ${selectedBackground === bg ? 'ring-2 ring-primary ring-offset-2' : ''}`}
+                      style={{ background: bg }}
+                      onClick={() => setSelectedBackground(bg)}
+                    />
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
+        </div>
+
         <Button type="submit" className="w-full" disabled={isSubmitting}>
           {isSubmitting ? "Creating Idea..." : "Create Idea"}
         </Button>
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleMediaChange}
-          accept="image/*,video/*"
-          style={{ display: 'none' }}
-        />
         <div className="flex flex-wrap gap-2">
-          <Button type="button" onClick={triggerFileInput} variant="outline" className="w-full">
-            <Paperclip className="mr-2 h-4 w-4" /> {mediaPreview ? "Change Media" : "Attach Media"}
-          </Button>
           {mediaPreview && (
             <Button type="button" onClick={handleRemoveMedia} variant="outline" className="w-full text-red-500 border-red-500 hover:bg-red-50 hover:text-red-600">
               Remove Media

@@ -197,4 +197,31 @@ export async function updateIdea({
     console.error("Error updating idea:", error);
     return { error: "Failed to update idea." };
   }
+}
+
+export async function deleteIdea(ideaId: string) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return { error: 'Not authenticated' };
+  }
+  // Check if the user is the creator
+  const idea = await prisma.idea.findUnique({ where: { id: ideaId } });
+  if (!idea) return { error: 'Idea not found' };
+  if (idea.creatorId !== session.user.id) return { error: 'Not authorized' };
+  try {
+    // Delete associated media
+    await prisma.mediaItem.deleteMany({ where: { ideaId } });
+    // Delete associated comments (if you have an IdeaComment model)
+    await prisma.ideaComment.deleteMany({ where: { ideaId } });
+    // Delete likes/shares if you have those models
+    await prisma.ideaLike.deleteMany({ where: { ideaId } });
+    await prisma.ideaShare.deleteMany({ where: { ideaId } });
+    // Delete the idea itself
+    await prisma.idea.delete({ where: { id: ideaId } });
+    revalidatePath('/');
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting idea:', error);
+    return { error: 'Failed to delete idea.' };
+  }
 } 

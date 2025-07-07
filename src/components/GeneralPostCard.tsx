@@ -254,6 +254,10 @@ export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralP
       "relative mb-4 rounded-lg overflow-hidden shadow-lg flex flex-col text-card-foreground",
       "aspect-[9/12]"
     )}>
+      {/* Post Type Badge */}
+      <div className="absolute top-3 right-3 z-30">
+        <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-500 text-white shadow">General</span>
+      </div>
       {/* Background Layer - Always present */}
       <div className="absolute inset-0 bg-cover bg-center z-0" style={backgroundStyle}>
         <div className="absolute inset-0 bg-black/30 z-10"></div>

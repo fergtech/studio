@@ -190,4 +190,31 @@ export async function updateIssue({
     console.error("Error updating issue:", error);
     return { error: "Failed to update issue." };
   }
+}
+
+export async function deleteIssue(issueId: string) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return { error: 'Not authenticated' };
+  }
+  // Check if the user is the creator
+  const issue = await prisma.issue.findUnique({ where: { id: issueId } });
+  if (!issue) return { error: 'Issue not found' };
+  if (issue.creatorId !== session.user.id) return { error: 'Not authorized' };
+  try {
+    // Delete associated media
+    await prisma.mediaItem.deleteMany({ where: { issueId } });
+    // Delete associated comments (if you have an IssueComment model)
+    await prisma.issueComment.deleteMany({ where: { issueId } });
+    // Delete likes/shares if you have those models
+    await prisma.issueLike.deleteMany({ where: { issueId } });
+    await prisma.issueShare.deleteMany({ where: { issueId } });
+    // Delete the issue itself
+    await prisma.issue.delete({ where: { id: issueId } });
+    revalidatePath('/');
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting issue:', error);
+    return { error: 'Failed to delete issue.' };
+  }
 } 

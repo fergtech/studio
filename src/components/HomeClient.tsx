@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Star } from "lucide-react";
 import { PostActions } from '@/components/PostActions';
 import { IdeaCard } from "@/components/IdeaCard";
+import { IssueCard } from "@/components/IssueCard";
 import ActivityFeed from "@/components/ActivityFeed";
 import SuggestionsWidget from "@/components/SuggestionsWidget";
 import TrendingWidget from "@/components/TrendingWidget";
@@ -25,6 +26,7 @@ import { Menu } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { Input } from '@/components/ui/input';
 import { Pencil } from 'lucide-react';
+import { io, Socket } from 'socket.io-client';
 
 // Temporary mock user avatars for fallback
 const mockUserAvatars: Record<string, string | undefined> = {
@@ -436,6 +438,47 @@ export function HomeClient({ currentUserId }: HomeClientProps) {
     fetchUserInfo();
   }, [toast]);
 
+  useEffect(() => {
+    if (!currentUserId) return;
+    // Use a singleton socket connection for the heartbeat
+    const socket: Socket = io(process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'http://localhost:9003', {
+      path: '/api/socketio',
+      transports: ['websocket'],
+    });
+    // Emit heartbeat immediately and then every 30s
+    socket.emit('userHeartbeat', currentUserId);
+    const interval = setInterval(() => {
+      socket.emit('userHeartbeat', currentUserId);
+    }, 30000);
+    return () => {
+      clearInterval(interval);
+      socket.disconnect();
+    };
+  }, [currentUserId]);
+
+  useEffect(() => {
+    const handleFeedItemCreated = (event: CustomEvent) => {
+      const item = event.detail;
+      // Infer type based on item shape
+      let type: FeedItemType | undefined;
+      if ('status' in item && 'roles' in item) type = 'initiative';
+      else if ('tags' in item && !('content' in item) && !('status' in item)) type = item.title ? 'idea' : 'issue';
+      else if ('tags' in item) type = 'issue';
+      else type = 'generalPost';
+      const newFeedItem: UnifiedFeedItem = {
+        type: type as FeedItemType,
+        id: item.id,
+        timestamp: new Date(item.createdAt || Date.now()),
+        data: item,
+      };
+      setFeedItems(prev => [newFeedItem, ...prev]);
+    };
+    window.addEventListener('feed:itemCreated', handleFeedItemCreated as EventListener);
+    return () => {
+      window.removeEventListener('feed:itemCreated', handleFeedItemCreated as EventListener);
+    };
+  }, []);
+
   const handlePostCreated = async () => {
     // This will be handled by the server action in CreatePostForm
     window.location.reload(); // Simple refresh for now
@@ -548,6 +591,11 @@ export function HomeClient({ currentUserId }: HomeClientProps) {
                       creatorName={initiativeCreatorName}
                       creatorAvatarUrl={initiativeCreatorAvatar}
                       currentUserId={currentUserId}
+                      onDelete={(initiativeId) => {
+                        setFeedItems(prev => prev.filter(item =>
+                          !(item.type === 'initiative' && item.data.id === initiativeId)
+                        ));
+                      }}
                     />
                   </div>
                 );
@@ -565,7 +613,8 @@ export function HomeClient({ currentUserId }: HomeClientProps) {
                   { addSuffix: true }
                 ) : '';
 
-                const isCurrentItemAnIssue = ('location' in taggedItem) && (taggedItem.location !== null) && (taggedItem.location !== undefined);
+                // Use the item.type to determine if it's an issue or idea
+                const isCurrentItemAnIssue = item.type === 'issue';
                 
                 const hasMedia = taggedItem.media && taggedItem.media.length > 0 && taggedItem.media[0].url; // Check for media
                 const mediaUrl = hasMedia ? taggedItem.media![0].url : undefined;
@@ -603,82 +652,92 @@ export function HomeClient({ currentUserId }: HomeClientProps) {
                 };
 
 
-                return (
-                  <div key={taggedItem.id} className="relative mb-4 rounded-lg overflow-hidden shadow-lg flex flex-col text-card-foreground aspect-[9/12]">
-                    {/* Media Layer (or background if no media) */}
-                    {hasMedia && mediaUrl ? (
-                      <div
-                        className="absolute inset-0 bg-cover bg-center z-0"
-                        style={{ backgroundImage: `url(${mediaUrl})` }}
-                      >
-                        <div className="absolute inset-0 bg-black/30 z-10"></div>
-                      </div>
-                    ) : (
-                      <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-blue-500 z-0">
-                        <div className="absolute inset-0 bg-black/30 z-10"></div>
-                      </div>
-                    )}
+                // Transform the data to match the expected types for the card components
+                if (isCurrentItemAnIssue) {
+                  const creatorForDisplay: UserForDisplay = taggedItem.creator
+                    ? {
+                        id: taggedItem.creator.id,
+                        name: taggedItem.creator.name,
+                        image: taggedItem.creator.image,
+                      }
+                    : {
+                        id: taggedItem.creatorId || 'anonymous',
+                        name: 'Anonymous',
+                        image: null,
+                      };
 
-                    {/* Content Layer */}
-                    <div className="relative z-20 flex flex-col flex-grow p-4">
-                      {/* Header (Creator Info + Type Badge) */}
-                      <div className="flex items-center justify-between mb-auto">
-                        <div className="flex items-center space-x-2">
-                          <Link 
-                            href={`/profile/${taggedItem.creatorId}`}
-                            className="relative hover:opacity-80 transition-opacity"
-                          >
-                            <Avatar className="h-9 w-9 border-2 border-white/80">
-                              <AvatarImage src={taggedItemCreatorAvatar} alt={taggedItemCreatorName} />
-                              <AvatarFallback>{taggedItemCreatorName.substring(0, 2).toUpperCase()}</AvatarFallback>
-                            </Avatar>
-                          </Link>
-                          <div>
-                            <Link 
-                              href={`/profile/${taggedItem.creatorId}`}
-                              className="hover:underline"
-                            >
-                              <p className="text-sm font-medium text-white/90">{taggedItemCreatorName}</p>
-                            </Link>
-                            <p className="text-xs text-white/70">{timeAgo}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Badge variant={isCurrentItemAnIssue ? "destructive" : "default"} className="bg-white/20 text-white border-none backdrop-blur-sm">
-                            {isCurrentItemAnIssue ? "Issue" : "Idea"}
-                          </Badge>
-                          {currentUserId && taggedItem.creatorId === currentUserId && (
-                            <PostActions
-                              postId={taggedItem.id}
-                              postType={isCurrentItemAnIssue ? "issue" : "idea"}
-                              onEdit={() => console.log("Edit", isCurrentItemAnIssue ? "issue" : "idea", taggedItem.id)}
-                              onDelete={async () => console.log("Delete", isCurrentItemAnIssue ? "issue" : "idea", taggedItem.id)}
-                              className="ml-2"
-                              post={postForActions}
-                            />
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Main Content Text (Title + Description) */}
-                      <div className="my-4 text-center text-white">
-                        <h3 className="text-xl font-bold mb-1 line-clamp-2">{taggedItem.title}</h3>
-                        <p className="text-sm opacity-90 line-clamp-3">{taggedItem.description}</p>
-                      </div>
-
-                      {/* Footer (Champion Count, etc.) */}
-                      <div className="mt-auto flex justify-center items-center space-x-4 text-white">
-                        <div className="flex items-center space-x-1">
-                          <Button variant="ghost" size="icon" className="text-white/80 hover:text-white hover:bg-white/10" onClick={() => console.log('Champion clicked')}>
-                            <Star className="h-5 w-5 fill-current" />
-                          </Button>
-                          <span className="text-sm font-medium">{taggedItem.championCount || 0}</span>
-                        </div>
-                        {/* You can add more actions like comments/share here if needed */}
-                      </div>
+                  const issueData = {
+                    id: taggedItem.id,
+                    title: taggedItem.title,
+                    description: taggedItem.description,
+                    creatorId: taggedItem.creatorId,
+                    createdAt: taggedItem.createdAt,
+                    tags: taggedItem.tags || [],
+                    location: taggedItem.location,
+                    media: taggedItem.media || [],
+                    championCount: taggedItem.championCount || 0,
+                    championedBy: null, // Will be populated if needed
+                    championedByInitiativeId: taggedItem.championedByInitiativeId,
+                    creator: creatorForDisplay,
+                  };
+                  
+                  return (
+                    <div key={taggedItem.id} className="w-full max-w-[500px]">
+                      <IssueCard
+                        issue={issueData}
+                        currentUserId={currentUserId}
+                        onIssueDeleted={(issueId) => {
+                          // Remove the issue from the feed
+                          setFeedItems(prev => prev.filter(item => 
+                            !(item.type === 'issue' && item.data.id === issueId)
+                          ));
+                        }}
+                      />
                     </div>
-                  </div>
-                );
+                  );
+                } else {
+                  const creatorForDisplay: UserForDisplay = taggedItem.creator
+                    ? {
+                        id: taggedItem.creator.id,
+                        name: taggedItem.creator.name,
+                        image: taggedItem.creator.image,
+                      }
+                    : {
+                        id: taggedItem.creatorId || 'anonymous',
+                        name: 'Anonymous',
+                        image: null,
+                      };
+
+                  const ideaData = {
+                    id: taggedItem.id,
+                    title: taggedItem.title,
+                    description: taggedItem.description,
+                    creatorId: taggedItem.creatorId,
+                    createdAt: taggedItem.createdAt,
+                    tags: taggedItem.tags || [],
+                    location: taggedItem.location,
+                    media: taggedItem.media || [],
+                    championCount: taggedItem.championCount || 0,
+                    championedBy: null, // Will be populated if needed
+                    championedByInitiativeId: taggedItem.championedByInitiativeId,
+                    creator: creatorForDisplay,
+                  };
+                  
+                  return (
+                    <div key={taggedItem.id} className="w-full max-w-[500px]">
+                      <IdeaCard
+                        idea={ideaData}
+                        currentUserId={currentUserId}
+                        onIdeaDeleted={(ideaId) => {
+                          // Remove the idea from the feed
+                          setFeedItems(prev => prev.filter(item => 
+                            !(item.type === 'idea' && item.data.id === ideaId)
+                          ));
+                        }}
+                      />
+                    </div>
+                  );
+                }
               }
             }
             

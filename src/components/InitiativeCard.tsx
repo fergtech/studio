@@ -8,12 +8,14 @@ import { formatDistanceToNow, parseISO } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { PostActions } from '@/components/PostActions';
 import { useToast } from "@/hooks/use-toast";
+import { deleteInitiative } from '@/app/actions/initiativeActions';
 
 interface InitiativeCardProps {
   initiative: Initiative & { creatorId?: string };
   creatorName?: string;
   creatorAvatarUrl?: string;
   currentUserId?: string;
+  onDelete?: (initiativeId: string) => void;
 }
 
 export function InitiativeCard({ initiative, creatorName = "Creator", creatorAvatarUrl, currentUserId }: InitiativeCardProps) {
@@ -37,9 +39,32 @@ export function InitiativeCard({ initiative, creatorName = "Creator", creatorAva
     router.push(`/initiatives/${initiative.id}`);
   };
 
+  const [isDeleting, setIsDeleting] = React.useState(false);
+  const [deleteError, setDeleteError] = React.useState<string | null>(null);
+
   const handleDelete = async () => {
-    // TODO: Implement delete functionality
-    console.log("Delete initiative:", initiative.id);
+    if (!currentUserId || initiative.creatorId !== currentUserId) {
+      setDeleteError("You are not authorized to delete this initiative.");
+      return;
+    }
+    if (!confirm("Are you sure you want to delete this initiative? This action cannot be undone.")) {
+      return;
+    }
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      const result = await deleteInitiative(initiative.id);
+      if (result.success) {
+        if (typeof onDelete === 'function') onDelete(initiative.id);
+      } else {
+        setDeleteError(result.error || "Failed to delete initiative.");
+      }
+    } catch (error) {
+      console.error("Error in handleDelete:", error);
+      setDeleteError("An unexpected error occurred. Please try again.");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleEdit = () => {

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Box, Home, PlusCircle, RocketIcon, MegaphoneIcon, PlusIcon, Menu } from "lucide-react";
+import { Box, Home, PlusCircle, RocketIcon, MegaphoneIcon, PlusIcon, Menu, Users, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -46,6 +46,11 @@ export function Header() {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
 
+  // Add handler to emit custom event for feed update
+  const handleFeedItemCreated = (item: any) => {
+    window.dispatchEvent(new CustomEvent('feed:itemCreated', { detail: item }));
+  };
+
   console.log("Session data in Header:", session); // Log session data
   console.log("Session status:", status); // Log session status
 
@@ -54,7 +59,7 @@ export function Header() {
       <div className="container flex h-14 items-center px-4 sm:px-6 lg:px-8">
         <div className="flex items-center mr-auto">
           <Link href="/" className="flex items-center space-x-2">
-            <Box className="h-6 w-6 text-primary" />
+            <img src="/apple-touch-icon.png" alt="Society+ logo" className="h-6 w-6 rounded-full" />
             <span className="font-bold">society+</span>
           </Link>
         </div>
@@ -75,6 +80,9 @@ export function Header() {
                 </Link>
                 <Link href="/activity" className="flex items-center gap-2 px-4 py-3 text-base font-medium text-muted-foreground hover:text-primary transition-colors">
                   <Activity className="h-5 w-5" /> Activity
+                </Link>
+                <Link href="/explore" className="flex items-center gap-2 px-4 py-3 text-base font-medium text-muted-foreground hover:text-primary transition-colors">
+                  <Search className="h-5 w-5" /> Explore
                 </Link>
                 <Separator className="my-2" />
                 <div className="p-4 pt-0 pb-2">
@@ -149,15 +157,18 @@ export function Header() {
         </div>
         <nav className="hidden lg:flex items-center space-x-2 sm:space-x-4">
           <Link href="/" className="flex items-center rounded-md p-2 text-sm font-medium text-muted-foreground transition-colors hover:text-primary">
-            <Home className="mr-1 h-4 w-4" /> Home
+            <Home className="h-4 w-4" />
           </Link>
           <Link href="/activity" className="flex items-center rounded-md p-2 text-sm font-medium text-muted-foreground transition-colors hover:text-primary">
-            <Activity className="mr-1 h-4 w-4" /> Activity
+            <Activity className="h-4 w-4" />
+          </Link>
+          <Link href="/explore" className="flex items-center rounded-md p-2 text-sm font-medium text-muted-foreground transition-colors hover:text-primary">
+            <Search className="h-4 w-4" />
           </Link>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="default" size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90">
-                <PlusCircle className="mr-2 h-4 w-4" /> Create
+                <PlusCircle className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56" align="end" forceMount>
@@ -213,27 +224,27 @@ export function Header() {
           <ToggleTheme />
         </nav>
         <Dialog open={createInitiativeModal.isOpen} onOpenChange={(isOpen) => !isOpen && closeCreateInitiativeModal()}>
-          <DialogContent className="sm:max-w-[600px]">
+          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Create New Initiative</DialogTitle>
             </DialogHeader>
-            <CreateInitiativeForm setOpen={closeCreateInitiativeModal} />
+            <CreateInitiativeForm setOpen={closeCreateInitiativeModal} onCreated={handleFeedItemCreated} />
           </DialogContent>
         </Dialog>
         <Dialog open={createIssueModal.isOpen} onOpenChange={(isOpen) => !isOpen && closeCreateIssueModal()}>
-          <DialogContent className="sm:max-w-[600px]">
+          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Create New Issue</DialogTitle>
             </DialogHeader>
-            <IssueForm setOpen={closeCreateIssueModal} />
+            <IssueForm setOpen={closeCreateIssueModal} onCreated={handleFeedItemCreated} />
           </DialogContent>
         </Dialog>
         <Dialog open={createIdeaModal.isOpen} onOpenChange={(isOpen) => !isOpen && closeCreateIdeaModal()}>
-          <DialogContent className="sm:max-w-[600px]">
+          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Create New Idea</DialogTitle>
             </DialogHeader>
-            <IdeaForm setOpen={closeCreateIdeaModal} />
+            <IdeaForm setOpen={closeCreateIdeaModal} onCreated={handleFeedItemCreated} />
           </DialogContent>
         </Dialog>
       </div>

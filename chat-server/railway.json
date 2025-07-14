@@ -8,6 +8,6 @@
     ]
   },
   "deploy": {
-    "startCommand": "npx tsx src/app/api/socket-server.ts"
+    "startCommand": "pnpm tsx src/app/api/socket-server.ts"
   }
 }

@@ -19,6 +19,10 @@ interface ModalContextType {
   createIdeaModal: { isOpen: boolean };
   openCreateIdeaModal: () => void;
   closeCreateIdeaModal: () => void;
+  // New for Societies
+  createSocietyModal: { isOpen: boolean };
+  openCreateSocietyModal: () => void;
+  closeCreateSocietyModal: () => void;
 }
 
 const ModalContext = createContext<ModalContextType | undefined>(undefined);
@@ -30,6 +34,7 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => {
   });
   const [createIssueModal, setCreateIssueModal] = useState<{ isOpen: boolean }>({ isOpen: false });
   const [createIdeaModal, setCreateIdeaModal] = useState<{ isOpen: boolean }>({ isOpen: false });
+  const [createSocietyModal, setCreateSocietyModal] = useState<{ isOpen: boolean }>({ isOpen: false });
 
   const openCreateInitiativeModal = (description?: string) => {
     setCreateInitiativeModal({
@@ -61,6 +66,14 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => {
     setCreateIdeaModal({ isOpen: false });
   };
 
+  const openCreateSocietyModal = () => {
+    setCreateSocietyModal({ isOpen: true });
+  };
+
+  const closeCreateSocietyModal = () => {
+    setCreateSocietyModal({ isOpen: false });
+  };
+
   return (
     <ModalContext.Provider value={{
       createInitiativeModal,
@@ -72,6 +85,9 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => {
       createIdeaModal,
       openCreateIdeaModal,
       closeCreateIdeaModal,
+      createSocietyModal,
+      openCreateSocietyModal,
+      closeCreateSocietyModal,
     }}>
       {children}
     </ModalContext.Provider>

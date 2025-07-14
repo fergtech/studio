@@ -17,6 +17,9 @@ const nextConfig: NextConfig = {
   generateBuildId: async () => {
     return 'railway-build'
   },
+  serverActions: {
+    bodySizeLimit: '10mb',
+  },
   images: {
     remotePatterns: [
       {

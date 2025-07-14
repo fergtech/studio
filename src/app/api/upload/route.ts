@@ -51,19 +51,22 @@ export async function POST(request: NextRequest) {
     console.log(`File details: Name: ${file.name}, Size: ${file.size}, Type: ${file.type}`);
     console.log(`Target file path prefix: ${filePath}`);
 
-    if (!file.type.startsWith('image/')) {
+    if (
+      !file.type.startsWith('image/') &&
+      !file.type.startsWith('video/')
+    ) {
       console.error(`Invalid file type: ${file.type}`);
       return NextResponse.json(
-        { success: false, message: 'Only image files are allowed' },
+        { success: false, message: 'Only image and video files are allowed' },
         { status: 400 }
       );
     }
 
-    const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
+    const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
     if (file.size > MAX_FILE_SIZE) {
       console.error(`File size exceeds limit: ${file.size}`);
       return NextResponse.json(
-        { success: false, message: 'File size must be less than 20MB' },
+        { success: false, message: 'File size must be less than 100MB' },
         { status: 400 }
       );
     }

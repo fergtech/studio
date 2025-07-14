@@ -4,12 +4,12 @@ import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { notFound, redirect } from 'next/navigation';
-import EditProfileForm from './EditProfileForm'; // We'll create this next
+import EditProfileForm from '../edit/EditProfileForm';
 import { User } from '@prisma/client';
 
 interface EditProfilePageProps {
   params: {
-    id: string; // User ID from the URL
+    identifier: string; // Can be username or ID
   };
 }
 
@@ -21,21 +21,32 @@ export default async function EditProfilePage({ params: incomingParams }: EditPr
 
   if (!session?.user?.id) {
     // If not logged in, redirect to login page
-    redirect('/login?callbackUrl=/profile/' + params.id + '/edit');
+    redirect('/login?callbackUrl=/profile/' + params.identifier + '/edit');
   }
 
-  if (session.user.id !== params.id) {
-    // If logged-in user is not the profile owner, forbid access
-    // or redirect to their own profile or home page
-    // For now, let's show a notFound, but a redirect might be more user-friendly
-    notFound(); // Or redirect('/');
+  // Try to find user by username first, then by ID
+  let user = null;
+  
+  // First, try to find by username
+  if (params.identifier !== 'me') {
+    user = await prisma.user.findUnique({
+      where: { username: params.identifier },
+    });
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: params.id },
-  });
+  // If not found by username, try by ID
+  if (!user) {
+    user = await prisma.user.findUnique({
+      where: { id: params.identifier },
+    });
+  }
 
   if (!user) {
+    notFound();
+  }
+
+  if (session.user.id !== user.id) {
+    // If logged-in user is not the profile owner, forbid access
     notFound();
   }
 
@@ -51,4 +62,4 @@ export default async function EditProfilePage({ params: incomingParams }: EditPr
       </div>
     </div>
   );
-}
+} 

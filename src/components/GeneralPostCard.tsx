@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { GeneralPost } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from "@/components/ui/button";
-import { PlusCircle, MessageSquare, Share2, X, Send, Star, Trash2 } from 'lucide-react';
+import { PlusCircle, MessageSquare, Share2, X, Send, Star, Trash2, Play, Pause } from 'lucide-react';
 import Link from 'next/link';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -141,7 +141,9 @@ export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralP
     : { background: post.background || 'linear-gradient(to right, #6a11cb, #2575fc)' };
 
   // Like/Unlike
-  const handleInterest = async () => {
+  const handleInterest = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     if (!currentUserId) return;
     if (isInterested) {
       await fetch('/api/general-posts/likes', {
@@ -163,7 +165,9 @@ export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralP
   };
   
   // Share/Unshare
-  const handleShare = async () => {
+  const handleShare = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     if (!currentUserId) return;
     if (hasShared) {
       await fetch('/api/general-posts/shares', {
@@ -186,7 +190,9 @@ export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralP
   };
 
   // Comment handlers
-  const handleToggleComments = () => {
+  const handleToggleComments = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     setShowComments(!showComments);
   };
   
@@ -213,14 +219,18 @@ export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralP
     }
   };
 
-  const handleCreateInitiativeFromPost = () => {
+  const handleCreateInitiativeFromPost = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     openCreateInitiativeModal(post.content);
   };
 
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const handleDelete = async () => {
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     if (!currentUserId || post.creatorId !== currentUserId) { // Changed authorId to creatorId
       setDeleteError("You are not authorized to delete this post.");
       return;
@@ -249,42 +259,128 @@ export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralP
     }
   };
 
+  // Video play/pause state for custom control
+  const [isVideoPlaying, setIsVideoPlaying] = useState(true);
+  const [isVideoMuted, setIsVideoMuted] = useState(true); // New state for mute
+  const videoRef = React.useRef<HTMLVideoElement>(null);
+
+  const handleVideoToggle = () => {
+    if (!videoRef.current) return;
+    if (videoRef.current.paused) {
+      videoRef.current.play();
+      setIsVideoPlaying(true);
+    } else {
+      videoRef.current.pause();
+      setIsVideoPlaying(false);
+    }
+  };
+
+  const handleMuteToggle = (e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent navigation
+    e.stopPropagation(); // Prevent triggering play/pause
+    setIsVideoMuted((prev) => {
+      const newMuted = !prev;
+      if (videoRef.current) {
+        videoRef.current.muted = newMuted;
+      }
+      return newMuted;
+    });
+  };
+
+  // Add a handler to save scroll position before navigating to detail page
+  const handlePostClick = () => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('feedScrollPosition', window.scrollY.toString());
+    }
+  };
+
   return (
-    <div className={cn(
-      "relative mb-4 rounded-lg overflow-hidden shadow-lg flex flex-col text-card-foreground",
-      "aspect-[9/12]"
-    )}>
+    <div 
+      className={cn(
+        "relative mb-4 rounded-lg overflow-hidden shadow-lg flex flex-col text-card-foreground cursor-pointer",
+        "aspect-[9/12] hover:ring-2 hover:ring-primary/60 transition group"
+      )}
+      onClick={(e) => {
+        // Check if clicking on interactive elements
+        const target = e.target as HTMLElement;
+        const isInteractiveElement = target.closest('button, a, textarea, input, [role="button"]');
+        
+        if (!isInteractiveElement) {
+          handlePostClick();
+          window.location.href = `/posts/${post.id}`;
+        }
+      }}
+    >
       {/* Post Type Badge */}
       <div className="absolute top-3 right-3 z-30">
         <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-500 text-white shadow">General</span>
       </div>
-      {/* Background Layer - Always present */}
-      <div className="absolute inset-0 bg-cover bg-center z-0" style={backgroundStyle}>
-        <div className="absolute inset-0 bg-black/30 z-10"></div>
-      </div>
+
+      {/* Background Layer - Always present, but skip if video is present */}
+      {!(post.media && post.media.length > 0 && post.media[0].type === 'video') && (
+        <div className="absolute inset-0 bg-cover bg-center z-0" style={backgroundStyle}>
+          <div className="absolute inset-0 bg-black/30 z-10"></div>
+        </div>
+      )}
+
+      {/* Video Cover Layer - SIMPLIFIED */}
+      {post.media && post.media.length > 0 && post.media[0].type === 'video' && (
+        <div className="absolute inset-0 z-0">
+          <video
+            ref={videoRef}
+            src={post.media[0].url}
+            className="w-full h-full object-cover rounded-none"
+            style={{ 
+              maxHeight: '100%',
+              pointerEvents: 'none' // Video won't capture any events
+            }}
+            autoPlay
+            muted={true}
+            loop
+            playsInline
+            onPlay={() => setIsVideoPlaying(true)}
+            onPause={() => setIsVideoPlaying(false)}
+          />
+        </div>
+      )}
 
       {/* Content Layer - Always present */}
       <div className="relative z-20 flex flex-col flex-grow p-4">
         {/* Regular Header - Always present */}
         <div className="flex items-center space-x-3 mb-auto">
-          <Link href={`/profile/${post.creatorId}`} className="cursor-pointer hover:opacity-80 transition-opacity">
+          <div 
+            onClick={(e) => {
+              e.stopPropagation(); // Prevent card click
+              window.location.href = `/profile/${post.creatorId}`;
+            }}
+            className="cursor-pointer hover:opacity-80 transition-opacity"
+          >
             <Avatar className="h-9 w-9 border-2 border-white/80">
               <AvatarImage src={post.creatorAvatar} alt={post.creatorName} />
               <AvatarFallback>{fallback}</AvatarFallback>
             </Avatar>
-          </Link>
+          </div>
           <div>
-            <Link href={`/profile/${post.creatorId}`} className="cursor-pointer hover:underline">
+            <div 
+              onClick={(e) => {
+                e.stopPropagation(); // Prevent card click
+                window.location.href = `/profile/${post.creatorId}`;
+              }}
+              className="cursor-pointer hover:underline"
+            >
               <p className="text-sm font-semibold">{post.creatorName}</p>
-            </Link>
+            </div>
             <p className="text-xs opacity-80">{postTime}</p>
           </div>
           {/* Delete Button - Show only to author */}
-          {currentUserId && post.creatorId === currentUserId && ( // Changed authorId to creatorId
+          {currentUserId && post.creatorId === currentUserId && (
             <Button
               variant="ghost"
               size="icon"
-              onClick={handleDelete}
+              onClick={(e) => {
+                e.stopPropagation(); // Prevent card click
+                handleDelete(e);
+              }}
               disabled={isDeleting}
               className="ml-auto text-destructive-foreground hover:text-destructive hover:bg-destructive/10"
               aria-label="Delete post"
@@ -294,30 +390,9 @@ export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralP
           )}
         </div>
 
-        {/* Main Content Text - Move to bottom, now editable if user is creator */}
-        <div className="mt-auto mb-2 flex items-end gap-2">
-          {currentUserId && post.creatorId === currentUserId && !showComments ? (
-            editMode ? (
-              <form onSubmit={handleEditSubmit} className="flex items-end gap-2 w-full">
-                <input
-                  type="text"
-                  value={editContent}
-                  onChange={e => setEditContent(e.target.value)}
-                  className="text-base font-medium whitespace-pre-wrap px-2 bg-black/40 rounded-md py-1 w-full max-w-full border border-border"
-                  autoFocus
-                />
-                <Button type="submit" size="sm" className="h-7 px-2">Save</Button>
-                <Button type="button" size="sm" variant="ghost" className="h-7 px-2" onClick={() => setEditMode(false)}>Cancel</Button>
-              </form>
-            ) : (
-              <>
-                <p className="text-base font-medium whitespace-pre-wrap text-left px-2 bg-black/40 rounded-md py-1 w-fit max-w-full" style={{marginLeft: 0}}>{post.content}</p>
-                <Button size="icon" variant="ghost" className="h-7 w-7 ml-1" onClick={() => { setEditContent(post.content); setEditMode(true); }} aria-label="Edit post"><svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a2 2 0 01-2.828 0L9 13zm-6 6h6v-2H5v-2H3v4z"/></svg></Button>
-              </>
-            )
-          ) : (
-            <p className="text-base font-medium whitespace-pre-wrap text-left px-2 bg-black/40 rounded-md py-1 w-fit max-w-full" style={{marginLeft: 0}}>{post.content}</p>
-          )}
+        {/* Main Content Text - Always above social bar, not absolutely positioned */}
+        <div className="mb-2">
+          <p className="text-base font-medium whitespace-pre-wrap text-left px-2 bg-black/40 rounded-md py-1 w-fit max-w-full text-white" style={{marginLeft: 0}}>{post.content}</p>
         </div>
 
         {/* Footer Actions - Only show when comments are hidden */}
@@ -327,7 +402,10 @@ export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralP
             <div className="flex justify-around items-center px-1 py-2 backdrop-blur-sm bg-card/50 rounded-full">
               {/* Interest Button */}
               <button 
-                onClick={handleInterest}
+                onClick={(e) => {
+                  e.stopPropagation(); // Prevent card click
+                  handleInterest(e);
+                }}
                 className="flex items-center space-x-1 px-3 py-1 rounded-full transition-all duration-200 group"
                 aria-label="Interest"
               >
@@ -347,7 +425,10 @@ export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralP
               
               {/* Comment Button - Toggles overlay */}
               <button 
-                onClick={handleToggleComments} 
+                onClick={(e) => {
+                  e.stopPropagation(); // Prevent card click
+                  handleToggleComments(e);
+                }}
                 className="flex items-center space-x-1 px-3 py-1 rounded-full transition-all duration-200 group"
                 aria-label="Comment"
               >
@@ -359,7 +440,10 @@ export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralP
               
               {/* Share Button */}
               <button 
-                onClick={handleShare} 
+                onClick={(e) => {
+                  e.stopPropagation(); // Prevent card click
+                  handleShare(e);
+                }}
                 className="flex items-center space-x-1 px-3 py-1 rounded-full transition-all duration-200 group"
                 aria-label="Share"
               >
@@ -374,7 +458,10 @@ export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralP
                 variant="outline" 
                 size="sm" 
                 className="text-xs w-full"
-                onClick={handleCreateInitiativeFromPost} // Call context function
+                onClick={(e) => {
+                  e.stopPropagation(); // Prevent card click
+                  handleCreateInitiativeFromPost(e);
+                }}
               >
                 <PlusCircle className="mr-1 h-3.5 w-3.5" />
                 Create Initiative
@@ -391,21 +478,36 @@ export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralP
           {/* Compact Header for Comment Mode */}
           <div className="flex items-center justify-between p-3 border-b bg-card/95 flex-shrink-0">
             <div className="flex items-center space-x-2 overflow-hidden">
-              <Link href={`/profile/${post.creatorId}`} className="cursor-pointer hover:opacity-80 transition-opacity">
+              <div 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  window.location.href = `/profile/${post.creatorId}`;
+                }}
+                className="cursor-pointer hover:opacity-80 transition-opacity"
+              >
                 <Avatar className="h-7 w-7">
                   <AvatarImage src={post.creatorAvatar} alt={post.creatorName} />
                   <AvatarFallback>{fallback}</AvatarFallback>
                 </Avatar>
-              </Link>
+              </div>
               <div className="truncate">
-                <Link href={`/profile/${post.creatorId}`} className="cursor-pointer hover:underline">
+                <div 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    window.location.href = `/profile/${post.creatorId}`;
+                  }}
+                  className="cursor-pointer hover:underline"
+                >
                   <p className="text-sm font-medium truncate">{post.creatorName}</p>
-                </Link>
+                </div>
                 <p className="text-xs truncate opacity-70">{post.content.substring(0, 60)}...</p>
               </div>
             </div>
             <button 
-              onClick={handleToggleComments}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleToggleComments(e);
+              }}
               className="text-muted-foreground hover:text-foreground p-1 rounded-full"
             >
               <X className="h-4 w-4" />
@@ -418,17 +520,29 @@ export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralP
               <div className="space-y-4">
                 {comments.map(comment => (
                   <div key={comment.id} className="flex space-x-3">
-                    <Link href={`/profile/${comment.userId}`} className="cursor-pointer hover:opacity-80 transition-opacity">
+                    <div 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        window.location.href = `/profile/${comment.userId}`;
+                      }}
+                      className="cursor-pointer hover:opacity-80 transition-opacity"
+                    >
                       <Avatar className="h-8 w-8 flex-shrink-0">
                         <AvatarImage src={comment.userAvatar} alt={comment.userName} />
                         <AvatarFallback>{comment.userName.substring(0, 2).toUpperCase()}</AvatarFallback>
                       </Avatar>
-                    </Link>
+                    </div>
                     <div className="flex-grow">
                       <div className="flex items-baseline space-x-2">
-                        <Link href={`/profile/${comment.userId}`} className="cursor-pointer hover:underline">
+                        <div 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.location.href = `/profile/${comment.userId}`;
+                          }}
+                          className="cursor-pointer hover:underline"
+                        >
                           <p className="text-sm font-medium">{comment.userName}</p>
-                        </Link>
+                        </div>
                         <p className="text-xs text-muted-foreground">
                           {formatDistanceToNow(comment.timestamp, { addSuffix: true })}
                         </p>
@@ -447,19 +561,27 @@ export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralP
           
           {/* Comment form - Sticks to bottom */}
           <div className="p-3 border-t bg-card/95 flex-shrink-0">
-            <form onSubmit={handleSubmitComment} className="flex space-x-2">
+            <form 
+              onSubmit={(e) => {
+                e.stopPropagation();
+                handleSubmitComment(e);
+              }} 
+              className="flex space-x-2"
+            >
               <Textarea 
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
                 placeholder="Write a comment..."
                 className="min-h-[40px] max-h-[100px] resize-none flex-grow bg-background/50"
-                rows={1} // Start with 1 row, auto-expands slightly
+                rows={1}
+                onClick={(e) => e.stopPropagation()}
               />
               <Button 
                 type="submit" 
                 size="icon" 
                 disabled={!newComment.trim()}
                 className="self-end h-9 w-9 flex-shrink-0"
+                onClick={(e) => e.stopPropagation()}
               >
                 <Send className="h-4 w-4" />
               </Button>

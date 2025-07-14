@@ -22,9 +22,10 @@ interface ActivityFeedProps {
   updates: GlobalUpdateType[];
   onLoadMore: () => void;
   hasMore: boolean;
+  isMember?: boolean;
 }
 
-export function ActivityFeed({ updates: initialUpdates, onLoadMore, hasMore }: ActivityFeedProps) {
+export function ActivityFeed({ updates: initialUpdates, onLoadMore, hasMore, isMember = false }: ActivityFeedProps) {
   const { data: session, status } = useSession();
   const currentUserId = session?.user?.id;
   const { toast } = useToast();
@@ -146,20 +147,24 @@ export function ActivityFeed({ updates: initialUpdates, onLoadMore, hasMore }: A
                       />
                     </div>
                   )}
-                  <div className="mt-4 flex items-center gap-4">
-                    <Button variant="ghost" size="sm" className="h-8">
-                      <ThumbsUp className="h-4 w-4 mr-2" />
-                      Like
-                    </Button>
-                    <Button variant="ghost" size="sm" className="h-8">
-                      <MessageSquare className="h-4 w-4 mr-2" />
-                      Comment
-                    </Button>
-                    <Button variant="ghost" size="sm" className="h-8">
-                      <Share2 className="h-4 w-4 mr-2" />
-                      Share
-                    </Button>
-                  </div>
+                  {isMember ? (
+                    <div className="mt-4 flex items-center gap-4">
+                      <Button variant="ghost" size="sm" className="h-8">
+                        <ThumbsUp className="h-4 w-4 mr-2" />
+                        Like
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-8">
+                        <MessageSquare className="h-4 w-4 mr-2" />
+                        Comment
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-8">
+                        <Share2 className="h-4 w-4 mr-2" />
+                        Share
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="mt-4 text-xs text-muted-foreground">Join to interact with updates!</div>
+                  )}
                 </div>
               </div>
             </CardContent>

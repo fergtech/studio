@@ -31,6 +31,13 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
   isChatOpen, // Destructure new prop
 }) => {
   const [isAiGuidanceDialogOpen, setIsAiGuidanceDialogOpen] = useState(false); // State for AI Guidance Dialog
+  // Show more/less logic for description
+  const [showFullDescription, setShowFullDescription] = useState(false);
+  const maxDescriptionLength = 160;
+  const isLongDescription = initiative.description && initiative.description.length > maxDescriptionLength;
+  const displayedDescription = showFullDescription || !isLongDescription
+    ? initiative.description
+    : initiative.description.slice(0, maxDescriptionLength) + '...';
 
   const toggleAiGuidanceDialog = () => {
     setIsAiGuidanceDialogOpen(!isAiGuidanceDialogOpen);
@@ -82,8 +89,16 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
       <CardContent className={cn("space-y-4 py-4", { "pb-4": isMobile && isOpen })}>
         <div>
           <h3 className="font-semibold text-sm mb-1">Description</h3>
-          <p className="text-xs text-muted-foreground line-clamp-3">
-            {initiative.description || 'No description provided.'}
+          <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+            {displayedDescription || 'No description provided.'}
+            {isLongDescription && (
+              <button
+                className="ml-2 text-primary underline text-xs focus:outline-none"
+                onClick={() => setShowFullDescription(v => !v)}
+              >
+                {showFullDescription ? 'Show less' : 'Show more'}
+              </button>
+            )}
           </p>
         </div>
 

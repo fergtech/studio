@@ -29,6 +29,7 @@ interface ActivityFeedItem {
     id: string;
     name: string | null;
     image: string | null;
+    username?: string; // Added username to user interface
   };
   timestamp: Date;
   data?: any;
@@ -202,20 +203,20 @@ export default function ActivityFeed({ initialActivities = [], preview = false }
         <Card key={activity.id} className="hover:shadow-md transition-shadow">
           <CardContent className="p-4">
             <div className="flex items-start space-x-3">
-              <Link href={`/profile/${activity.user.id}`}>
-                <Avatar className="h-10 w-10 cursor-pointer hover:opacity-80 transition-opacity">
-                  <AvatarImage src={activity.user.image || undefined} />
-                  <AvatarFallback>
-                    {activity.user.name ? activity.user.name.slice(0, 2).toUpperCase() : 'U'}
-                  </AvatarFallback>
-                </Avatar>
-              </Link>
+              {activity.user.username && (
+                <Link href={`/profile/${activity.user.username}`}>
+                  <Avatar className="h-10 w-10 cursor-pointer hover:opacity-80 transition-opacity">
+                    <AvatarImage src={activity.user.image || undefined} />
+                    <AvatarFallback>{activity.user.name?.[0]?.toUpperCase() || '?'}</AvatarFallback>
+                  </Avatar>
+                </Link>
+              )}
               
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center space-x-2">
                     <Link 
-                      href={`/profile/${activity.user.id}`}
+                      href={`/profile/${activity.user.username}`}
                       className="font-medium text-sm hover:underline"
                     >
                       {activity.user.name || 'Anonymous User'}
@@ -276,7 +277,7 @@ export default function ActivityFeed({ initialActivities = [], preview = false }
                       asChild
                       className="text-xs"
                     >
-                      <Link href={`/profile/${activity.data.followedUser.id}`}>
+                      <Link href={`/profile/${activity.data.followedUser.username}`}>
                         <UserPlus className="h-3 w-3 mr-1" />
                         View Profile
                       </Link>

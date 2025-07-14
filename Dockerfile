@@ -8,6 +8,7 @@ RUN corepack enable
 WORKDIR /app
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
+RUN apt-get update -y && apt-get install -y openssl
 
 # 2. Dependencies Stage: Installs npm packages
 FROM base AS deps
@@ -16,9 +17,10 @@ ENV https_proxy=""
 ENV HTTP_PROXY=""
 ENV HTTPS_PROXY=""
 WORKDIR /app
-RUN npm install -g pnpm@10.12.4
-RUN npm uninstall -g corepack || true
-RUN rm -f /usr/local/bin/corepack
+# Remove any lines like:
+# RUN npm install -g pnpm@10.12.4
+# RUN npm uninstall -g pnpm
+# Just use pnpm as preinstalled in the base image
 COPY package.json pnpm-lock.yaml ./
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 RUN /usr/local/bin/pnpm install --frozen-lockfile

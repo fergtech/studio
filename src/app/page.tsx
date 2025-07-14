@@ -58,11 +58,12 @@ export default async function Home() {
   // Fetch session data if needed for HomeClient (e.g., for personalized content or actions)
   const session = await getServerSession(authOptions); // Get the current session
   const currentUserId = session?.user?.id; // Extract currentUserId
+  const username = (session?.user as any)?.username; // Extract username if available
 
   if (currentUserId) {
     // HomeClient will now be responsible for fetching its own data
-    // Pass any necessary initial props like currentUserId
-    return <HomeClient currentUserId={currentUserId} />;
+    // Pass any necessary initial props like currentUserId and username
+    return <HomeClient currentUserId={currentUserId} username={username} />;
   } else {
     return <LandingPage />;
   }

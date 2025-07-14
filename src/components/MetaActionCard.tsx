@@ -31,6 +31,7 @@ interface UpdateAction {
       id: string;
       name: string | null;
       image: string | null;
+      username: string | null;
     };
     initiative: {
       id: string;
@@ -50,11 +51,13 @@ interface FollowAction {
       id: string;
       name: string | null;
       image: string | null;
+      username: string | null;
     };
     following: {
       id: string;
       name: string | null;
       image: string | null;
+      username: string | null;
     };
   };
 }
@@ -72,6 +75,7 @@ interface InitiativeJoinAction {
       id: string;
       name: string | null;
       image: string | null;
+      username: string | null;
     };
     initiative: {
       id: string;
@@ -242,8 +246,8 @@ export function MetaActionCard({ action, currentUserId }: MetaActionCardProps) {
     <div className="w-full max-w-[500px] bg-card border rounded-lg p-4 shadow-sm">
       <div className="flex items-start space-x-3">
         {/* Primary User Avatar */}
-        {primaryUser && (
-          <Link href={`/profile/${primaryUser.id}`}>
+        {primaryUser && (primaryUser.username || primaryUser.id) && (
+          <Link href={`/profile/${primaryUser.username || primaryUser.id}`}>
             <Avatar className="h-10 w-10 hover:opacity-80 transition-opacity">
               <AvatarImage src={primaryUser.image || undefined} alt={primaryUser.name || 'User'} />
               <AvatarFallback>
@@ -267,10 +271,10 @@ export function MetaActionCard({ action, currentUserId }: MetaActionCardProps) {
           </p>
 
           {/* Secondary User (for follows) */}
-          {secondaryUser && (
+          {secondaryUser && (secondaryUser.username || secondaryUser.id) && (
             <div className="flex items-center space-x-2">
               <span className="text-xs text-muted-foreground">following</span>
-              <Link href={`/profile/${secondaryUser.id}`}>
+              <Link href={`/profile/${secondaryUser.username || secondaryUser.id}`}>
                 <Avatar className="h-6 w-6 hover:opacity-80 transition-opacity">
                   <AvatarImage src={secondaryUser.image || undefined} alt={secondaryUser.name || 'User'} />
                   <AvatarFallback>
@@ -279,7 +283,7 @@ export function MetaActionCard({ action, currentUserId }: MetaActionCardProps) {
                 </Avatar>
               </Link>
               <Link 
-                href={`/profile/${secondaryUser.id}`}
+                href={`/profile/${secondaryUser.username || secondaryUser.id}`}
                 className="text-sm font-medium text-primary hover:underline"
               >
                 {secondaryUser.name || 'User'}

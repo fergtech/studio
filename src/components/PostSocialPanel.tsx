@@ -19,9 +19,11 @@ interface Comment {
 interface PostSocialPanelProps {
   postId: string;
   currentUserId: string | null;
+  postType?: string;
+  societyId?: string;
 }
 
-export default function PostSocialPanel({ postId, currentUserId }: PostSocialPanelProps) {
+export default function PostSocialPanel({ postId, currentUserId, postType = 'general', societyId }: PostSocialPanelProps) {
   // --- Likes ---
   const [interestCount, setInterestCount] = useState(0);
   const [isInterested, setIsInterested] = useState(false);
@@ -34,31 +36,40 @@ export default function PostSocialPanel({ postId, currentUserId }: PostSocialPan
   const [newComment, setNewComment] = useState('');
   const [loadingComments, setLoadingComments] = useState(false);
 
+  // Helper to get API base path
+  // For society posts, use the new /api/society-posts/likes endpoint
+  const apiBase = postType === 'society' ? '/api/society-posts' : '/api/general-posts';
+
+  // Helper to get comments API endpoint
+  const commentsApi = postType === 'society' && societyId
+    ? `/api/societies/${societyId}/posts/${postId}/comments`
+    : `/api/general-posts/comments?postId=${postId}`;
+
   // Fetch likes, shares, and comments count on mount
   useEffect(() => {
     async function fetchSocialData() {
       // Likes
-      const likeRes = await fetch(`/api/general-posts/likes?postId=${postId}&userId=${currentUserId || ''}`);
+      const likeRes = await fetch(`${apiBase}/likes?postId=${postId}&userId=${currentUserId || ''}`);
       const likeData = await likeRes.json();
       setInterestCount(likeData.count || 0);
       setIsInterested(likeData.liked || false);
       // Shares
-      const shareRes = await fetch(`/api/general-posts/shares?postId=${postId}&userId=${currentUserId || ''}`);
+      const shareRes = await fetch(`${apiBase}/shares?postId=${postId}&userId=${currentUserId || ''}`);
       const shareData = await shareRes.json();
       setShareCount(shareData.count || 0);
       setHasShared(shareData.shared || false);
       // Comments count
-      const commentRes = await fetch(`/api/general-posts/comments?postId=${postId}`);
+      const commentRes = await fetch(commentsApi);
       const commentData = await commentRes.json();
       setCommentsCount(Array.isArray(commentData) ? commentData.length : 0);
     }
     fetchSocialData();
-  }, [postId, currentUserId]);
+  }, [postId, currentUserId, apiBase, commentsApi]);
 
   // Fetch comments
   useEffect(() => {
     setLoadingComments(true);
-    fetch(`/api/general-posts/comments?postId=${postId}`)
+    fetch(commentsApi)
       .then(res => res.json())
       .then(data => {
         setComments(Array.isArray(data) ? data.map((c: any) => ({
@@ -67,18 +78,18 @@ export default function PostSocialPanel({ postId, currentUserId }: PostSocialPan
           userName: c.user?.name || 'Unknown',
           userAvatar: c.user?.image || undefined,
           text: c.text,
-          timestamp: c.timestamp
+          timestamp: c.createdAt // FIX: use createdAt, not timestamp
         })) : []);
         setCommentsCount(Array.isArray(data) ? data.length : 0);
       })
       .finally(() => setLoadingComments(false));
-  }, [postId]);
+  }, [postId, commentsApi]);
 
   // Like/Unlike
   const handleInterest = async () => {
     if (!currentUserId) return;
     if (isInterested) {
-      await fetch('/api/general-posts/likes', {
+      await fetch(`${apiBase}/likes`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ postId, userId: currentUserId })
@@ -86,7 +97,7 @@ export default function PostSocialPanel({ postId, currentUserId }: PostSocialPan
       setInterestCount(c => Math.max(0, c - 1));
       setIsInterested(false);
     } else {
-      await fetch('/api/general-posts/likes', {
+      await fetch(`${apiBase}/likes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ postId, userId: currentUserId })
@@ -100,7 +111,7 @@ export default function PostSocialPanel({ postId, currentUserId }: PostSocialPan
   const handleShare = async () => {
     if (!currentUserId) return;
     if (hasShared) {
-      await fetch('/api/general-posts/shares', {
+      await fetch(`${apiBase}/shares`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ postId, userId: currentUserId })
@@ -108,7 +119,7 @@ export default function PostSocialPanel({ postId, currentUserId }: PostSocialPan
       setShareCount(c => Math.max(0, c - 1));
       setHasShared(false);
     } else {
-      await fetch('/api/general-posts/shares', {
+      await fetch(`${apiBase}/shares`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ postId, userId: currentUserId })
@@ -122,25 +133,36 @@ export default function PostSocialPanel({ postId, currentUserId }: PostSocialPan
   const handleSubmitComment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newComment.trim() || !currentUserId) return;
-    const res = await fetch('/api/general-posts/comments', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ postId, userId: currentUserId, text: newComment })
-    });
+    let res;
+    if (postType === 'society' && societyId) {
+      res = await fetch(`/api/societies/${societyId}/posts/${postId}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUserId, text: newComment })
+      });
+    } else {
+      res = await fetch('/api/general-posts/comments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ postId, userId: currentUserId, text: newComment })
+      });
+    }
     if (res.ok) {
       setNewComment('');
       // Re-fetch comments
-      const commentRes = await fetch(`/api/general-posts/comments?postId=${postId}`);
-      const commentData = await commentRes.json();
-      setComments(Array.isArray(commentData) ? commentData.map((c: any) => ({
-        id: c.id,
-        userId: c.userId,
-        userName: c.user?.name || 'Unknown',
-        userAvatar: c.user?.image || undefined,
-        text: c.text,
-        timestamp: c.timestamp
-      })) : []);
-      setCommentsCount(Array.isArray(commentData) ? commentData.length : 0);
+      fetch(commentsApi)
+        .then(res => res.json())
+        .then(data => {
+          setComments(Array.isArray(data) ? data.map((c: any) => ({
+            id: c.id,
+            userId: c.userId,
+            userName: c.user?.name || 'Unknown',
+            userAvatar: c.user?.image || undefined,
+            text: c.text,
+            timestamp: c.createdAt // FIX: use createdAt, not timestamp
+          })) : []);
+          setCommentsCount(Array.isArray(data) ? data.length : 0);
+        });
     }
   };
 
@@ -158,20 +180,24 @@ export default function PostSocialPanel({ postId, currentUserId }: PostSocialPan
             <div className="space-y-4">
               {comments.map(comment => (
                 <div key={comment.id} className="flex items-start gap-2">
-                  <Link href={`/profile/${comment.userId}`}> 
-                    <Avatar className="w-7 h-7">
-                      {comment.userAvatar ? (
-                        <AvatarImage src={comment.userAvatar} alt={comment.userName} />
-                      ) : (
-                        <AvatarFallback>{comment.userName?.substring(0,2).toUpperCase() || '??'}</AvatarFallback>
-                      )}
-                    </Avatar>
-                  </Link>
-                  <div className="flex-1">
-                    <div className="text-xs font-medium">{comment.userName}</div>
-                    <div className="text-sm text-gray-300 mb-1 whitespace-pre-line break-words">{comment.text}</div>
-                    <div className="text-[11px] text-gray-500">{typeof comment.timestamp === 'string' ? new Date(comment.timestamp).toLocaleString() : comment.timestamp.toLocaleString()}</div>
-                  </div>
+                  {comment.userName ? (
+                    <Link href={`/profile/${comment.userName}`}>
+                      <Avatar className="w-7 h-7">
+                        {comment.userAvatar ? (
+                          <AvatarImage src={comment.userAvatar} alt={comment.userName} />
+                        ) : (
+                          <AvatarFallback>{comment.userName?.substring(0,2).toUpperCase() || '??'}</AvatarFallback>
+                        )}
+                      </Avatar>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <div className="text-xs font-medium">{comment.userName}</div>
+                        </div>
+                        <div className="text-xs text-muted-foreground">{comment.text}</div>
+                      </div>
+                    </Link>
+                  ) : null}
+                  <div className="text-[11px] text-gray-500">{typeof comment.timestamp === 'string' ? new Date(comment.timestamp).toLocaleString() : comment.timestamp.toLocaleString()}</div>
                 </div>
               ))}
             </div>

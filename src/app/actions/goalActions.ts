@@ -109,6 +109,29 @@ export async function updateGoal(goalId: string, initiativeId: string, data: Goa
   }
 }
 
+export async function deleteGoal(goalId: string, userId: string) {
+  try {
+    // Find the goal and its initiative
+    const goal = await prisma.goal.findUnique({
+      where: { id: goalId },
+      include: { initiative: true },
+    });
+    if (!goal) {
+      return { success: false, error: 'Goal not found.' };
+    }
+    // Check if the user is the initiative creator
+    if (goal.initiative.creatorId !== userId) {
+      return { success: false, error: 'Not authorized to delete this goal.' };
+    }
+    await prisma.goal.delete({ where: { id: goalId } });
+    revalidatePath(`/initiatives/${goal.initiativeId}`);
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting goal:', error);
+    return { success: false, error: 'Failed to delete goal.' };
+  }
+}
+
 export async function getGoalDetails(goalId: string) {
   try {
     const goal = await prisma.goal.findUnique({

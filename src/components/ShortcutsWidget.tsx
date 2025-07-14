@@ -2,8 +2,11 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, Rocket, User } from 'lucide-react';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 
 export default function ShortcutsWidget() {
+  const { data: session } = useSession();
+
   return (
     <Card>
       <CardHeader className="py-2 px-3">
@@ -20,7 +23,11 @@ export default function ShortcutsWidget() {
           <Link href="/initiatives/create">Join Initiative</Link>
         </Button>
         <Button asChild variant="outline" size="sm" className="text-xs h-7">
-          <Link href="/profile/me">View Profile</Link>
+          {session?.user?.username ? (
+            <Link href={`/profile/${session.user.username}`}>View Profile</Link>
+          ) : (
+            <Link href="/profile/me">View Profile</Link>
+          )}
         </Button>
       </CardContent>
     </Card>

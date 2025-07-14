@@ -16,14 +16,14 @@ function ExplorePageInner() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [results, setResults] = useState({ users: [], initiatives: [], posts: [] });
+  const [results, setResults] = useState({ users: [], initiatives: [], posts: [], societies: [] });
   const [hasSearched, setHasSearched] = useState(false);
 
   // Handle search
   const handleSearch = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!searchQuery.trim()) {
-      setResults({ users: [], initiatives: [], posts: [] });
+      setResults({ users: [], initiatives: [], posts: [], societies: [] });
       setHasSearched(false);
       return;
     }
@@ -35,7 +35,7 @@ function ExplorePageInner() {
       const data = await response.json();
       setResults(data);
     } else {
-      setResults({ users: [], initiatives: [], posts: [] });
+      setResults({ users: [], initiatives: [], posts: [], societies: [] });
     }
     setIsLoading(false);
   };
@@ -55,17 +55,16 @@ function ExplorePageInner() {
     const isCurrentUser = session?.user?.id === user.id;
     return (
       <div className="bg-card rounded-lg shadow p-4 flex flex-col items-center text-center">
-        <Link href={`/profile/${user.id}`} className="flex flex-col items-center group">
-          <Avatar className="h-16 w-16 mb-2 group-hover:ring-2 group-hover:ring-primary transition">
-            <AvatarImage src={user.image || undefined} alt={user.name || 'User'} />
-            <AvatarFallback>{user.name?.charAt(0) || 'U'}</AvatarFallback>
-          </Avatar>
-          <div className="font-semibold text-base flex items-center justify-center gap-2 group-hover:text-primary transition">
-            {user.name || 'Anonymous'}
-            {isCurrentUser && <span className="ml-1 px-2 py-0.5 rounded bg-muted text-xs text-muted-foreground border border-muted-foreground/20">(You)</span>}
-          </div>
-        </Link>
-        {user.username && <div className="text-xs text-muted-foreground">@{user.username}</div>}
+        {user.username ? (
+          <Link href={`/profile/${user.username}`} className="flex flex-col items-center group">
+            <Avatar className="h-16 w-16 mb-2 group-hover:ring-2 group-hover:ring-primary transition">
+              <AvatarImage src={user.image || undefined} alt={user.name || 'User'} />
+              <AvatarFallback>{user.name?.charAt(0) || 'U'}</AvatarFallback>
+            </Avatar>
+            <div className="font-semibold text-lg">{user.name || user.username || 'User'}</div>
+            {user.username && <div className="text-xs text-muted-foreground">@{user.username}</div>}
+          </Link>
+        ) : null}
         {user.bio && <div className="text-xs mt-1 text-muted-foreground line-clamp-2">{user.bio}</div>}
         <div className="text-xs text-gray-500 mt-1">Joined {new Date(user.dateCreated).toLocaleDateString()}</div>
       </div>
@@ -118,6 +117,27 @@ function ExplorePageInner() {
     );
   };
 
+  // Society card
+  const SocietyCard = (society: any) => (
+    <Link key={society.id} href={`/societies/${society.id}`} passHref className="block min-w-[300px] h-[180px] cursor-pointer">
+      <div className="relative flex-shrink-0 cursor-pointer hover:shadow-lg transition-shadow overflow-hidden group h-full rounded-lg">
+        {society.image ? (
+          <div className="absolute inset-0 bg-cover bg-center transition-transform duration-300 group-hover:scale-105" style={{ backgroundImage: `url(${society.image})` }}>
+            <div className="absolute inset-0 bg-black/60" />
+          </div>
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-gray-700 to-gray-900" />
+        )}
+        <div className="relative z-10 flex flex-col h-full justify-between">
+          <div className="p-4">
+            <div className="text-base line-clamp-2 text-white font-semibold">{society.name}</div>
+            <div className="line-clamp-3 text-gray-200 text-xs mt-1">{society.description}</div>
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-10">
       <div className="flex flex-col sm:flex-row items-center justify-center mb-2 gap-4">
@@ -153,6 +173,17 @@ function ExplorePageInner() {
               <div className="text-center text-muted-foreground">No users found</div>
             )}
           </div>
+          {/* Societies group */}
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold mb-3">Societies</h2>
+            {results.societies.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {results.societies.map((society: any) => <SocietyCard key={society.id} {...society} />)}
+              </div>
+            ) : (
+              <div className="text-center text-muted-foreground">No societies found</div>
+            )}
+          </div>
           {/* Initiatives group */}
           <div className="mb-8">
             <h2 className="text-xl font-semibold mb-3">Initiatives</h2>
@@ -176,7 +207,7 @@ function ExplorePageInner() {
             )}
           </div>
           {/* If all empty */}
-          {results.users.length === 0 && results.initiatives.length === 0 && results.posts.length === 0 && (
+          {results.users.length === 0 && results.societies.length === 0 && results.initiatives.length === 0 && results.posts.length === 0 && (
             <div className="flex flex-col items-center justify-center mt-12">
               <span className="text-5xl mb-4">🔍</span>
               <div className="text-xl font-semibold mb-2">No results found</div>

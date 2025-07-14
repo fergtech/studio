@@ -59,6 +59,7 @@ export async function GET(req: NextRequest) {
             id: true,
             name: true,
             image: true,
+            username: true,
           },
         },
       },
@@ -98,6 +99,7 @@ export async function GET(req: NextRequest) {
             id: true,
             name: true,
             image: true,
+            username: true,
           },
         },
         following: {
@@ -105,6 +107,7 @@ export async function GET(req: NextRequest) {
             id: true,
             name: true,
             image: true,
+            username: true,
           },
         },
       },
@@ -142,6 +145,7 @@ export async function GET(req: NextRequest) {
             id: true,
             name: true,
             image: true,
+            username: true,
           },
         },
         initiative: {
@@ -187,6 +191,7 @@ export async function GET(req: NextRequest) {
             id: true,
             name: true,
             image: true,
+            username: true,
           },
         },
       },
@@ -230,6 +235,7 @@ export async function GET(req: NextRequest) {
             id: true,
             name: true,
             image: true,
+            username: true,
           },
         },
         initiative: {

@@ -122,9 +122,8 @@ export default function NotificationBell() {
       }
     } else if (notification.type === 'FOLLOW') {
       const followerId = notification.data?.followerId;
-      if (followerId) {
-        router.push(`/profile/${followerId}`);
-      }
+      const followerUsername = notification.data?.followerUsername;
+      if (followerUsername) router.push(`/profile/${followerUsername}`);
     }
     
     setIsOpen(false);

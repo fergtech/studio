@@ -16,6 +16,8 @@ const UpdateProfileSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters').max(30).optional(),
   gender: z.enum(['male', 'female', 'other', 'prefer_not_to_say']).optional(),
   websites: z.array(z.string().url()).max(2, 'Maximum 2 websites allowed').optional(),
+  city: z.string().max(100).nullable().optional(),
+  showLocation: z.boolean().optional(),
 });
 
 export interface UpdateUserProfileActionState {
@@ -76,6 +78,15 @@ export async function updateUserProfileAction(
   let bannerImageUrl = formData.get('bannerImageUrl') as string | undefined;
   if (bannerImageUrl === '') bannerImageUrl = undefined;
 
+  // Extract new fields from formData
+  let city = formData.get('city') as string | null | undefined;
+  if (city === undefined || city === '') city = null;
+  let showLocationRaw = formData.get('showLocation');
+  let showLocation: boolean | undefined = undefined;
+  if (showLocationRaw !== undefined && showLocationRaw !== null) {
+    showLocation = showLocationRaw === 'true' || showLocationRaw === 'on';
+  }
+
   const rawData: {
     name?: string;
     bio?: string;
@@ -84,6 +95,8 @@ export async function updateUserProfileAction(
     username?: string;
     gender?: string;
     websites?: string[];
+    city?: string | null;
+    showLocation?: boolean;
   } = {
     // Only include fields in rawData if they have a value (or are explicitly meant to be processed by Zod)
     // This helps Zod correctly interpret optional fields.
@@ -96,6 +109,8 @@ export async function updateUserProfileAction(
   if (finalWebsites !== undefined) rawData.websites = finalWebsites;
   if (imageUrl !== undefined) rawData.imageUrl = imageUrl;
   if (bannerImageUrl !== undefined) rawData.bannerImageUrl = bannerImageUrl;
+  if (city !== undefined) rawData.city = city;
+  if (showLocation !== undefined) rawData.showLocation = showLocation;
 
   const validatedFields = UpdateProfileSchema.safeParse(rawData);
 
@@ -107,7 +122,7 @@ export async function updateUserProfileAction(
     };
   }
 
-  const { name: validatedName, bio: validatedBio, imageUrl: validatedImageUrl, bannerImageUrl: validatedBannerImageUrl, username: validatedUsername, gender: validatedGender, websites: validatedWebsites } = validatedFields.data;
+  const { name: validatedName, bio: validatedBio, imageUrl: validatedImageUrl, bannerImageUrl: validatedBannerImageUrl, username: validatedUsername, gender: validatedGender, websites: validatedWebsites, city: validatedCity, showLocation: validatedShowLocation } = validatedFields.data;
 
   try {
     // Prepare data for Prisma update. 
@@ -128,6 +143,8 @@ export async function updateUserProfileAction(
                          // However, our schema has websites as optional string[], not String[]? so it cannot be null.
                          // If `validatedWebsites` is undefined, we don't add it to dataToUpdate, so Prisma won't touch it.
                          // If `validatedWebsites` is an empty array, we should pass it as such to clear existing websites.
+      city?: string | null;
+      showLocation?: boolean;
     } = {};
 
     // Explicitly check if the key exists in validatedFields.data before assigning.
@@ -159,6 +176,12 @@ export async function updateUserProfileAction(
       if (validatedWebsites !== undefined) {
         dataToUpdate.websites = validatedWebsites;
       }
+    }
+    if (validatedFields.data.hasOwnProperty('city')) {
+      dataToUpdate.city = validatedCity === undefined ? null : validatedCity;
+    }
+    if (validatedFields.data.hasOwnProperty('showLocation')) {
+      dataToUpdate.showLocation = validatedShowLocation;
     }
 
     if (Object.keys(dataToUpdate).length === 0) {

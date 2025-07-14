@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Send, X, CheckCircle, Paperclip, ExternalLink, TrendingUp, Pin, ThumbsUp, PartyPopper, Heart, Lightbulb, Share2, Image as ImageIcon, Archive, UserPlus, Plus, MessageSquare, Twitter, Facebook, Link2, Edit, Menu } from 'lucide-react';
+import { Send, X, CheckCircle, Paperclip, ExternalLink, TrendingUp, Pin, ThumbsUp, PartyPopper, Heart, Lightbulb, Share2, Image as ImageIcon, Archive, UserPlus, Plus, MessageSquare, Twitter, Facebook, Link2, Edit, Menu, Trash2 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDistanceToNow } from 'date-fns';
@@ -29,13 +29,14 @@ import { ActivityFeed } from './ActivityFeed';
 import { EditInitiativeDialog } from './EditInitiativeDialog';
 import { RoleSelectionModal } from './RoleSelectionModal';
 import { useSession } from "next-auth/react";
-import { joinInitiativeAction, updateInitiativeAction, updateInitiativeMembershipAction, leaveInitiativeAction, createUpdate as createUpdateAction } from "@/app/actions/initiativeActions"; // Added updateInitiativeAction and createUpdateAction
+import { joinInitiativeAction, updateInitiativeAction, updateInitiativeMembershipAction, leaveInitiativeAction, createUpdate as createUpdateAction, deleteInitiative } from "@/app/actions/initiativeActions"; // Added updateInitiativeAction, createUpdateAction, and deleteInitiative
 import { InitiativeRoleType, UpdateType } from '@prisma/client'; // Added this import
 import { CreateGoalDialog } from './CreateGoalDialog'; // Import CreateGoalDialog
 import { useIsMobile } from '@/hooks/use-mobile';
 import { ChatPanel } from '@/components/initiatives/ChatPanel';
 import { io, Socket } from 'socket.io-client';
 import { SuggestedGoalTag } from '@/components/initiatives/SuggestedGoalTag';
+import { deleteGoal } from '@/app/actions/goalActions';
 
 interface InitiativeClientPageProps {
   initiative: Initiative;
@@ -558,6 +559,18 @@ export function InitiativeClientPage({
     lastActive: membership.user.lastActive || new Date(), // Default to current date if undefined
   })) || [];
 
+  // Add delete handler
+  const handleDeleteInitiative = async () => {
+    if (!window.confirm("Are you sure you want to delete this initiative? This action cannot be undone.")) return;
+    const result = await deleteInitiative(initiative.id);
+    if (result.success) {
+      toast({ title: "Initiative Deleted", description: "The initiative has been deleted." });
+      router.push('/');
+    } else {
+      toast({ title: "Error", description: result.error || "Failed to delete initiative.", variant: "destructive" });
+    }
+  };
+
   return (
     <div className="relative min-h-screen">
       {/* Overlay for Mobile Sidebar */}
@@ -673,7 +686,7 @@ export function InitiativeClientPage({
                       )}
                     </Button>
                   )}
-                  {isMember && currentUserMembership?.role !== InitiativeRoleType.ADMIN && (
+                  {isMember && currentUserMembership?.role !== InitiativeRoleType.ADMIN && initiative.creator?.id !== userId && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -684,7 +697,7 @@ export function InitiativeClientPage({
                       {isUpdatingRole ? "Updating..." : "Change Role"}
                     </Button>
                   )}
-                  {isMember && (
+                  {isMember && initiative.creator?.id !== userId && (
                     <Button
                       variant="destructive"
                       size="sm"
@@ -693,6 +706,16 @@ export function InitiativeClientPage({
                       disabled={isLeaving}
                     >
                       {isLeaving ? "Leaving..." : "Leave Initiative"}
+                    </Button>
+                  )}
+                  {isMember && initiative.creator?.id === userId && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="h-8 text-xs"
+                      onClick={handleDeleteInitiative}
+                    >
+                      Delete Initiative
                     </Button>
                   )}
                 </div>
@@ -716,10 +739,12 @@ export function InitiativeClientPage({
             <div className="mb-8">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-2xl font-semibold">Goals</h2>
-                {isMember && (
+                {isMember ? (
                   <Button onClick={() => setIsCreateGoalDialogOpen(true)}>
                     <Plus className="mr-2 h-4 w-4" /> Add Goal
                   </Button>
+                ) : (
+                  <span className="text-xs text-muted-foreground">Join to create goals!</span>
                 )}
               </div>
               {initiative.goals && initiative.goals.length > 0 ? (
@@ -733,7 +758,7 @@ export function InitiativeClientPage({
                         : 0;
                       return (
                         <Link key={goal.id} href={`/initiatives/${initiativeId}/goals/${goal.id}`} passHref>
-                          <Card className="min-w-[300px] flex-shrink-0 cursor-pointer hover:shadow-lg transition-shadow">
+                          <Card className="min-w-[300px] flex-shrink-0 cursor-pointer hover:shadow-lg transition-shadow relative">
                             <CardHeader>
                               <CardTitle className="text-base">{goal.title}</CardTitle>
                               <CardDescription className="line-clamp-2">{goal.description}</CardDescription>
@@ -765,6 +790,29 @@ export function InitiativeClientPage({
                                 )}
                               </div>
                             </CardContent>
+                            {initiative.creator?.id === userId && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="absolute top-2 right-2 text-red-500 hover:bg-red-100"
+                                onClick={async (e) => {
+                                  e.preventDefault();
+                                  const result = await deleteGoal(goal.id, userId);
+                                  if (result.success) {
+                                    setInitiative((prev) => ({
+                                      ...prev,
+                                      goals: prev.goals.filter((g) => g.id !== goal.id),
+                                    }));
+                                    toast({ title: 'Goal deleted', description: 'The goal was removed.' });
+                                  } else {
+                                    toast({ title: 'Error', description: result.error || 'Failed to delete goal.', variant: 'destructive' });
+                                  }
+                                }}
+                                aria-label="Delete Goal"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
                           </Card>
                         </Link>
                       );
@@ -797,7 +845,17 @@ export function InitiativeClientPage({
                       key={index} // Using index as key here, consider a unique ID if available
                       title={goal.title}
                       description={goal.description}
-                      onClick={handleSuggestedGoalClick}
+                      onClick={() => {
+                        if (!isMember) {
+                          toast({
+                            title: "Join to create goals!",
+                            description: "You need to join this initiative to create a goal.",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+                        handleSuggestedGoalClick(goal);
+                      }}
                     />
                   ))}
                 </div>
@@ -807,7 +865,7 @@ export function InitiativeClientPage({
             {/* Updates Section */}
             <div className="space-y-4">
               <h2 className="text-xl font-semibold">Updates</h2>
-              {(isMember || isAdmin) && (
+              {isMember ? (
                 <CreateUpdateForm 
                   initiativeId={initiativeId} 
                   onPostUpdate={async (updateData) => {
@@ -852,12 +910,15 @@ export function InitiativeClientPage({
                     }
                   }} 
                 />
+              ) : (
+                <div className="text-xs text-muted-foreground mb-2">Join to post updates or interact!</div>
               )}
               {initiative.updates && initiative.updates.length > 0 ? (
                 <ActivityFeed 
                   updates={initiative.updates} 
                   onLoadMore={() => {}} 
                   hasMore={false} 
+                  isMember={isMember} // Pass isMember to ActivityFeed
                 />
               ) : (
                 <Card className="bg-muted/50">

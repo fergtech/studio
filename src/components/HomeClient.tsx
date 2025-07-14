@@ -27,6 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Input } from '@/components/ui/input';
 import { Pencil } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
+import { MainFeedSocietyPostCard } from './MainFeedSocietyPostCard';
 
 // Temporary mock user avatars for fallback
 const mockUserAvatars: Record<string, string | undefined> = {
@@ -53,6 +54,7 @@ interface UpdateWithUserAndInitiative {
     id: string;
     name: string | null;
     image: string | null;
+    username?: string | null; // Added for backward compatibility
   };
   initiative: {
     id: string;
@@ -67,11 +69,13 @@ interface UserFollowWithUsers {
     id: string;
     name: string | null;
     image: string | null;
+    username?: string | null; // Added for backward compatibility
   };
   following: {
     id: string;
     name: string | null;
     image: string | null;
+    username?: string | null; // Added for backward compatibility
   };
 }
 
@@ -84,6 +88,7 @@ interface InitiativeMembershipWithUserAndInitiative {
     id: string;
     name: string | null;
     image: string | null;
+    username?: string | null; // Added for backward compatibility
   };
   initiative: {
     id: string;
@@ -92,13 +97,31 @@ interface InitiativeMembershipWithUserAndInitiative {
 }
 
 // Unified feed item types
-type FeedItemType = 'initiative' | 'generalPost' | 'issue' | 'idea' | 'update' | 'follow' | 'initiativeJoin';
+type FeedItemType = 'initiative' | 'generalPost' | 'societyPost' | 'issue' | 'idea' | 'update' | 'follow' | 'initiativeJoin';
+
+interface SocietyPostWithUserAndSociety {
+  id: string;
+  type: string;
+  content: string;
+  createdAt: string;
+  imageUrl?: string;
+  user: {
+    id: string;
+    name: string;
+    image?: string;
+  };
+  society: {
+    id: string;
+    name: string;
+    image?: string;
+  };
+}
 
 interface UnifiedFeedItem {
   type: FeedItemType;
   id: string;
   timestamp: Date;
-  data: InitiativeWithCreator | GeneralPostWithCreatorAndMedia | IssueWithCreator | IdeaWithCreator | UpdateWithUserAndInitiative | UserFollowWithUsers | InitiativeMembershipWithUserAndInitiative;
+  data: InitiativeWithCreator | GeneralPostWithCreatorAndMedia | SocietyPostWithUserAndSociety | IssueWithCreator | IdeaWithCreator | UpdateWithUserAndInitiative | UserFollowWithUsers | InitiativeMembershipWithUserAndInitiative;
 }
 
 // Meta action types for the MetaActionCard component
@@ -126,7 +149,7 @@ interface InitiativeJoinAction {
 type MetaAction = UpdateAction | FollowAction | InitiativeJoinAction;
 
 // Legacy types for backward compatibility
-type FeedItemDb = InitiativeWithCreator | GeneralPostWithCreatorAndMedia | IssueWithCreator | IdeaWithCreator;
+type FeedItemDb = InitiativeWithCreator | GeneralPostWithCreatorAndMedia | SocietyPostWithUserAndSociety | IssueWithCreator | IdeaWithCreator;
 
 // Helper function to check if an item is a GeneralPost
 function isGeneralPost(item: FeedItemDb): item is GeneralPostWithCreatorAndMedia {
@@ -150,8 +173,18 @@ function isMetaAction(item: UnifiedFeedItem): item is UnifiedFeedItem & { type: 
   return ['update', 'follow', 'initiativeJoin'].includes(item.type);
 }
 
-function isContentItem(item: UnifiedFeedItem): item is UnifiedFeedItem & { type: 'initiative' | 'generalPost' | 'issue' | 'idea' } {
-  return ['initiative', 'generalPost', 'issue', 'idea'].includes(item.type);
+function isContentItem(item: UnifiedFeedItem): item is UnifiedFeedItem & { type: 'initiative' | 'generalPost' | 'societyPost' | 'issue' | 'idea' } {
+  return ['initiative', 'generalPost', 'societyPost', 'issue', 'idea'].includes(item.type);
+}
+
+function isSocietyPost(item: any): item is SocietyPostWithUserAndSociety {
+  return (
+    item &&
+    typeof item.type === 'string' &&
+    typeof item.content === 'string' &&
+    item.user && typeof item.user.id === 'string' &&
+    item.society && typeof item.society.id === 'string'
+  );
 }
 
 // Helper function to convert UnifiedFeedItem to MetaAction
@@ -164,8 +197,32 @@ function convertToMetaAction(item: UnifiedFeedItem & { type: 'update' | 'follow'
   };
 }
 
+// Patch: ensure all meta action user objects include username
+function patchMetaActionUsernames(action: any): any {
+  if (action.type === 'update' && action.data && action.data.user) {
+    if (typeof action.data.user.username === 'undefined') {
+      action.data.user.username = null;
+    }
+  }
+  if (action.type === 'follow' && action.data) {
+    if (action.data.follower && typeof action.data.follower.username === 'undefined') {
+      action.data.follower.username = null;
+    }
+    if (action.data.following && typeof action.data.following.username === 'undefined') {
+      action.data.following.username = null;
+    }
+  }
+  if (action.type === 'initiativeJoin' && action.data && action.data.user) {
+    if (typeof action.data.user.username === 'undefined') {
+      action.data.user.username = null;
+    }
+  }
+  return action;
+}
+
 interface HomeClientProps {
   currentUserId?: string;
+  username?: string | null;
 }
 
 const MAIN_REASONS = [
@@ -382,7 +439,7 @@ function UserHighlightsCard({ userInfo: initialUserInfo, toast }: { userInfo: an
   );
 }
 
-export function HomeClient({ currentUserId }: HomeClientProps) {
+export function HomeClient({ currentUserId, username }: HomeClientProps) {
   const [feedItems, setFeedItems] = useState<UnifiedFeedItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -419,7 +476,12 @@ export function HomeClient({ currentUserId }: HomeClientProps) {
     // Fetch user info for sidebar and welcome toast
     const fetchUserInfo = async () => {
       try {
-        const res = await fetch('/api/auth/me');
+        let res;
+        if (username) {
+          res = await fetch(`/api/users/${username}`);
+        } else {
+          res = await fetch('/api/auth/me');
+        }
         if (res.ok) {
           const data = await res.json();
           setUserInfo(data);
@@ -436,7 +498,7 @@ export function HomeClient({ currentUserId }: HomeClientProps) {
       } catch (e) {}
     };
     fetchUserInfo();
-  }, [toast]);
+  }, [toast, username]);
 
   useEffect(() => {
     if (!currentUserId) return;
@@ -464,6 +526,7 @@ export function HomeClient({ currentUserId }: HomeClientProps) {
       if ('status' in item && 'roles' in item) type = 'initiative';
       else if ('tags' in item && !('content' in item) && !('status' in item)) type = item.title ? 'idea' : 'issue';
       else if ('tags' in item) type = 'issue';
+      else if ('type' in item && item.type === 'societyPost') type = 'societyPost';
       else type = 'generalPost';
       const newFeedItem: UnifiedFeedItem = {
         type: type as FeedItemType,
@@ -477,6 +540,15 @@ export function HomeClient({ currentUserId }: HomeClientProps) {
     return () => {
       window.removeEventListener('feed:itemCreated', handleFeedItemCreated as EventListener);
     };
+  }, []);
+
+  useEffect(() => {
+    // Restore scroll position if returning from a post detail page
+    const savedScroll = sessionStorage.getItem('feedScrollPosition');
+    if (savedScroll) {
+      window.scrollTo(0, parseInt(savedScroll, 10));
+      sessionStorage.removeItem('feedScrollPosition');
+    }
   }, []);
 
   const handlePostCreated = async () => {
@@ -515,7 +587,7 @@ export function HomeClient({ currentUserId }: HomeClientProps) {
           {feedItems.map((item) => {
             // Handle meta actions
             if (isMetaAction(item)) {
-              const metaAction = convertToMetaAction(item);
+              const metaAction = patchMetaActionUsernames(convertToMetaAction(item));
               return (
                 <div key={item.id} className="w-full max-w-[500px]">
                   <MetaActionCard action={metaAction} currentUserId={currentUserId} />
@@ -527,7 +599,11 @@ export function HomeClient({ currentUserId }: HomeClientProps) {
             if (isContentItem(item)) {
               const contentData = item.data as FeedItemDb;
               
-              if (isGeneralPost(contentData)) {
+              if (item.type === 'societyPost' && isSocietyPost(item.data)) {
+                return (
+                  <MainFeedSocietyPostCard key={item.id} post={item.data as SocietyPostWithUserAndSociety} />
+                );
+              } else if (isGeneralPost(contentData)) {
                 const postCreatorName = contentData.creator?.name || 'Anonymous';
                 const postCreatorAvatar = contentData.creator?.image || mockUserAvatars[contentData.creatorId] || "https://i.pravatar.cc/40?u=anonymous";
                 const displayPost: GeneralPost = {
@@ -591,11 +667,6 @@ export function HomeClient({ currentUserId }: HomeClientProps) {
                       creatorName={initiativeCreatorName}
                       creatorAvatarUrl={initiativeCreatorAvatar}
                       currentUserId={currentUserId}
-                      onDelete={(initiativeId) => {
-                        setFeedItems(prev => prev.filter(item =>
-                          !(item.type === 'initiative' && item.data.id === initiativeId)
-                        ));
-                      }}
                     />
                   </div>
                 );

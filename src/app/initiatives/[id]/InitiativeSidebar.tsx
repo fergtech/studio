@@ -6,6 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatDistanceToNow } from 'date-fns';
 import type { Initiative, Member } from "@/lib/types";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Trash2 } from "lucide-react";
+import { deleteInitiative } from '@/app/actions/initiativeActions';
+import { useState } from 'react';
 
 interface InitiativeSidebarProps {
   initiative: Initiative;
@@ -13,6 +19,30 @@ interface InitiativeSidebarProps {
 }
 
 export function InitiativeSidebar({ initiative, members }: InitiativeSidebarProps) {
+  const { data: session } = useSession();
+  const router = useRouter();
+  const userId = session?.user?.id;
+  const isCreator = initiative.creator?.id === userId;
+  const isAdmin = members.find(m => m.id === userId)?.role === 'ADMIN';
+
+  // Add state for description toggle
+  const [showFullDescription, setShowFullDescription] = useState(false);
+  const maxDescriptionLength = 160;
+  const isLongDescription = initiative.description && initiative.description.length > maxDescriptionLength;
+  const displayedDescription = showFullDescription || !isLongDescription
+    ? initiative.description
+    : initiative.description.slice(0, maxDescriptionLength) + '...';
+
+  const handleDelete = async () => {
+    if (!confirm("Are you sure you want to delete this initiative? This action cannot be undone.")) return;
+    const result = await deleteInitiative(initiative.id);
+    if (result.success) {
+      router.push("/");
+    } else {
+      alert(result.error || "Failed to delete initiative.");
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* About Section */}
@@ -22,7 +52,15 @@ export function InitiativeSidebar({ initiative, members }: InitiativeSidebarProp
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-            {initiative.description}
+            {displayedDescription}
+            {isLongDescription && (
+              <button
+                className="ml-2 text-primary underline text-xs focus:outline-none"
+                onClick={() => setShowFullDescription(v => !v)}
+              >
+                {showFullDescription ? 'Show less' : 'Show more'}
+              </button>
+            )}
           </p>
         </CardContent>
       </Card>
@@ -79,6 +117,15 @@ export function InitiativeSidebar({ initiative, members }: InitiativeSidebarProp
             <a href="#chat" className="block text-sm text-primary hover:underline">
               Join Chat
             </a>
+            {(isCreator || isAdmin) && (
+              <Button
+                variant="destructive"
+                className="w-full mt-4 flex items-center justify-center"
+                onClick={handleDelete}
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Delete Initiative
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>

@@ -97,6 +97,7 @@ model User {
   passwordHash                String
   name                        String?
   username                    String?        @unique
+  location                    String?        // (Optional legacy field, not used for display)
   gender                      String?
   websites                    String[]       @default([])
   image                       String?
@@ -110,6 +111,10 @@ model User {
   profession                  String?
   organization                String?
   institution                 String?
+  // --- Only city is tracked for user location ---
+  city                        String?
+  showLocation                Boolean        @default(true)
+  // --- End location fields ---
   createdInitiatives          Initiative[]   @relation("CreatorOfInitiative")
   initiativeMemberships       InitiativeMembership[]
   createdMilestones           Milestone[]    @relation("CreatorOfMilestone")
@@ -141,6 +146,12 @@ model User {
   userFollowers               UserFollow[]   @relation("UserFollowers")
   userFollowing               UserFollow[]   @relation("UserFollowing")
   notifications               Notification[] @relation("UserNotifications")
+  societies                   Society[]      @relation("CreatorOfSociety") // New: Societies created by this user
+  societyMemberships          SocietyMembership[] // New: societies this user is a member of
+  societyPosts                SocietyPost[]  // New: Posts created by this user
+  societyPostComments         SocietyPostComment[]
+  societyPostLikes            SocietyPostLike[] // New: Likes on society posts
+  societyPostShares           SocietyPostShare[] // New: Shares on society posts
 }
 
 model Initiative {
@@ -166,6 +177,9 @@ model Initiative {
   championedIssue     Issue?       @relation("ChampionedIssue") // New: Link to an Issue this initiative championed
   championedIdea      Idea?        @relation("ChampionedIdea")  // New: Link to an Idea this initiative championed
   location      String?           // Optional location for MVP
+  // --- New field for location visibility ---
+  showLocation  Boolean           @default(true)
+  // --- End new field ---
   progress      Int?              // Overall progress percentage (0-100)
 }
 
@@ -299,6 +313,9 @@ model GeneralPostComment {
   userId    String
   text      String
   timestamp DateTime @default(now())
+  parentComment   GeneralPostComment? @relation("GeneralPostCommentThread", fields: [parentCommentId], references: [id])
+  parentCommentId String?
+  replies    GeneralPostComment[] @relation("GeneralPostCommentThread")
 
   post      GeneralPost @relation(fields: [postId], references: [id])
   user      User        @relation(fields: [userId], references: [id])
@@ -549,4 +566,83 @@ model Post {
 
   comments  Comment[]
   User      User       @relation("UserPosts", fields: [creatorId], references: [id])
+}
+
+model Society {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  image       String?
+  createdAt   DateTime @default(now())
+  creatorId   String
+  creator     User     @relation("CreatorOfSociety", fields: [creatorId], references: [id])
+  memberships SocietyMembership[] // New: memberships for this society
+  posts       SocietyPost[]  // New: posts for this society
+  // Location to be added later
+}
+
+model SocietyMembership {
+  id         String   @id @default(cuid())
+  user       User     @relation(fields: [userId], references: [id])
+  userId     String
+  society    Society  @relation(fields: [societyId], references: [id])
+  societyId  String
+  role       String?  // Optional: can be extended to enum if needed
+  customRole String?  // Optional: for custom role names
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, societyId])
+}
+
+model SocietyPost {
+  id         String   @id @default(cuid())
+  society    Society  @relation(fields: [societyId], references: [id])
+  societyId  String
+  user       User     @relation(fields: [userId], references: [id])
+  userId     String
+  type       String   // "GENERAL" | "ISSUE" | "IDEA"
+  content    String
+  createdAt  DateTime @default(now())
+  imageUrl   String?  // Optional image for the post
+  comments   SocietyPostComment[]
+  likes      SocietyPostLike[] // New: likes for this society post
+  shares     SocietyPostShare[] // New: shares for this society post
+}
+
+model SocietyPostLike {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  post      SocietyPost @relation(fields: [postId], references: [id])
+  user      User        @relation(fields: [userId], references: [id])
+
+  @@unique([postId, userId])
+}
+
+model SocietyPostShare {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  post      SocietyPost @relation(fields: [postId], references: [id])
+  user      User        @relation(fields: [userId], references: [id])
+
+  @@unique([postId, userId])
+}
+
+model SocietyPostComment {
+  id         String   @id @default(cuid())
+  post       SocietyPost @relation(fields: [postId], references: [id])
+  postId     String
+  user       User     @relation(fields: [userId], references: [id])
+  userId     String
+  text       String
+  createdAt  DateTime @default(now())
+  parentComment   SocietyPostComment? @relation("CommentThread", fields: [parentCommentId], references: [id])
+  parentCommentId String?
+  replies    SocietyPostComment[] @relation("CommentThread")
 }

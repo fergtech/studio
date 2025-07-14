@@ -192,6 +192,8 @@ export default function GoalDetailPage() {
   const [suggestedActions, setSuggestedActions] = useState<Array<{ title: string; description: string }>>([]);
   const [selectedSuggestedAction, setSelectedSuggestedAction] = useState<{ title: string; description: string } | null>(null);
 
+  const { data: session } = useSession();
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -410,6 +412,8 @@ export default function GoalDetailPage() {
     }
   };
 
+  const isMember = initiativeMembers.some(member => member.id === session?.user?.id);
+
   return (
     <div>
       {/* Initiative Header Image */}
@@ -510,10 +514,14 @@ export default function GoalDetailPage() {
         <TabsContent value="actions" className="space-y-4">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-semibold">Goal Actions</h2>
-            <Button onClick={() => setIsAddActionModalOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Action
-            </Button>
+            {isMember ? (
+              <Button onClick={() => setIsAddActionModalOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Action
+              </Button>
+            ) : (
+              <span className="text-xs text-muted-foreground">Join to add actions!</span>
+            )}
           </div>
           {/* Suggested Actions Section */}
           <div className="mt-6 p-4 rounded-md bg-muted/50">

@@ -87,13 +87,31 @@ interface InitiativeMembershipWithUserAndInitiative extends Prisma.InitiativeMem
 }> {}
 
 // Unified feed item types
-type FeedItemType = 'initiative' | 'generalPost' | 'issue' | 'idea' | 'update' | 'follow' | 'initiativeJoin';
+type FeedItemType = 'initiative' | 'generalPost' | 'societyPost' | 'issue' | 'idea' | 'update' | 'follow' | 'initiativeJoin';
+
+interface SocietyPostWithUserAndSociety {
+  id: string;
+  type: string;
+  content: string;
+  createdAt: Date;
+  imageUrl?: string;
+  user: {
+    id: string;
+    name: string;
+    image?: string;
+  };
+  society: {
+    id: string;
+    name: string;
+    image?: string;
+  };
+}
 
 interface UnifiedFeedItem {
   type: FeedItemType;
   id: string;
   timestamp: Date;
-  data: InitiativeWithCreator | GeneralPostWithCreatorAndMedia | IssueWithCreator | IdeaWithCreator | UpdateWithUserAndInitiative | UserFollowWithUsers | InitiativeMembershipWithUserAndInitiative;
+  data: InitiativeWithCreator | GeneralPostWithCreatorAndMedia | SocietyPostWithUserAndSociety | IssueWithCreator | IdeaWithCreator | UpdateWithUserAndInitiative | UserFollowWithUsers | InitiativeMembershipWithUserAndInitiative;
 }
 
 // Legacy type for backward compatibility
@@ -101,7 +119,7 @@ export type ApiFeedItem = InitiativeWithCreator | GeneralPostWithCreatorAndMedia
 
 async function getUnifiedFeedItems(page: number = 1, pageSize: number = 10): Promise<UnifiedFeedItem[]> {
   // Fetch all content and meta actions in parallel
-  const [initiatives, generalPosts, issues, ideas, updates, follows, joins] = await Promise.all([
+  const [initiatives, generalPosts, societyPosts, issues, ideas, updates, follows, joins] = await Promise.all([
     prisma.initiative.findMany({
       include: {
         creator: {
@@ -139,6 +157,19 @@ async function getUnifiedFeedItems(page: number = 1, pageSize: number = 10): Pro
       orderBy: {
         timestamp: 'desc',
       },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.societyPost.findMany({
+      include: {
+        user: {
+          select: { id: true, name: true, image: true },
+        },
+        society: {
+          select: { id: true, name: true, image: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
       skip: (page - 1) * pageSize,
       take: pageSize,
     }),
@@ -286,6 +317,25 @@ async function getUnifiedFeedItems(page: number = 1, pageSize: number = 10): Pro
       id: p.id, 
       timestamp: p.timestamp, 
       data: p 
+    })),
+    ...societyPosts.map(sp => ({
+      type: 'societyPost' as const,
+      id: sp.id,
+      timestamp: new Date(sp.createdAt),
+      data: {
+        ...sp,
+        createdAt: new Date(sp.createdAt),
+        type: sp.type,
+        user: {
+          ...sp.user,
+          name: sp.user?.name ?? '',
+        },
+        society: {
+          ...sp.society,
+          name: sp.society?.name ?? '',
+        },
+        imageUrl: sp.imageUrl ?? undefined,
+      }
     })),
     ...issues.map(i => ({ 
       type: 'issue' as const, 

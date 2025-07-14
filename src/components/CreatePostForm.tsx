@@ -213,10 +213,10 @@ export default function CreatePostForm({ onPostCreated }: { onPostCreated: () =>
               {/* Hidden File Input */}
               <input
                 type="file"
+                accept="image/*,video/*"
                 ref={fileInputRef}
                 onChange={handleMediaChange}
-                accept="image/*,video/*" // Accept images and videos
-                style={{ display: 'none' }}
+                className="hidden"
               />
               {/* Attachment Button */}
               <Button variant="ghost" size="icon" type="button" onClick={triggerFileInput} className="text-muted-foreground hover:text-primary">

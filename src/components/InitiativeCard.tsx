@@ -15,7 +15,6 @@ interface InitiativeCardProps {
   creatorName?: string;
   creatorAvatarUrl?: string;
   currentUserId?: string;
-  onDelete?: (initiativeId: string) => void;
 }
 
 export function InitiativeCard({ initiative, creatorName = "Creator", creatorAvatarUrl, currentUserId }: InitiativeCardProps) {
@@ -55,7 +54,7 @@ export function InitiativeCard({ initiative, creatorName = "Creator", creatorAva
     try {
       const result = await deleteInitiative(initiative.id);
       if (result.success) {
-        if (typeof onDelete === 'function') onDelete(initiative.id);
+        // Removed onDelete call as per edit hint
       } else {
         setDeleteError(result.error || "Failed to delete initiative.");
       }
@@ -121,15 +120,7 @@ export function InitiativeCard({ initiative, creatorName = "Creator", creatorAva
           </div>
           <div className="flex items-center space-x-2">
             <Badge variant="secondary" className="text-xs bg-accent/20 text-accent border-none backdrop-blur-sm">{initiative.status}</Badge>
-            {currentUserId && initiative.creatorId === currentUserId && (
-              <PostActions
-                postId={initiative.id}
-                postType="initiative"
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                className="ml-2"
-              />
-            )}
+            {/* Edit/Delete actions removed from main feed */}
           </div>
         </div>
 

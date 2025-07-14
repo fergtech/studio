@@ -5,7 +5,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const q = searchParams.get('q')?.trim();
   if (!q) {
-    return NextResponse.json({ users: [], initiatives: [], posts: [] });
+    return NextResponse.json({ users: [], initiatives: [], posts: [], societies: [] });
   }
 
   // Users: name, skills, interests
@@ -13,8 +13,8 @@ export async function GET(req: NextRequest) {
     where: {
       OR: [
         { name: { contains: q, mode: 'insensitive' } },
-        { skills: { has: q } }, // assuming skills is a string[]
-        { interests: { has: q } }, // assuming interests is a string[]
+        { skills: { has: q } },
+        { interests: { has: q } },
       ],
     },
     select: {
@@ -47,6 +47,24 @@ export async function GET(req: NextRequest) {
     take: 20,
   });
 
+  // Societies: name, description
+  const societies = await prisma.society.findMany({
+    where: {
+      OR: [
+        { name: { contains: q, mode: 'insensitive' } },
+        { description: { contains: q, mode: 'insensitive' } },
+      ],
+    },
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      image: true,
+      createdAt: true,
+    },
+    take: 20,
+  });
+
   // General posts: content
   const generalPosts = await prisma.generalPost.findMany({
     where: {
@@ -61,48 +79,10 @@ export async function GET(req: NextRequest) {
   });
   const generalPostsWithType = generalPosts.map(post => ({ ...post, type: 'general' }));
 
-  // Issues: title, description
-  const issues = await prisma.issue.findMany({
-    where: {
-      OR: [
-        { title: { contains: q, mode: 'insensitive' } },
-        { description: { contains: q, mode: 'insensitive' } },
-      ],
-    },
-    select: {
-      id: true,
-      title: true,
-      description: true,
-      createdAt: true,
-    },
-    take: 20,
+  return NextResponse.json({
+    users,
+    initiatives,
+    posts: generalPostsWithType,
+    societies,
   });
-  const issuesWithType = issues.map(issue => ({ ...issue, type: 'issue' }));
-
-  // Ideas: title, description
-  const ideas = await prisma.idea.findMany({
-    where: {
-      OR: [
-        { title: { contains: q, mode: 'insensitive' } },
-        { description: { contains: q, mode: 'insensitive' } },
-      ],
-    },
-    select: {
-      id: true,
-      title: true,
-      description: true,
-      createdAt: true,
-    },
-    take: 20,
-  });
-  const ideasWithType = ideas.map(idea => ({ ...idea, type: 'idea' }));
-
-  // Merge all posts
-  const posts = [
-    ...generalPostsWithType,
-    ...issuesWithType,
-    ...ideasWithType,
-  ];
-
-  return NextResponse.json({ users, initiatives, posts });
 } 

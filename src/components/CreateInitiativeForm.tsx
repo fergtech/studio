@@ -18,6 +18,7 @@ import { InitiativeStatus as PrismaInitiativeStatus } from '@prisma/client';
 import { Upload, X, Plus, Tag, AlertCircle, Palette } from 'lucide-react';
 import { createInitiative } from '@/app/actions/initiativeActions'; // Import the server action
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import imageCompression from 'browser-image-compression';
 
 // Define background options like in CreatePostForm
 const backgroundOptions = [
@@ -96,17 +97,54 @@ export function CreateInitiativeForm({ setOpen, onCreated }: CreateInitiativeFor
   }, [searchParams, form]);
 
   // Handle image preview
-  const handleMediaChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMediaChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      setSelectedMedia(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setMediaPreview(reader.result as string);
-        form.setValue("imageFile", file);
-      };
-      reader.readAsDataURL(file);
-      setSelectedBackground(''); // Clear background if media is selected
+      try {
+        // Strictly compress to under 1MB for Next.js server action compatibility
+        let options = {
+          maxSizeMB: 1,
+          maxWidthOrHeight: 1920,
+          useWebWorker: true,
+        };
+        let compressedFile = await imageCompression(file, options);
+        // If still too large, try more aggressive compression
+        if (compressedFile.size > 1 * 1024 * 1024) {
+          options = {
+            maxSizeMB: 0.7,
+            maxWidthOrHeight: 1024,
+            useWebWorker: true,
+          };
+          compressedFile = await imageCompression(file, options);
+        }
+        if (compressedFile.size > 1 * 1024 * 1024) {
+          toast({
+            title: "Image Too Large",
+            description: "Image is still too large after compression (must be under 1MB). Please choose a smaller image.",
+            variant: "destructive",
+          });
+          setSelectedMedia(null);
+          setMediaPreview(null);
+          form.setValue("imageFile", undefined);
+          return;
+        }
+        setSelectedMedia(compressedFile);
+        // Create a preview URL for display only
+        const previewUrl = URL.createObjectURL(compressedFile);
+        setMediaPreview(previewUrl);
+        form.setValue("imageFile", compressedFile);
+        setSelectedBackground(''); // Clear background if media is selected
+      } catch (err) {
+        console.error('Image compression error:', err);
+        toast({
+          title: "Image Compression Error",
+          description: "Could not compress the image. Please try a different file.",
+          variant: "destructive",
+        });
+        setSelectedMedia(null);
+        setMediaPreview(null);
+        form.setValue("imageFile", undefined);
+      }
     } else {
       setSelectedMedia(null);
       setMediaPreview(null);
@@ -137,14 +175,36 @@ export function CreateInitiativeForm({ setOpen, onCreated }: CreateInitiativeFor
     let imageUrl: string | undefined = undefined;
     let backgroundColor: string | undefined = undefined;
 
+    // Upload image first if provided
     if (values.imageFile) {
       const file = values.imageFile as File;
-      const reader = new FileReader();
-      const fileReadPromise = new Promise<string>((resolve) => {
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.readAsDataURL(file);
-      });
-      imageUrl = await fileReadPromise;
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('filePath', 'initiatives/images');
+
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `Image upload failed with status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        imageUrl = result.imageUrl;
+      } catch (uploadError: any) {
+        console.error("Error uploading image:", uploadError);
+        toast({
+          title: "Image Upload Failed",
+          description: uploadError.message || "Could not upload the image. Please try again.",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
     } else {
       backgroundColor = selectedBackground;
     }

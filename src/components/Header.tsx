@@ -18,6 +18,7 @@ import { HomeIcon } from "lucide-react";
 import NotificationBell from "@/components/NotificationBell";
 import { Activity } from "lucide-react";
 import { Separator } from '@/components/ui/separator';
+import { CreateSocietyForm } from '@/components/CreateSocietyForm';
 
 export function Header() {
   console.log("Header component rendering");
@@ -32,6 +33,10 @@ export function Header() {
     openCreateIdeaModal,
     closeCreateIdeaModal,
     createIdeaModal,
+    // Add society modal handlers
+    openCreateSocietyModal,
+    closeCreateSocietyModal,
+    createSocietyModal,
   } = useModal();
   const router = useRouter();
   const pathname = usePathname();
@@ -84,6 +89,9 @@ export function Header() {
                 <Link href="/explore" className="flex items-center gap-2 px-4 py-3 text-base font-medium text-muted-foreground hover:text-primary transition-colors">
                   <Search className="h-5 w-5" /> Explore
                 </Link>
+                <Link href="/societies" className="flex items-center gap-2 px-4 py-3 text-base font-medium text-muted-foreground hover:text-primary transition-colors">
+                  <Users className="h-5 w-5" /> Societies
+                </Link>
                 <Separator className="my-2" />
                 <div className="p-4 pt-0 pb-2">
                   <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</span>
@@ -98,6 +106,7 @@ export function Header() {
                     <DropdownMenuItem onClick={() => openCreateInitiativeModal()} className="cursor-pointer">Create Initiative</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => openCreateIssueModal()} className="cursor-pointer">Create Issue</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => openCreateIdeaModal()} className="cursor-pointer">Create Idea</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => openCreateSocietyModal()} className="cursor-pointer">Create Society</DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
                 <Separator className="my-2" />
@@ -165,6 +174,9 @@ export function Header() {
           <Link href="/explore" className="flex items-center rounded-md p-2 text-sm font-medium text-muted-foreground transition-colors hover:text-primary">
             <Search className="h-4 w-4" />
           </Link>
+          <Link href="/societies" className="flex items-center rounded-md p-2 text-sm font-medium text-muted-foreground transition-colors hover:text-primary">
+            <Users className="h-4 w-4" />
+          </Link>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="default" size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90">
@@ -175,6 +187,7 @@ export function Header() {
               <DropdownMenuItem onClick={() => openCreateInitiativeModal()} className="cursor-pointer">Create Initiative</DropdownMenuItem>
               <DropdownMenuItem onClick={() => openCreateIssueModal()} className="cursor-pointer">Create Issue</DropdownMenuItem>
               <DropdownMenuItem onClick={() => openCreateIdeaModal()} className="cursor-pointer">Create Idea</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => openCreateSocietyModal()} className="cursor-pointer">Create Society</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           {isLoading ? (
@@ -245,6 +258,14 @@ export function Header() {
               <DialogTitle>Create New Idea</DialogTitle>
             </DialogHeader>
             <IdeaForm setOpen={closeCreateIdeaModal} onCreated={handleFeedItemCreated} />
+          </DialogContent>
+        </Dialog>
+        <Dialog open={createSocietyModal.isOpen} onOpenChange={(isOpen) => !isOpen && closeCreateSocietyModal()}>
+          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Create New Society</DialogTitle>
+            </DialogHeader>
+            <CreateSocietyForm setOpen={closeCreateSocietyModal} onCreated={handleFeedItemCreated} />
           </DialogContent>
         </Dialog>
       </div>

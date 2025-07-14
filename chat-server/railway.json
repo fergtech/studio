@@ -4,10 +4,10 @@
     "builder": "DOCKERFILE",
     "dockerfilePath": "../chat.Dockerfile",
     "watchPatterns": [
-      "../src/app/api/socket-server.ts"
+      "../**"
     ]
   },
   "deploy": {
-    "startCommand": "pnpm tsx src/app/api/socket-server.ts"
+    "startCommand": "pnpm exec tsx src/app/api/socket-server.ts"
   }
 }

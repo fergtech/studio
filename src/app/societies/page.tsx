@@ -1,10 +1,12 @@
 import Link from 'next/link';
 import Image from 'next/image';
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-
 async function fetchSocieties() {
-  const res = await fetch(`${BASE_URL}/api/societies`, { cache: 'no-store' });
+  const isServer = typeof window === 'undefined';
+  const baseUrl = isServer
+    ? process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+    : '';
+  const res = await fetch(`${baseUrl}/api/societies`, { cache: 'no-store' });
   if (!res.ok) return [];
   return res.json();
 }

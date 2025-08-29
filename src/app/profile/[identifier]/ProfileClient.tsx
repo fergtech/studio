@@ -17,7 +17,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useRouter } from 'next/navigation';
-import { io, Socket } from 'socket.io-client';
+// import { io, Socket } from 'socket.io-client'; // Temporarily disabled for Vercel deployment
 
 
 interface ProfileClientProps {
@@ -60,25 +60,28 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
   const [isUpdating, setIsUpdating] = useState(false);
 
   useEffect(() => {
-    const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'http://localhost:9003';
-    const socket: Socket = io(SOCKET_URL, {
-      path: '/api/socketio',
-      transports: ['websocket', 'polling'],
-    });
-    let interval: NodeJS.Timeout | null = null;
-    function checkStatus() {
-      if (user?.id) {
-        socket.emit('checkUserStatus', user.id, (status: boolean) => {
-          setIsOnline(status);
-        });
-      }
-    }
-    checkStatus();
-    interval = setInterval(checkStatus, 30000);
-    return () => {
-      if (interval) clearInterval(interval);
-      socket.disconnect();
-    };
+    // Socket connection temporarily disabled for Vercel deployment
+    // TODO: Re-enable online status checking after implementing polling system
+    // const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'http://localhost:9003';
+    // const socket: Socket = io(SOCKET_URL, {
+    //   path: '/api/socketio',
+    //   transports: ['websocket', 'polling'],
+    // });
+    // let interval: NodeJS.Timeout | null = null;
+    // function checkStatus() {
+    //   if (user?.id) {
+    //     socket.emit('checkUserStatus', user.id, (status: boolean) => {
+    //       setIsOnline(status);
+    //     });
+    //   }
+    // }
+    // checkStatus();
+    // interval = setInterval(checkStatus, 30000);
+    // return () => {
+    //   if (interval) clearInterval(interval);
+    //   socket.disconnect();
+    // };
+    setIsOnline(false); // Default to offline when Socket.io is disabled
   }, [user?.id]);
 
   // Fetch followers when modal opens or page changes

@@ -19,7 +19,7 @@ import { IssueCard } from "@/components/IssueCard";
 import ActivityFeed from "@/components/ActivityFeed";
 import AppSidebar from "@/components/AppSidebar";
 import { useToast } from "@/hooks/use-toast";
-import { io, Socket } from 'socket.io-client';
+// import { io, Socket } from 'socket.io-client'; // Temporarily disabled for Vercel deployment
 import { MainFeedSocietyPostCard } from './MainFeedSocietyPostCard';
 import { DebateTopicsWidget } from './DebateTopicsWidget';
 import { DebateTopicCard } from './DebateTopicCard';
@@ -296,21 +296,21 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
   }, [toast]);
 
   useEffect(() => {
-    if (!currentUserId) return;
-    // Use a singleton socket connection for the heartbeat
-    const socket: Socket = io(process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'http://localhost:9003', {
-      path: '/api/socketio',
-      transports: ['websocket'],
-    });
-    // Emit heartbeat immediately and then every 30s
-    socket.emit('userHeartbeat', currentUserId);
-    const interval = setInterval(() => {
-      socket.emit('userHeartbeat', currentUserId);
-    }, 30000);
-    return () => {
-      clearInterval(interval);
-      socket.disconnect();
-    };
+    // Socket connection temporarily disabled for Vercel deployment
+    // TODO: Re-enable heartbeat after implementing polling system
+    // if (!currentUserId) return;
+    // const socket: Socket = io(process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'http://localhost:9003', {
+    //   path: '/api/socketio',
+    //   transports: ['websocket'],
+    // });
+    // socket.emit('userHeartbeat', currentUserId);
+    // const interval = setInterval(() => {
+    //   socket.emit('userHeartbeat', currentUserId);
+    // }, 30000);
+    // return () => {
+    //   clearInterval(interval);
+    //   socket.disconnect();
+    // };
   }, [currentUserId]);
 
   useEffect(() => {

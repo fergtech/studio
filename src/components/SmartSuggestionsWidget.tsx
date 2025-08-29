@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import Link from 'next/link';
-import { io, Socket } from 'socket.io-client';
+// import { io, Socket } from 'socket.io-client'; // Temporarily disabled for Vercel deployment
 
 interface SuggestedUser {
   id: string;
@@ -22,7 +22,7 @@ interface SuggestedInitiative {
   createdAt: string;
 }
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'http://localhost:9003';
+// const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'http://localhost:9003'; // Temporarily disabled for Vercel deployment
 
 export default function SmartSuggestionsWidget() {
   const [users, setUsers] = useState<SuggestedUser[]>([]);
@@ -57,21 +57,23 @@ export default function SmartSuggestionsWidget() {
     fetchSuggestions();
   }, []);
 
-  // Socket logic for online status
+  // Socket logic temporarily disabled for Vercel deployment
   useEffect(() => {
-    const socket: Socket = io(SOCKET_URL, {
-      path: '/api/socketio',
-      transports: ['websocket', 'polling'],
-    });
-    socket.on('connect', () => {
-      // Connected
-    });
-    socket.on('onlineUsers', (ids: string[]) => {
-      setOnlineUserIds(ids);
-    });
-    return () => {
-      socket.disconnect();
-    };
+    // TODO: Re-enable online status after implementing polling system
+    // const socket: Socket = io(SOCKET_URL, {
+    //   path: '/api/socketio',
+    //   transports: ['websocket', 'polling'],
+    // });
+    // socket.on('connect', () => {
+    //   // Connected
+    // });
+    // socket.on('onlineUsers', (ids: string[]) => {
+    //   setOnlineUserIds(ids);
+    // });
+    // return () => {
+    //   socket.disconnect();
+    // };
+    setOnlineUserIds([]); // Default to no online users when Socket.io is disabled
   }, []);
 
   // Merge online status into users

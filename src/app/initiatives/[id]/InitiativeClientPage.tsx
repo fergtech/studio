@@ -34,7 +34,7 @@ import { InitiativeRoleType, UpdateType } from '@prisma/client'; // Added this i
 import { CreateGoalDialog } from './CreateGoalDialog'; // Import CreateGoalDialog
 import { useIsMobile } from '@/hooks/use-mobile';
 import { ChatPanel } from '@/components/initiatives/ChatPanel';
-import { io, Socket } from 'socket.io-client';
+// import { io, Socket } from 'socket.io-client'; // Temporarily disabled for Vercel deployment
 import { SuggestedGoalTag } from '@/components/initiatives/SuggestedGoalTag';
 import { deleteGoal } from '@/app/actions/goalActions';
 
@@ -125,7 +125,7 @@ export function InitiativeClientPage({
   // Log stringified chatMessages from initialInitiative right before useState
   console.log('InitiativeClientPage: stringified initialInitiative.chatMessages before useState:', JSON.stringify(initialInitiative.chatMessages));
 
-  console.log('ENV SOCKET URL:', process.env.NEXT_PUBLIC_SOCKET_SERVER_URL);
+  // console.log('ENV SOCKET URL:', process.env.NEXT_PUBLIC_SOCKET_SERVER_URL); // Temporarily disabled for Vercel deployment
 
   const { data: session } = useSession();
   const router = useRouter();
@@ -139,7 +139,8 @@ export function InitiativeClientPage({
   // Log the initiative state right after initialization
   console.log('InitiativeClientPage: Initiative state after useState initialization:', initiative);
 
-  const [socket, setSocket] = useState<Socket | null>(null);
+  // const [socket, setSocket] = useState<Socket | null>(null); // Temporarily disabled for Vercel deployment
+  const socket = null; // Socket disabled for Vercel deployment
 
   // Memoize the transformed chat messages, dependent directly on the initiative state (not just initialInitiative)
   const transformedMessages = useMemo(() => {
@@ -147,29 +148,25 @@ export function InitiativeClientPage({
   }, [initiative.chatMessages]);
 
   useEffect(() => {
-    // Initialize socket connection
-    // Connect to the standalone Socket.IO server at port 9003
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'http://localhost:9003';
-    console.log('Attempting to connect to socket server at:', socketUrl, 'with path:', '/api/socketio');
-    const socketInstance = io(socketUrl, {
-      path: '/api/socketio', // Use the explicitly set path
-      // Add transport options for better compatibility if needed
-      transports: ['websocket', 'polling']
-    });
-    setSocket(socketInstance);
+    // Socket connection temporarily disabled for Vercel deployment
+    // TODO: Re-enable real-time chat after implementing polling system
+    // const socketUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'http://localhost:9003';
+    // console.log('Attempting to connect to socket server at:', socketUrl, 'with path:', '/api/socketio');
+    // const socketInstance = io(socketUrl, {
+    //   path: '/api/socketio',
+    //   transports: ['websocket', 'polling']
+    // });
+    // setSocket(socketInstance);
 
-    // Add a listener here to see if the socket object itself connects
-    socketInstance.on('connect', () => {
-      console.log('InitiativeClientPage: Socket instance connected successfully!');
-      // Join the initiative room for scoped chat
-      socketInstance.emit('joinInitiativeRoom', initiativeId);
-    });
+    // socketInstance.on('connect', () => {
+    //   console.log('InitiativeClientPage: Socket instance connected successfully!');
+    //   socketInstance.emit('joinInitiativeRoom', initiativeId);
+    // });
 
-    // Cleanup on unmount
-    return () => {
-      console.log('InitiativeClientPage: Disconnecting socket instance.');
-      socketInstance.disconnect();
-    };
+    // return () => {
+    //   console.log('InitiativeClientPage: Disconnecting socket instance.');
+    //   socketInstance.disconnect();
+    // };
   }, []);
 
   // Auto-join functionality - check for ?join=true parameter
@@ -665,11 +662,11 @@ export function InitiativeClientPage({
       // useMemo will automatically re-calculate transformedMessages because initiative.chatMessages changed
       console.log('handleSendMessage: Main initiative state updated with new raw message.');
 
-      // Emit socket event for real-time updates
-      if (socket) {
-        // Emit the transformed message to ensure consistency on other clients
-        socket.emit('sendMessage', transformDatabaseChatMessage(savedMessage));
-      }
+      // Socket event temporarily disabled for Vercel deployment
+      // TODO: Re-enable real-time message broadcasting after implementing polling system
+      // if (socket) {
+      //   socket.emit('sendMessage', transformDatabaseChatMessage(savedMessage));
+      // }
     } catch (error) {
       console.error('Error sending message:', error);
       toast({

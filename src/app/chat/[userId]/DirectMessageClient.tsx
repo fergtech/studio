@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ArrowLeft, Send, User2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useToast } from '@/components/ui/use-toast';
-import { io, Socket } from 'socket.io-client';
+// import { io, Socket } from 'socket.io-client'; // Temporarily disabled for Vercel deployment
 import AppSidebar from '@/components/AppSidebar';
 
 interface DirectMessageClientProps {
@@ -31,38 +31,36 @@ export default function DirectMessageClient({
   const [messages, setMessages] = useState(initialMessages);
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [socket, setSocket] = useState<Socket | null>(null);
+  // const [socket, setSocket] = useState<Socket | null>(null); // Temporarily disabled
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const { toast } = useToast();
 
-  // Initialize socket connection
+  // Socket connection temporarily disabled for Vercel deployment
   useEffect(() => {
-    // Determine the WebSocket URL based on the environment
-    const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'http://localhost:9003';
+    // TODO: Re-enable real-time chat after implementing polling system
+    // const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'http://localhost:9003';
 
-    // Use this variable to connect
-    const socketInstance = io(SOCKET_URL, {
-        transports: ['websocket', 'polling']
-    });
+    // const socketInstance = io(SOCKET_URL, {
+    //     transports: ['websocket', 'polling']
+    // });
 
-    socketInstance.on('connect', () => {
-      console.log('DirectMessageClient: Socket connected');
-      // Join a room for this specific conversation
-      socketInstance.emit('joinConversation', `${currentUserId}-${otherUser.id}`);
-    });
+    // socketInstance.on('connect', () => {
+    //   console.log('DirectMessageClient: Socket connected');
+    //   socketInstance.emit('joinConversation', `${currentUserId}-${otherUser.id}`);
+    // });
 
-    socketInstance.on('receiveDirectMessage', (message) => {
-      console.log('DirectMessageClient: Received direct message:', message);
-      setMessages(prev => [...prev, message]);
-    });
+    // socketInstance.on('receiveDirectMessage', (message) => {
+    //   console.log('DirectMessageClient: Received direct message:', message);
+    //   setMessages(prev => [...prev, message]);
+    // });
 
-    setSocket(socketInstance);
+    // setSocket(socketInstance);
 
-    return () => {
-      socketInstance.disconnect();
-    };
+    // return () => {
+    //   socketInstance.disconnect();
+    // };
   }, [currentUserId, otherUser.id]);
 
   // Auto-scroll to bottom when new messages arrive
@@ -100,13 +98,13 @@ export default function DirectMessageClient({
       // Add message to local state
       setMessages(prev => [...prev, savedMessage]);
 
-      // Emit socket event for real-time updates
-      if (socket) {
-        socket.emit('sendDirectMessage', {
-          ...savedMessage,
-          conversationId: `${currentUserId}-${otherUser.id}`,
-        });
-      }
+      // Socket emit temporarily disabled for Vercel deployment
+      // if (socket) {
+      //   socket.emit('sendDirectMessage', {
+      //     ...savedMessage,
+      //     conversationId: `${currentUserId}-${otherUser.id}`,
+      //   });
+      // }
     } catch (error) {
       console.error('Error sending message:', error);
       toast({

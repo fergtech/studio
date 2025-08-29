@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { formatDistanceToNow } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/ui/use-toast';
-import { io, Socket } from 'socket.io-client';
+// import { io, Socket } from 'socket.io-client'; // Temporarily disabled for Vercel deployment
 import { useSession } from 'next-auth/react';
 
 interface Notification {
@@ -31,48 +31,49 @@ export default function NotificationBell() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
-  const [socket, setSocket] = useState<Socket | null>(null);
+  // const [socket, setSocket] = useState<Socket | null>(null); // Temporarily disabled
   const router = useRouter();
   const { toast } = useToast();
   const { data: session } = useSession();
 
-  // Initialize socket connection for real-time notifications
+  // Socket connection temporarily disabled for Vercel deployment
   useEffect(() => {
-    // Only initialize socket if we have a session and we're on the client side
+    // Only initialize if we have a session
     if (!session?.user?.id || typeof window === 'undefined') {
       return;
     }
 
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'http://localhost:9003';
-    const socketInstance = io(socketUrl, {
-      path: '/api/socketio',
-      transports: ['websocket', 'polling']
-    });
+    // TODO: Re-enable real-time notifications after implementing polling system
+    // const socketUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'http://localhost:9003';
+    // const socketInstance = io(socketUrl, {
+    //   path: '/api/socketio',
+    //   transports: ['websocket', 'polling']
+    // });
 
-    socketInstance.on('connect', () => {
-      console.log('NotificationBell: Socket connected');
-    });
+    // socketInstance.on('connect', () => {
+    //   console.log('NotificationBell: Socket connected');
+    // });
 
-    // Join user's notification room
-    socketInstance.emit('joinUserRoom', session?.user?.id);
+    // // Join user's notification room
+    // socketInstance.emit('joinUserRoom', session?.user?.id);
 
-    socketInstance.on('newNotification', (notification: Notification) => {
-      console.log('NotificationBell: Received new notification:', notification);
-      setNotifications(prev => [notification, ...prev]);
-      setUnreadCount(prev => prev + 1);
-      
-      // Show toast notification
-      toast({
-        title: notification.title,
-        description: notification.message,
-      });
-    });
+    // socketInstance.on('newNotification', (notification: Notification) => {
+    //   console.log('NotificationBell: Received new notification:', notification);
+    //   setNotifications(prev => [notification, ...prev]);
+    //   setUnreadCount(prev => prev + 1);
+    //   
+    //   // Show toast notification
+    //   toast({
+    //     title: notification.title,
+    //     description: notification.message,
+    //   });
+    // });
 
-    setSocket(socketInstance);
+    // setSocket(socketInstance);
 
-    return () => {
-      socketInstance.disconnect();
-    };
+    // return () => {
+    //   socketInstance.disconnect();
+    // };
   }, [toast, session?.user?.id]);
 
   // Fetch notifications on component mount only if session is available

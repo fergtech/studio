@@ -6,7 +6,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { MessageSquare, X, Send, Wifi, WifiOff } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import type { EnhancedChatMessage } from '@/lib/types';
-import { io, Socket } from 'socket.io-client';
+// import { io, Socket } from 'socket.io-client'; // Temporarily disabled for Vercel deployment
 import { toast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -17,7 +17,7 @@ interface ChatPanelProps {
   messages: EnhancedChatMessage[];
   onSendMessage: (message: string) => void;
   currentUserId: string | undefined;
-  socket: Socket | null;
+  socket?: any | null; // Temporarily made optional for Vercel deployment
 }
 
 export function ChatPanel({
@@ -38,64 +38,62 @@ export function ChatPanel({
   }, [messages]);
 
   useEffect(() => {
-    console.log('ChatPanel useEffect [socket]: running. Socket status:', socket?.connected);
-    if (socket) {
-      console.log('ChatPanel: Attaching socket listeners.');
+    // Socket connection temporarily disabled for Vercel deployment
+    console.log('ChatPanel: Socket connection disabled for deployment');
+    
+    // TODO: Re-enable real-time chat after implementing polling system
+    // if (socket) {
+    //   console.log('ChatPanel: Attaching socket listeners.');
 
-      const handleConnect = () => {
-        console.log('ChatPanel: Socket connected! Updating state.');
-        setIsConnected(true);
-        toast({
-          title: "Connected",
-          description: "Chat connection established",
-        });
-      };
+    //   const handleConnect = () => {
+    //     console.log('ChatPanel: Socket connected! Updating state.');
+    //     setIsConnected(true);
+    //     toast({
+    //       title: "Connected",
+    //       description: "Chat connection established",
+    //     });
+    //   };
 
-      const handleDisconnect = () => {
-        console.log('ChatPanel: Socket disconnected. Updating state.');
-        setIsConnected(false);
-      };
+    //   const handleDisconnect = () => {
+    //     console.log('ChatPanel: Socket disconnected. Updating state.');
+    //     setIsConnected(false);
+    //   };
 
-      const handleConnectError = (error: any) => {
-        console.error('ChatPanel: Socket connection error:', error);
-        setIsConnected(false);
-        // toast({
-        //   title: "Connection Error",
-        //   description: "Failed to connect to chat server",
-        //   variant: "destructive",
-        // });
-      };
+    //   const handleConnectError = (error: any) => {
+    //     console.error('ChatPanel: Socket connection error:', error);
+    //     setIsConnected(false);
+    //   };
 
-      const handleReceiveMessage = (message: EnhancedChatMessage) => {
-        console.log('ChatPanel: Received message:', message);
-        setChatMessages((prevMessages) => {
-          if (prevMessages.find(msg => msg.id === message.id)) {
-            return prevMessages;
-          }
-          return [...prevMessages, message];
-        });
-      };
+    //   const handleReceiveMessage = (message: EnhancedChatMessage) => {
+    //     console.log('ChatPanel: Received message:', message);
+    //     setChatMessages((prevMessages) => {
+    //       if (prevMessages.find(msg => msg.id === message.id)) {
+    //         return prevMessages;
+    //       }
+    //       return [...prevMessages, message];
+    //     });
+    //   };
 
-      socket.on('connect', handleConnect);
-      socket.on('disconnect', handleDisconnect);
-      socket.on('connect_error', handleConnectError);
-      socket.on('receiveMessage', handleReceiveMessage);
+    //   socket.on('connect', handleConnect);
+    //   socket.on('disconnect', handleDisconnect);
+    //   socket.on('connect_error', handleConnectError);
+    //   socket.on('receiveMessage', handleReceiveMessage);
 
-      console.log('ChatPanel: Socket listeners attached.');
+    //   console.log('ChatPanel: Socket listeners attached.');
 
-      if (socket.connected) {
-        console.log('ChatPanel useEffect [socket]: Socket already connected on prop receive, setting isConnected to true.');
-        setIsConnected(true);
-      }
+    //   if (socket.connected) {
+    //     console.log('ChatPanel useEffect [socket]: Socket already connected on prop receive, setting isConnected to true.');
+    //     setIsConnected(true);
+    //   }
 
-      return () => {
-        console.log('ChatPanel: Cleaning up socket listeners.');
-        socket.off('connect', handleConnect);
-        socket.off('disconnect', handleDisconnect);
-        socket.off('connect_error', handleConnectError);
-        socket.off('receiveMessage', handleReceiveMessage);
-      };
-    }
+    //   return () => {
+    //     console.log('ChatPanel: Cleaning up socket listeners.');
+    //     socket.off('connect', handleConnect);
+    //     socket.off('disconnect', handleDisconnect);
+    //     socket.off('connect_error', handleConnectError);
+    //     socket.off('receiveMessage', handleReceiveMessage);
+    //   };
+    // }
   }, [socket]);
 
   useEffect(() => {

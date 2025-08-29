@@ -1,0 +1,26 @@
+# Docker Compose override file for development
+# This file automatically extends docker-compose.yml when you run docker-compose up
+
+version: '3.8'
+
+services:
+  app:
+    # Override environment for development
+    environment:
+      - NODE_ENV=development
+      - NEXTAUTH_DEBUG=true
+    # Mount more volumes for hot reloading (optional)
+    # volumes:
+    #   - .:/app:cached
+    #   - /app/node_modules
+    #   - /app/.next
+    
+  # Add any additional development services here
+  # For example, you might want to add Redis for caching:
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: studio-redis
+  #   ports:
+  #     - "6379:6379"
+  #   networks:
+  #     - studio-network

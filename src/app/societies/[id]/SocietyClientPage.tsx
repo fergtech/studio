@@ -1,0 +1,613 @@
+"use client";
+
+import Image from 'next/image';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Share2, UserPlus, Menu, X, Edit, Plus } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { SocietySidebar } from './SocietySidebar';
+import { EditSocietyDialog } from './EditSocietyDialog';
+import { useSession } from 'next-auth/react';
+import { CreateSocietyPostForm } from './CreateSocietyPostForm';
+import { SocietyPostComments } from './SocietyPostComments';
+import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { CreateInitiativeForm } from '@/components/CreateInitiativeForm';
+import { VideoPlayer } from '@/components/ui/video-player';
+import { AudioPlayer } from '@/components/ui/audio-player';
+import { LinkPreview } from '@/components/ui/link-preview';
+import { DocumentPreview } from '@/components/ui/document-preview';
+import { AppSidebar } from '@/components/AppSidebar';
+
+// Define Member type
+interface Member {
+  id: string;
+  name: string;
+  image?: string | null;
+  role?: string;
+}
+
+interface SocietyClientPageProps {
+  society: any;
+  members: Member[];
+  posts: any[];
+}
+
+export function SocietyClientPage({ society: initialSociety, members, posts: initialPosts }: SocietyClientPageProps) {
+  const isMobile = useIsMobile();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [society, setSociety] = useState(initialSociety);
+  const { data: session } = useSession();
+  const userId = session?.user?.id;
+  const isCreator = society.creator?.id === userId;
+  const isAdmin = members.find(m => m.id === userId)?.role === 'ADMIN';
+  const [posts, setPosts] = useState(initialPosts);
+  const [initiatives, setInitiatives] = useState<any[]>([]);
+  const [feedFilter, setFeedFilter] = useState('ALL');
+  const [isJoining, setIsJoining] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
+  const [currentMembers, setCurrentMembers] = useState(members);
+  const { toast } = useToast();
+  const router = useRouter();
+  const [isCreateInitiativeOpen, setIsCreateInitiativeOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // Handler for creating society initiative
+  const handleCreateSocietyInitiative = () => {
+    if (!userId || !isMember) {
+      toast({
+        title: "Access Denied",
+        description: "You must be a member of this society to create initiatives.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setIsCreateInitiativeOpen(true);
+  };
+
+  // Check if current user is a member
+  const isMember = userId && currentMembers.some(m => m.id === userId);
+
+  // Fetch posts on mount
+  useEffect(() => {
+    async function fetchPosts() {
+      const res = await fetch(`/api/societies/${society.id}/posts`);
+      if (res.ok) {
+        const data = await res.json();
+        setPosts(data);
+      }
+    }
+    fetchPosts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [society.id]);
+
+  // Fetch initiatives on mount
+  useEffect(() => {
+    async function fetchInitiatives() {
+      const res = await fetch(`/api/societies/${society.id}/initiatives`);
+      if (res.ok) {
+        const data = await res.json();
+        setInitiatives(data);
+      }
+    }
+    fetchInitiatives();
+  }, [society.id]);
+
+  // Fetch members on mount and when membership changes
+  useEffect(() => {
+    async function fetchMembers() {
+      const res = await fetch(`/api/societies/${society.id}/members`);
+      if (res.ok) {
+        const data = await res.json();
+        setCurrentMembers(data);
+      }
+    }
+    fetchMembers();
+  }, [society.id, isJoining, isLeaving]);
+
+  const handleJoinSociety = async () => {
+    if (!userId) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to join a society.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsJoining(true);
+    try {
+      const response = await fetch(`/api/societies/${society.id}/join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Success!",
+          description: "You have successfully joined the society.",
+        });
+        // Refresh the page to update the UI
+        router.refresh();
+      } else {
+        const error = await response.json();
+        toast({
+          title: "Error Joining",
+          description: error.error || "Failed to join the society. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error joining society:", error);
+      toast({
+        title: "Unexpected Error",
+        description: "An unexpected error occurred while trying to join.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsJoining(false);
+    }
+  };
+
+  const handleLeaveSociety = async () => {
+    if (!userId || !isMember) {
+      toast({
+        title: "Not a Member",
+        description: "You are not a member of this society.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLeaving(true);
+    try {
+      const response = await fetch(`/api/societies/${society.id}/leave`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Left Society",
+          description: "You have successfully left the society.",
+        });
+        // Refresh the page to update the UI
+        router.refresh();
+      } else {
+        const error = await response.json();
+        toast({
+          title: "Error Leaving Society",
+          description: error.error || "Failed to leave the society.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error leaving society:", error);
+      toast({
+        title: "Unexpected Error",
+        description: "An unexpected error occurred while leaving.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLeaving(false);
+    }
+  };
+
+  // Helper function to detect video files
+  const isVideoFile = (url: string) => {
+    if (!url) return false;
+    const videoExtensions = ['.mp4', '.webm', '.mov', '.avi', '.mkv', '.wmv', '.flv', '.m4v'];
+    const lowerUrl = url.toLowerCase();
+    return videoExtensions.some(ext => lowerUrl.includes(ext));
+  };
+
+  // Helper function to detect audio files
+  const isAudioFile = (url: string) => {
+    if (!url) return false;
+    const audioExtensions = ['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.flac'];
+    const lowerUrl = url.toLowerCase();
+    return audioExtensions.some(ext => lowerUrl.includes(ext));
+  };
+
+  // Simple post card
+  function SocietyPostCard({ post }: { post: any }) {
+    return (
+      <div className="relative mb-2">
+        <div className="border rounded p-4 bg-background min-h-[1px] relative">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xs font-semibold px-2 py-0.5 rounded bg-muted mr-2">{post.type}</span>
+            <span className="text-xs text-muted-foreground">{post.user?.name || 'Unknown'}</span>
+            <span className="text-xs text-muted-foreground ml-auto">{new Date(post.createdAt).toLocaleString()}</span>
+          </div>
+          <div className="whitespace-pre-line text-sm mb-2">{post.content}</div>
+          {post.imageUrl && (
+            <div className="my-2">
+              {isVideoFile(post.imageUrl) ? (
+                <video 
+                  src={post.imageUrl} 
+                  controls
+                  className="w-full max-h-96 rounded border bg-black"
+                  preload="metadata"
+                >
+                  Your browser does not support the video tag.
+                </video>
+              ) : isAudioFile(post.imageUrl) ? (
+                <AudioPlayer 
+                  src={post.imageUrl}
+                  className="w-full"
+                />
+              ) : (
+                <Image 
+                  src={post.imageUrl} 
+                  alt="Post image" 
+                  width={800} 
+                  height={400} 
+                  className="rounded border w-full object-cover" 
+                />
+              )}
+            </div>
+          )}
+          {/* Display single link (backward compatibility) */}
+          {post.linkPreview && (!post.links || post.links.length === 0) && (
+            <div className="my-2">
+              <LinkPreview 
+                metadata={post.linkPreview}
+                className="w-full"
+              />
+            </div>
+          )}
+          
+          {/* Display multiple links */}
+          {post.links && post.links.length > 0 && !post.imageUrl && (
+            <div className="my-2">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-xs font-medium text-muted-foreground">
+                  Links ({post.links.length})
+                </span>
+              </div>
+              <div 
+                className="flex gap-3 overflow-x-auto pb-2"
+                style={{ 
+                  scrollbarWidth: 'thin',
+                  scrollbarColor: 'rgba(155, 155, 155, 0.5) transparent'
+                }}
+              >
+                {post.links.map((postLink: any) => (
+                  <div key={postLink.id} className="flex-shrink-0 w-80">
+                    <LinkPreview 
+                      metadata={postLink.linkPreview}
+                      compact={true}
+                      className="w-full"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* Display multiple documents */}
+          {post.documents && post.documents.length > 0 && !post.imageUrl && (
+            <div className="my-2">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-xs font-medium text-muted-foreground">
+                  Documents ({post.documents.length})
+                </span>
+              </div>
+              <div 
+                className="flex gap-3 overflow-x-auto pb-2"
+                style={{ 
+                  scrollbarWidth: 'thin',
+                  scrollbarColor: 'rgba(155, 155, 155, 0.5) transparent'
+                }}
+              >
+                {post.documents.map((postDocument: any) => (
+                  <div key={postDocument.id} className="flex-shrink-0 w-80">
+                    <DocumentPreview 
+                      metadata={postDocument.document}
+                      compact={true}
+                      className="w-full"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          <SocietyPostComments postId={post.id} userId={userId} societyId={society.id} isMember={isMember} />
+        </div>
+      </div>
+    );
+  }
+
+  // Initiative card for society feed
+  function SocietyInitiativeCard({ initiative }: { initiative: any }) {
+    const handleClick = () => {
+      router.push(`/initiatives/${initiative.id}`);
+    };
+
+    return (
+      <div className="relative mb-2">
+        <div className="border rounded p-4 bg-background min-h-[1px] relative cursor-pointer hover:bg-muted/30 transition-colors" onClick={handleClick}>
+          <div className="flex items-center gap-2 mb-2">
+            <Badge variant="secondary" className="text-xs">Initiative</Badge>
+            <span className="text-xs text-muted-foreground">{initiative.creator?.name || 'Unknown'}</span>
+            <span className="text-xs text-muted-foreground ml-auto">{new Date(initiative.createdAt).toLocaleString()}</span>
+          </div>
+          <h3 className="font-semibold mb-1">{initiative.title}</h3>
+          <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{initiative.description}</p>
+          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+            <span>{initiative._count?.memberships || 0} members</span>
+            <span>{initiative._count?.updates || 0} updates</span>
+            <Badge variant="outline" className="text-xs">{initiative.status}</Badge>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Filter content by type
+  const getFilteredContent = () => {
+    if (feedFilter === 'INITIATIVES') {
+      return { type: 'initiatives', data: initiatives };
+    }
+    
+    const filteredPosts = feedFilter === 'ALL'
+      ? posts
+      : posts.filter((post: any) => post.type === feedFilter);
+    
+    return { type: 'posts', data: filteredPosts };
+  };
+
+  const filteredContent = getFilteredContent();
+
+  const toggleSidebar = () => setIsSidebarOpen((v) => !v);
+
+  async function handleSaveEditSociety(data: { name: string; description: string; imageFile?: File | null; clearImage?: boolean }) {
+    let newImageUrl: string | null | undefined = undefined;
+    if (data.clearImage) {
+      newImageUrl = null;
+    } else if (data.imageFile) {
+      const formData = new FormData();
+      formData.append('file', data.imageFile);
+      formData.append('filePath', 'societies/banners');
+      const response = await fetch('/api/upload', { method: 'POST', body: formData });
+      if (!response.ok) throw new Error('Image upload failed');
+      const result = await response.json();
+      newImageUrl = result.imageUrl;
+    }
+    const patchRes = await fetch(`/api/societies/${society.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: data.name,
+        description: data.description,
+        image: newImageUrl === null ? null : newImageUrl ?? society.image,
+      }),
+    });
+    if (!patchRes.ok) throw new Error('Failed to update society');
+    const updated = await patchRes.json();
+    setSociety(updated);
+  }
+
+  return (
+    <>
+      <AppSidebar 
+        context={{ type: 'society', data: society }}
+        className="z-30"
+        onCollapseChange={setSidebarCollapsed}
+      />
+      
+      {/* Fixed Society Sidebar for Desktop */}
+      {!isMobile && (
+        <div className="fixed right-4 top-6 z-30 w-80 h-[calc(100vh-3rem)] overflow-y-auto bg-background/95 backdrop-blur-sm border rounded-lg shadow-lg p-4">
+          <SocietySidebar society={society} members={currentMembers} />
+        </div>
+      )}
+
+      <div className={`relative min-h-screen transition-all duration-300 ${
+        sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'
+      } lg:pr-[22rem]`}>
+        {/* Overlay for Mobile Sidebar */}
+        {isMobile && isSidebarOpen && (
+          <div
+            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity duration-300 ease-in-out"
+            onClick={toggleSidebar}
+            aria-hidden="true"
+          />
+        )}
+        {/* Mobile Sidebar Toggle Button */}
+        {isMobile && (
+          <Button
+            variant="outline"
+            size="icon"
+            className="fixed top-4 right-4 z-[60] bg-background/95 backdrop-blur-sm border shadow-lg rounded-full p-3 w-12 h-12 flex items-center justify-center hover:bg-background/90 transition-all duration-200"
+            onClick={toggleSidebar}
+          >
+            {isSidebarOpen ? (
+              <X className="h-5 w-5" />
+            ) : (
+              <Menu className="h-5 w-5" />
+            )}
+            <span className="sr-only">{isSidebarOpen ? "Close menu" : "Open menu"}</span>
+          </Button>
+        )}
+        
+        <div className="container mx-auto p-0 sm:p-4">
+        {/* Banner/Header */}
+        <Card className="mb-6 rounded-none border-x-0 border-t-0">
+          <div className="relative w-full aspect-[16/9] md:aspect-[21/9]">
+            {society.imageUrl || society.image ? (
+              <Image src={society.imageUrl || society.image} alt={society.name} fill className="object-cover" priority />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-primary/5" />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
+            <div className="absolute bottom-0 left-0 right-0 p-3 md:p-6">
+              <div className="flex flex-col gap-3">
+                <div className="space-y-1.5">
+                  <div className="flex items-start justify-between gap-4">
+                    <h1 className="text-lg md:text-3xl font-bold text-foreground line-clamp-2 pr-2">
+                      {society.name}
+                    </h1>
+                    {(isAdmin || isCreator) && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-foreground hover:text-foreground hover:bg-card/30 h-8 w-8 p-0"
+                        onClick={() => setIsEditDialogOpen(true)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    <Badge variant="secondary" className="bg-card/30 text-foreground text-xs backdrop-blur-sm">
+                      {currentMembers.length} members
+                    </Badge>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  <Button variant="outline" size="sm" className="bg-card/30 text-foreground hover:bg-card/50 h-8 text-xs backdrop-blur-sm">
+                    <Share2 className="h-3 w-3 mr-1" /> Share
+                  </Button>
+                  <Button variant="outline" size="sm" className="bg-card/30 text-foreground hover:bg-card/50 h-8 text-xs backdrop-blur-sm">
+                    <UserPlus className="h-3 w-3 mr-1" /> Invite
+                  </Button>
+                  {/* Show Join Society for non-members */}
+                  {userId && !isMember && (
+                    <Button 
+                      size="sm" 
+                      className="bg-primary text-white font-medium h-8 text-xs"
+                      onClick={handleJoinSociety}
+                      disabled={isJoining}
+                    >
+                      {isJoining ? "Joining..." : "Join Society"}
+                    </Button>
+                  )}
+                  {/* Only show Leave Society if user is a member */}
+                  {userId && isMember && (
+                    <Button variant="destructive" size="sm" className="h-8 text-xs" onClick={handleLeaveSociety} disabled={isLeaving}>
+                      {isLeaving ? "Leaving..." : "Leave Society"}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card>
+        <EditSocietyDialog
+          society={society}
+          isOpen={isEditDialogOpen}
+          onClose={() => setIsEditDialogOpen(false)}
+          onSave={handleSaveEditSociety}
+        />
+        {/* Main Content */}
+        <div className="space-y-6">
+            {/* Post Form */}
+            <CreateSocietyPostForm
+              societyId={society.id}
+              userId={userId}
+              isMember={isMember}
+              onPostCreated={post => setPosts([post, ...posts])}
+            />
+            
+            {/* Create Initiative Button for Members */}
+            {userId && isMember && (
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold text-lg">Create Initiative</h3>
+                      <p className="text-sm text-muted-foreground">Start a new initiative for this society</p>
+                    </div>
+                    <Button onClick={handleCreateSocietyInitiative} className="ml-4">
+                      <Plus className="h-4 w-4 mr-2" />
+                      New Initiative
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            {/* Feed Tabs */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Feed</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-2 mb-4 overflow-x-auto scrollbar-hide pb-1">
+                  <Button size="sm" variant={feedFilter === 'ALL' ? 'secondary' : 'ghost'} onClick={() => setFeedFilter('ALL')} className="flex-shrink-0">All</Button>
+                  <Button size="sm" variant={feedFilter === 'GENERAL' ? 'secondary' : 'ghost'} onClick={() => setFeedFilter('GENERAL')} className="flex-shrink-0">General</Button>
+                  <Button size="sm" variant={feedFilter === 'ISSUE' ? 'secondary' : 'ghost'} onClick={() => setFeedFilter('ISSUE')} className="flex-shrink-0">Issues</Button>
+                  <Button size="sm" variant={feedFilter === 'IDEA' ? 'secondary' : 'ghost'} onClick={() => setFeedFilter('IDEA')} className="flex-shrink-0">Ideas</Button>
+                  <Button size="sm" variant={feedFilter === 'INITIATIVES' ? 'secondary' : 'ghost'} onClick={() => setFeedFilter('INITIATIVES')} className="flex-shrink-0">
+                    Initiatives ({initiatives.length})
+                  </Button>
+                </div>
+                {filteredContent.data.length === 0 ? (
+                  <div className="text-center text-muted-foreground">
+                    {filteredContent.type === 'initiatives' ? 'No initiatives yet.' : 'No posts yet.'}
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {filteredContent.type === 'initiatives' 
+                      ? filteredContent.data.map((initiative: any) => (
+                          <SocietyInitiativeCard key={initiative.id} initiative={initiative} />
+                        ))
+                      : filteredContent.data.map((post: any) => (
+                          <SocietyPostCard key={post.id} post={post} />
+                        ))
+                    }
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+        </div>
+        </div>
+      </div>
+        
+      {/* Mobile Sidebar (sliding panel) */}
+      {isMobile && (
+        <SocietySidebar
+          society={society}
+          members={currentMembers}
+          isMobile={true}
+          isOpen={isSidebarOpen}
+          onToggle={toggleSidebar}
+        />
+      )}
+      
+      {/* Create Initiative Dialog */}
+      <Dialog open={isCreateInitiativeOpen} onOpenChange={setIsCreateInitiativeOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Create Initiative for {society.name}</DialogTitle>
+          </DialogHeader>
+          <CreateInitiativeForm 
+            onSuccess={async () => {
+              setIsCreateInitiativeOpen(false);
+              
+              // Refresh initiatives list
+              const res = await fetch(`/api/societies/${society.id}/initiatives`);
+              if (res.ok) {
+                const data = await res.json();
+                setInitiatives(data);
+              }
+              
+              // Switch to Initiatives tab to show the new initiative
+              setFeedFilter('INITIATIVES');
+              
+              toast({
+                title: "Initiative Created!",
+                description: "Your society initiative has been created successfully.",
+              });
+            }}
+            societyId={society.id}
+          />
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+} 

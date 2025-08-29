@@ -1,0 +1,14 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy package.json to install socket.io
+COPY package.json ./
+RUN npm install socket.io
+
+# Copy the socket server script
+COPY socket-server.js ./
+
+EXPOSE 9003
+
+CMD ["node", "socket-server.js"]

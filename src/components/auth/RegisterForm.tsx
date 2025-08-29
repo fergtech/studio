@@ -60,7 +60,8 @@ export function RegisterForm() {
       if (!response.ok) {
         throw new Error(data.message || 'Registration failed');
       }
-      // Auto sign-in after registration
+      // Auto sign-in after registration (with small delay for database consistency)
+      await new Promise(resolve => setTimeout(resolve, 100)); // 100ms delay
       const signInResult = await signIn('credentials', {
         redirect: false,
         email: values.email,

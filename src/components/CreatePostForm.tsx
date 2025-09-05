@@ -89,13 +89,8 @@ export default function CreatePostForm({ onPostCreated }: { onPostCreated: () =>
         };
         return await imageCompression(file, options);
       } else if (file.type.startsWith('video/')) {
-        // For videos larger than 25MB, reject with helpful message
-        toast({
-          title: "Video Too Large",
-          description: `Video is ${Math.round(fileSizeMB)}MB. Please compress to under 25MB before uploading. Try using online video compressors or recording at lower quality.`,
-          variant: "destructive",
-        });
-        return null;
+        // For videos, we don't compress - they'll be handled in handleMediaChange
+        return file;
       }
     } catch (error) {
       console.error('Compression failed:', error);
@@ -110,10 +105,68 @@ export default function CreatePostForm({ onPostCreated }: { onPostCreated: () =>
     return file;
   };
 
+  const createVideoThumbnail = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const video = document.createElement('video');
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      video.onloadedmetadata = () => {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        video.currentTime = 0.1; // Seek to 0.1 seconds
+      };
+      
+      video.onseeked = () => {
+        if (ctx) {
+          ctx.drawImage(video, 0, 0);
+          const thumbnail = canvas.toDataURL('image/jpeg', 0.8);
+          resolve(thumbnail);
+        } else {
+          reject(new Error('Could not get canvas context'));
+        }
+        // Clean up
+        URL.revokeObjectURL(video.src);
+      };
+      
+      video.onerror = () => reject(new Error('Could not load video'));
+      
+      video.src = URL.createObjectURL(file);
+      video.load();
+    });
+  };
+
   const handleMediaChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      // Check file size and compress if needed
+      const fileSizeMB = file.size / 1024 / 1024;
+      
+      // For large videos (>25MB), create thumbnail instead of data URL
+      if (file.type.startsWith('video/') && fileSizeMB > 25) {
+        try {
+          setSelectedMedia(file); // Keep original file for upload
+          const thumbnail = await createVideoThumbnail(file);
+          setMediaPreview(thumbnail); // Use thumbnail for preview
+          setSelectedBackground('');
+          toast({
+            title: "Large Video Selected",
+            description: `Video is ${Math.round(fileSizeMB)}MB. Showing thumbnail preview. Video will upload in full quality.`,
+          });
+        } catch (error) {
+          console.error('Failed to create video thumbnail:', error);
+          toast({
+            title: "Preview Error",
+            description: "Could not create video preview, but file is selected for upload.",
+            variant: "destructive",
+          });
+          setSelectedMedia(file);
+          setMediaPreview(null);
+          setSelectedBackground('');
+        }
+        return;
+      }
+      
+      // For smaller files, use existing compression logic
       const processedFile = await compressFile(file);
       
       if (processedFile) {
@@ -267,19 +320,59 @@ export default function CreatePostForm({ onPostCreated }: { onPostCreated: () =>
   return (
     <Card className="mb-6 shadow-sm border-none bg-card/80 backdrop-blur overflow-hidden">
       {/* Media Preview or Selected Background Preview */}
-      {(mediaPreview || !selectedMedia) && (
-        <div
-          className="h-32 bg-cover bg-center relative flex items-center justify-center text-muted-foreground"
-          style={
-            mediaPreview
-              ? { backgroundImage: `url(${mediaPreview})` }
-              : { background: selectedBackground }
-          }
-        >
-          {!mediaPreview && <Palette className="w-8 h-8" />} {/* Show palette icon on color bg */}
-          {mediaPreview && <div className="absolute inset-0 bg-black/20"></div>} {/* Overlay on image */}
-        </div>
-      )}
+      <div className="h-32 relative flex items-center justify-center text-muted-foreground overflow-hidden">
+        {selectedMedia && selectedMedia.type.startsWith('video/') && mediaPreview ? (
+          // Video preview - check if it's a thumbnail (data:image) or actual video (data:video or blob)
+          mediaPreview.startsWith('data:image') ? (
+            // Thumbnail preview for large videos
+            <div
+              className="w-full h-full bg-cover bg-center relative"
+              style={{ backgroundImage: `url(${mediaPreview})` }}
+            >
+              <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                <div className="bg-black/50 text-white px-2 py-1 rounded text-xs">
+                  Video Preview
+                </div>
+              </div>
+            </div>
+          ) : (
+            // Auto-playing video for smaller videos
+            <video
+              src={mediaPreview}
+              className="w-full h-full object-cover"
+              muted
+              autoPlay
+              loop
+              playsInline
+              preload="metadata"
+              controls={false}
+              style={{ display: 'block' }}
+              onLoadedMetadata={(e) => {
+                const video = e.target as HTMLVideoElement;
+                video.play().catch(() => {
+                  // Fallback if autoplay fails - show first frame
+                  video.currentTime = 0.1;
+                });
+              }}
+            />
+          )
+        ) : selectedMedia && selectedMedia.type.startsWith('image/') && mediaPreview ? (
+          // Image preview
+          <div
+            className="w-full h-full bg-cover bg-center"
+            style={{ backgroundImage: `url(${mediaPreview})` }}
+          />
+        ) : (
+          // Color background when no media
+          <div
+            className="w-full h-full flex items-center justify-center"
+            style={{ background: selectedBackground }}
+          >
+            <Palette className="w-8 h-8" />
+          </div>
+        )}
+        {mediaPreview && <div className="absolute inset-0 bg-black/20"></div>} {/* Overlay */}
+      </div>
 
       <CardContent className="p-4">
         <form onSubmit={handleSubmit}>

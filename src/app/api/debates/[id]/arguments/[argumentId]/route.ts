@@ -1,22 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
-import { prisma } from '@/lib/db';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string; argumentId: string } }
+  { params }: { params: Promise<{ id: string; argumentId: string }> }
 ) {
   try {
-    const { userId } = auth();
+    const session = await getServerSession(authOptions);
     
-    if (!userId) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { argumentId } = params;
+    const { argumentId } = await params;
 
     // First, verify the user owns this argument
-    const argument = await prisma.argument.findUnique({
+    const argument = await prisma.debateArgument.findUnique({
       where: { id: argumentId },
       select: { userId: true }
     });
@@ -25,13 +26,13 @@ export async function DELETE(
       return NextResponse.json({ error: 'Argument not found' }, { status: 404 });
     }
 
-    if (argument.userId !== userId) {
+    if (argument.userId !== session.user.id) {
       return NextResponse.json({ error: 'Not authorized to delete this argument' }, { status: 403 });
     }
 
     // Delete the argument and all its replies (cascading delete)
     // This will automatically delete all replies due to the cascade relationship in Prisma schema
-    await prisma.argument.delete({
+    await prisma.debateArgument.delete({
       where: { id: argumentId }
     });
 

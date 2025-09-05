@@ -10,6 +10,7 @@ import { Paperclip, Send, Palette, AlertCircle } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { createGeneralPost } from '@/app/actions/postActions'; // Import the server action
 import { useToast } from '@/hooks/use-toast'; // Assuming you have a toast hook
+import imageCompression from 'browser-image-compression';
 
 // Define some background options
 const backgroundOptions = [
@@ -69,17 +70,70 @@ export default function CreatePostForm({ onPostCreated }: { onPostCreated: () =>
 
   const fallback = getInitials(currentUser?.name);
 
-  const handleMediaChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  // Compress media files if they're too large
+  const compressFile = async (file: File): Promise<File | null> => {
+    const maxSizeInMB = 25; // Vercel's effective limit for reliable uploads
+    const fileSizeMB = file.size / 1024 / 1024;
+    
+    if (file.size <= maxSizeInMB * 1024 * 1024) {
+      return file; // No compression needed
+    }
+
+    try {
+      if (file.type.startsWith('image/')) {
+        const options = {
+          maxSizeMB: maxSizeInMB,
+          maxWidthOrHeight: 1920,
+          useWebWorker: true,
+          fileType: file.type,
+        };
+        return await imageCompression(file, options);
+      } else if (file.type.startsWith('video/')) {
+        // For videos larger than 25MB, reject with helpful message
+        toast({
+          title: "Video Too Large",
+          description: `Video is ${Math.round(fileSizeMB)}MB. Please compress to under 25MB before uploading. Try using online video compressors or recording at lower quality.`,
+          variant: "destructive",
+        });
+        return null;
+      }
+    } catch (error) {
+      console.error('Compression failed:', error);
+      toast({
+        title: "Compression Failed",
+        description: "Could not compress file. Please try a smaller file or compress manually.",
+        variant: "destructive",
+      });
+      return null;
+    }
+    
+    return file;
+  };
+
+  const handleMediaChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      setSelectedMedia(file);
-      // Create a preview URL
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setMediaPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-      setSelectedBackground(''); // Clear background if media is selected
+      // Check file size and compress if needed
+      const processedFile = await compressFile(file);
+      
+      if (processedFile) {
+        setSelectedMedia(processedFile);
+        
+        // Create a preview URL
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setMediaPreview(reader.result as string);
+        };
+        reader.readAsDataURL(processedFile);
+        setSelectedBackground(''); // Clear background if media is selected
+      } else {
+        // Reset file input if compression failed
+        if (event.target) {
+          event.target.value = '';
+        }
+        setSelectedMedia(null);
+        setMediaPreview(null);
+      }
     } else {
       setSelectedMedia(null);
       setMediaPreview(null);

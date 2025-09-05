@@ -143,6 +143,14 @@ export function MainFeedSocietyPostCard({ post }: MainFeedSocietyPostCardProps) 
             playsInline
             preload="metadata"
             style={{ pointerEvents: 'none' }}
+            poster={`${mediaUrl}#t=0.1`}
+            onLoadedData={(e) => {
+              // Force mobile browsers to show first frame
+              const video = e.target as HTMLVideoElement;
+              if (video.videoWidth > 0) {
+                video.currentTime = 0.1;
+              }
+            }}
           />
         )}
         {/* Special handling for audio - show music icon */}

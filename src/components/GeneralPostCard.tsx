@@ -380,6 +380,14 @@ export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralP
             }}
             muted={true}
             preload="metadata"
+            poster={`${post.media![0].url}#t=0.1`}
+            onLoadedData={(e) => {
+              // Force mobile browsers to show first frame
+              const video = e.target as HTMLVideoElement;
+              if (video.videoWidth > 0) {
+                video.currentTime = 0.1;
+              }
+            }}
           />
           <div className="absolute inset-0 bg-black/30 z-10"></div>
           {/* Play Icon Overlay */}

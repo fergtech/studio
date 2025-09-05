@@ -13,17 +13,13 @@ async function runMigration(attempt = 1) {
   try {
     console.log(`🔄 Attempting migration (attempt ${attempt}/${MAX_RETRIES})`);
     
-    // Set environment variables for better connection handling
-    process.env.PRISMA_QUERY_ENGINE_LIBRARY = '1';
-    process.env.PRISMA_CLIENT_ENGINE_TYPE = 'library';
-    
     execSync('prisma migrate deploy --skip-generate', {
       stdio: 'inherit',
       timeout: 30000, // 30 second timeout
       env: {
         ...process.env,
-        // Add connection pool settings
-        DATABASE_URL: process.env.DATABASE_URL + '?connection_limit=5&pool_timeout=20',
+        // Add connection pool settings for better reliability
+        DATABASE_URL: process.env.DATABASE_URL + (process.env.DATABASE_URL.includes('?') ? '&' : '?') + 'connection_limit=5&pool_timeout=20&connect_timeout=30',
       }
     });
     

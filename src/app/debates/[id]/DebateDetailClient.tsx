@@ -351,6 +351,57 @@ export default function DebateDetailClient({
   const isAudio = debateTopic.imageUrl ? isAudioFile(debateTopic.imageUrl) : false;
   const isImage = debateTopic.imageUrl && !isVideo && !isAudio;
 
+  // Helper functions to check if user has already posted arguments
+  const getUserProArgument = () => {
+    return allProArguments.find(arg => !arg.parentId && arg.user.id === currentUserId);
+  };
+
+  const getUserConArgument = () => {
+    return allConArguments.find(arg => !arg.parentId && arg.user.id === currentUserId);
+  };
+
+  const hasUserProArgument = currentUserId ? !!getUserProArgument() : false;
+  const hasUserConArgument = currentUserId ? !!getUserConArgument() : false;
+
+  // Delete argument function
+  const handleDeleteArgument = async (argumentId: string, side: 'PRO' | 'CON') => {
+    if (!currentUserId) return;
+
+    try {
+      const response = await fetch(`/api/debates/${debateTopic.id}/arguments/${argumentId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (response.ok) {
+        // Remove the argument and all its replies from local state
+        if (side === 'PRO') {
+          setAllProArguments(prev => prev.filter(arg => arg.id !== argumentId && arg.parentId !== argumentId));
+        } else {
+          setAllConArguments(prev => prev.filter(arg => arg.id !== argumentId && arg.parentId !== argumentId));
+        }
+        
+        toast({
+          title: "Argument Deleted",
+          description: "Your argument and all replies have been removed.",
+        });
+      } else {
+        toast({
+          title: "Delete Failed", 
+          description: "Could not delete your argument. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error deleting argument:', error);
+      toast({
+        title: "Delete Failed",
+        description: "Could not delete your argument. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Render a single argument (parent or reply)
   const RenderArgument = ({ argument, side, isReply = false }: { argument: DebateArgument; side: 'PRO' | 'CON'; isReply?: boolean }) => {
     // If this is a reply to another reply, show a reference line
@@ -429,17 +480,87 @@ export default function DebateDetailClient({
                   size="sm" 
                   className="text-xs h-6 px-2"
                   onClick={() => {
-                    setReplyingTo(argument.id);
-                    setReplyText('');
+                    if (replyingTo === argument.id) {
+                      // Cancel reply if clicking same argument
+                      setReplyingTo(null);
+                      setReplyText('');
+                    } else {
+                      setReplyingTo(argument.id);
+                      setReplyText('');
+                    }
                     // Close mobile drawer when replying
                     setMobileDrawerOpen(null);
                   }}
                 >
                   <MessageCircle className="w-3 h-3 mr-1" />
-                  Reply
+                  {replyingTo === argument.id ? 'Cancel' : 'Reply'}
                 </Button>
               )}
             </div>
+            
+            {/* Inline Reply Form - Only show for the argument being replied to */}
+            {replyingTo === argument.id && currentUserId && (
+              <div className="mt-3 pt-3 border-t border-border">
+                <div className="space-y-3">
+                  <div className="text-xs text-muted-foreground">
+                    Replying to <span className="font-medium">{argument.user.name}</span>
+                  </div>
+                  <Textarea
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                    placeholder={`Write your ${side} reply...`}
+                    rows={3}
+                    maxLength={500}
+                    disabled={proArgumentLoading || conArgumentLoading}
+                    className={cn(
+                      "text-sm",
+                      side === 'PRO' 
+                        ? "border-green-200 dark:border-green-800 focus:border-green-400" 
+                        : "border-red-200 dark:border-red-800 focus:border-red-400"
+                    )}
+                    autoFocus
+                  />
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-muted-foreground">
+                      {replyText.length}/500 characters
+                    </span>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setReplyingTo(null);
+                          setReplyText('');
+                        }}
+                        className="text-xs h-7"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={() => handleAddReply(argument.id, side)}
+                        disabled={proArgumentLoading || conArgumentLoading || !replyText.trim()}
+                        size="sm"
+                        className={cn(
+                          "text-xs h-7",
+                          side === 'PRO' 
+                            ? "bg-green-600 hover:bg-green-700 text-white" 
+                            : "bg-red-600 hover:bg-red-700 text-white"
+                        )}
+                      >
+                        {(proArgumentLoading || conArgumentLoading) ? (
+                          <>
+                            <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                            Replying...
+                          </>
+                        ) : (
+                          `Reply to ${side}`
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1112,42 +1233,69 @@ export default function DebateDetailClient({
                 </div>
               </div>
 
-              {/* Add PRO Argument Form */}
-              {currentUserId && (
-                <div className="bg-card border border-green-200 dark:border-green-800 rounded-lg p-6 space-y-4">
-                  <h4 className="font-semibold text-green-700 dark:text-green-400">Add PRO Argument</h4>
-                  
-                  <Textarea
-                    value={newProArgument}
-                    onChange={(e) => setNewProArgument(e.target.value)}
-                    placeholder="Share your supporting reasoning, evidence, or perspective..."
-                    rows={4}
-                    maxLength={500}
-                    disabled={proArgumentLoading}
-                    className="border-green-200 dark:border-green-800 focus:border-green-400"
-                  />
-                  
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-muted-foreground">
-                      {newProArgument.length}/500 characters
-                    </span>
+              {/* Add PRO Argument Form or Confirmation Message */}
+              {currentUserId && (!userVote || userVote.side === 'PRO') && (
+                hasUserProArgument ? (
+                  // Show confirmation message if user already posted
+                  <div className="bg-green-50 dark:bg-green-950/50 border border-green-200 dark:border-green-800 rounded-lg p-6">
+                    <div className="flex items-center gap-3 mb-3">
+                      <ThumbsUp className="w-5 h-5 text-green-600" />
+                      <h4 className="font-semibold text-green-700 dark:text-green-400">Thank you for your PRO argument!</h4>
+                    </div>
+                    <p className="text-sm text-green-600 dark:text-green-300 mb-4">
+                      You've already shared your supporting perspective on this debate. You can still reply to other arguments to continue the discussion.
+                    </p>
                     <Button
-                      onClick={() => handleAddArgument('PRO')}
-                      disabled={proArgumentLoading || !newProArgument.trim()}
+                      onClick={() => {
+                        const userArg = getUserProArgument();
+                        if (userArg) {
+                          handleDeleteArgument(userArg.id, 'PRO');
+                        }
+                      }}
+                      variant="outline"
                       size="sm"
-                      className="bg-green-600 hover:bg-green-700 text-white"
+                      className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
                     >
-                      {proArgumentLoading ? (
-                        <>
-                          <Loader2 className="w-3 h-3 animate-spin mr-2" />
-                          Adding...
-                        </>
-                      ) : (
-                        'Add PRO Argument'
-                      )}
+                      Delete My Argument
                     </Button>
                   </div>
-                </div>
+                ) : (
+                  // Show add argument form if user hasn't posted yet
+                  <div className="bg-card border border-green-200 dark:border-green-800 rounded-lg p-6 space-y-4">
+                    <h4 className="font-semibold text-green-700 dark:text-green-400">Add PRO Argument</h4>
+                    
+                    <Textarea
+                      value={newProArgument}
+                      onChange={(e) => setNewProArgument(e.target.value)}
+                      placeholder="Share your supporting reasoning, evidence, or perspective..."
+                      rows={4}
+                      maxLength={500}
+                      disabled={proArgumentLoading}
+                      className="border-green-200 dark:border-green-800 focus:border-green-400"
+                    />
+                    
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-muted-foreground">
+                        {newProArgument.length}/500 characters
+                      </span>
+                      <Button
+                        onClick={() => handleAddArgument('PRO')}
+                        disabled={proArgumentLoading || !newProArgument.trim()}
+                        size="sm"
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                      >
+                        {proArgumentLoading ? (
+                          <>
+                            <Loader2 className="w-3 h-3 animate-spin mr-2" />
+                            Adding...
+                          </>
+                        ) : (
+                          'Add PRO Argument'
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )
               )}
               
               {/* PRO Arguments List */}
@@ -1196,42 +1344,69 @@ export default function DebateDetailClient({
                 </div>
               </div>
 
-              {/* Add CON Argument Form */}
-              {currentUserId && (
-                <div className="bg-card border border-red-200 dark:border-red-800 rounded-lg p-6 space-y-4">
-                  <h4 className="font-semibold text-red-700 dark:text-red-400">Add CON Argument</h4>
-                  
-                  <Textarea
-                    value={newConArgument}
-                    onChange={(e) => setNewConArgument(e.target.value)}
-                    placeholder="Share your opposing reasoning, evidence, or perspective..."
-                    rows={4}
-                    maxLength={500}
-                    disabled={conArgumentLoading}
-                    className="border-red-200 dark:border-red-800 focus:border-red-400"
-                  />
-                  
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-muted-foreground">
-                      {newConArgument.length}/500 characters
-                    </span>
+              {/* Add CON Argument Form or Confirmation Message */}
+              {currentUserId && (!userVote || userVote.side === 'CON') && (
+                hasUserConArgument ? (
+                  // Show confirmation message if user already posted
+                  <div className="bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 rounded-lg p-6">
+                    <div className="flex items-center gap-3 mb-3">
+                      <ThumbsDown className="w-5 h-5 text-red-600" />
+                      <h4 className="font-semibold text-red-700 dark:text-red-400">Thank you for your CON argument!</h4>
+                    </div>
+                    <p className="text-sm text-red-600 dark:text-red-300 mb-4">
+                      You've already shared your opposing perspective on this debate. You can still reply to other arguments to continue the discussion.
+                    </p>
                     <Button
-                      onClick={() => handleAddArgument('CON')}
-                      disabled={conArgumentLoading || !newConArgument.trim()}
+                      onClick={() => {
+                        const userArg = getUserConArgument();
+                        if (userArg) {
+                          handleDeleteArgument(userArg.id, 'CON');
+                        }
+                      }}
+                      variant="outline"
                       size="sm"
-                      className="bg-red-600 hover:bg-red-700 text-white"
+                      className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
                     >
-                      {conArgumentLoading ? (
-                        <>
-                          <Loader2 className="w-3 h-3 animate-spin mr-2" />
-                          Adding...
-                        </>
-                      ) : (
-                        'Add CON Argument'
-                      )}
+                      Delete My Argument
                     </Button>
                   </div>
-                </div>
+                ) : (
+                  // Show add argument form if user hasn't posted yet
+                  <div className="bg-card border border-red-200 dark:border-red-800 rounded-lg p-6 space-y-4">
+                    <h4 className="font-semibold text-red-700 dark:text-red-400">Add CON Argument</h4>
+                    
+                    <Textarea
+                      value={newConArgument}
+                      onChange={(e) => setNewConArgument(e.target.value)}
+                      placeholder="Share your opposing reasoning, evidence, or perspective..."
+                      rows={4}
+                      maxLength={500}
+                      disabled={conArgumentLoading}
+                      className="border-red-200 dark:border-red-800 focus:border-red-400"
+                    />
+                    
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-muted-foreground">
+                        {newConArgument.length}/500 characters
+                      </span>
+                      <Button
+                        onClick={() => handleAddArgument('CON')}
+                        disabled={conArgumentLoading || !newConArgument.trim()}
+                        size="sm"
+                        className="bg-red-600 hover:bg-red-700 text-white"
+                      >
+                        {conArgumentLoading ? (
+                          <>
+                            <Loader2 className="w-3 h-3 animate-spin mr-2" />
+                            Adding...
+                          </>
+                        ) : (
+                          'Add CON Argument'
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )
               )}
               
               {/* CON Arguments List */}
@@ -1268,90 +1443,6 @@ export default function DebateDetailClient({
         </div>
       </div>
 
-      {/* Reply Form - Rendered at bottom when replying */}
-      {replyingTo && currentUserId && (
-        <div className="fixed bottom-0 left-0 right-0 bg-card border-t border-border p-4 shadow-lg z-50">
-          <div className="max-w-7xl mx-auto">
-            {(() => {
-              // Find the argument being replied to
-              const replyingToArgument = [...allProArguments, ...allConArguments].find(arg => arg.id === replyingTo);
-              if (!replyingToArgument) return null;
-              
-              return (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm text-muted-foreground">
-                      Replying to <span className="font-medium">{replyingToArgument.user.name}</span> in{' '}
-                      <span className={cn(
-                        "font-medium",
-                        replyingToArgument.side === 'PRO' ? "text-green-600" : "text-red-600"
-                      )}>
-                        {replyingToArgument.side}
-                      </span> arguments:
-                      <br />
-                      <span className="italic">
-                        {replyingToArgument.content.length > 100 
-                          ? replyingToArgument.content.substring(0, 100) + '...' 
-                          : replyingToArgument.content}
-                      </span>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setReplyingTo(null);
-                        setReplyText('');
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                  
-                  <Textarea
-                    value={replyText}
-                    onChange={(e) => setReplyText(e.target.value)}
-                    placeholder={`Write your ${replyingToArgument.side} reply...`}
-                    rows={3}
-                    maxLength={500}
-                    disabled={proArgumentLoading || conArgumentLoading}
-                    className={cn(
-                      replyingToArgument.side === 'PRO' 
-                        ? "border-green-200 dark:border-green-800 focus:border-green-400" 
-                        : "border-red-200 dark:border-red-800 focus:border-red-400"
-                    )}
-                    autoFocus
-                  />
-                  
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-muted-foreground">
-                      {replyText.length}/500 characters
-                    </span>
-                    <Button
-                      onClick={() => handleAddReply(replyingTo, replyingToArgument.side)}
-                      disabled={proArgumentLoading || conArgumentLoading || !replyText.trim()}
-                      size="sm"
-                      className={cn(
-                        replyingToArgument.side === 'PRO' 
-                          ? "bg-green-600 hover:bg-green-700 text-white" 
-                          : "bg-red-600 hover:bg-red-700 text-white"
-                      )}
-                    >
-                      {(proArgumentLoading || conArgumentLoading) ? (
-                        <>
-                          <Loader2 className="w-3 h-3 animate-spin mr-2" />
-                          Replying...
-                        </>
-                      ) : (
-                        `Reply to ${replyingToArgument.side}`
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-        </div>
-      )}
         </div>
       </div>
     </div>

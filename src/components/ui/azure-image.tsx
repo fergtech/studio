@@ -53,7 +53,9 @@ function optimizeAzureUrl(url: string): string {
     
     return urlObj.toString();
   } catch (error) {
-    console.warn('Failed to optimize Azure URL:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Failed to optimize Azure URL:', error);
+    }
     return url;
   }
 }
@@ -111,10 +113,12 @@ export function AzureImage({
       fallbackStrategy: isUserImage ? 'Avatar' : 'Placeholder'
     };
     
-    console.error('Azure Blob Storage image failed to load:', errorDetails);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Azure Blob Storage image failed to load:', errorDetails);
+    }
     
-    // Enhanced logging for Azure-specific debugging
-    if (typeof window !== 'undefined' && window.console) {
+    // Enhanced logging for Azure-specific debugging (dev only)
+    if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined' && window.console) {
       console.group('🔍 Azure Image Load Failure Details');
       console.log('URL:', optimizedSrc);
       console.log('Alt text:', alt);

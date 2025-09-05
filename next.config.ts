@@ -13,8 +13,9 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   distDir: '.next',
   experimental: {
-    staticGenerationMaxConcurrency: 1,
-    staticGenerationMinPagesPerWorker: 25,
+    // Remove problematic static generation settings that cause Jest worker issues
+    // staticGenerationMaxConcurrency: 1,
+    // staticGenerationMinPagesPerWorker: 25,
   },
   images: {
     remotePatterns: [
@@ -29,6 +30,12 @@ const nextConfig: NextConfig = {
         hostname: 'societyplus.blob.core.windows.net',
         port: '',
         pathname: '/media/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'zk6uotmjy4iboi05.public.blob.vercel-storage.com',
+        port: '',
+        pathname: '/**',
       },
       {
         protocol: 'https',

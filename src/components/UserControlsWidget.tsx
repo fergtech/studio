@@ -1,17 +1,24 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { AzureAvatar } from '@/components/ui/azure-image';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlusCircle, Settings, LogOut, User } from 'lucide-react';
 import { useSession, signOut } from 'next-auth/react';
 import { useModal } from '@/context/ModalContext';
 import NotificationBell from '@/components/NotificationBell';
 import { ToggleTheme } from '@/components/ToggleTheme';
+
+// Mock user avatars matching main feed pattern
+const mockUserAvatars: Record<string, string | undefined> = {
+  "user1": "https://i.pravatar.cc/40?u=user1",
+  "user3": "https://i.pravatar.cc/40?u=user3",
+  "user5": "https://i.pravatar.cc/40?u=user5",
+  "user7": "https://i.pravatar.cc/40?u=user7",
+};
 
 interface UserControlsWidgetProps {
   collapsed?: boolean;
@@ -19,7 +26,6 @@ interface UserControlsWidgetProps {
 
 export default function UserControlsWidget({ collapsed = false }: UserControlsWidgetProps) {
   const { data: session, status } = useSession();
-  const [currentUser, setCurrentUser] = useState<any>(null);
   const {
     openCreateInitiativeModal,
     openCreateIssueModal,
@@ -30,44 +36,19 @@ export default function UserControlsWidget({ collapsed = false }: UserControlsWi
 
   const isLoading = status === 'loading';
 
-  // Fetch current user data to get up-to-date profile photo
-  useEffect(() => {
-    const fetchCurrentUser = async () => {
-      if (session?.user?.id && status === 'authenticated') {
-        try {
-          console.log('UserControlsWidget: Fetching current user data for:', session.user.id);
-          const response = await fetch('/api/auth/me');
-          if (response.ok) {
-            const userData = await response.json();
-            console.log('UserControlsWidget: Received user data:', {
-              name: userData.name,
-              email: userData.email,
-              image: userData.image,
-              sessionImage: session.user.image
-            });
-            setCurrentUser(userData);
-          } else {
-            console.error('UserControlsWidget: Failed to fetch user data:', response.status);
-          }
-        } catch (error) {
-          console.error('Error fetching current user data:', error);
-          setCurrentUser(null);
-        }
-      } else if (status !== 'loading') {
-        setCurrentUser(null);
-      }
-    };
-
-    fetchCurrentUser();
-  }, [session?.user?.id, status]);
-
   const handleSignOut = () => {
     signOut({ callbackUrl: '/' });
   };
 
+  // Generate fallback initials matching main feed pattern
   const getInitials = (name?: string | null) => {
-    if (!name) return "?";
-    return name.split(' ').map(n => n[0]).join('').toUpperCase();
+    if (!name) return "U";
+    return name.substring(0, 2).toUpperCase();
+  };
+
+  // Get avatar URL with fallback pattern matching main feed
+  const getAvatarUrl = (userId?: string, sessionImage?: string | null) => {
+    return sessionImage || mockUserAvatars[userId || ''] || "https://i.pravatar.cc/40?u=anonymous";
   };
 
   if (collapsed) {
@@ -111,27 +92,20 @@ export default function UserControlsWidget({ collapsed = false }: UserControlsWi
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="h-10 w-10 rounded-full p-0 overflow-hidden">
-                {(currentUser?.image ?? session.user.image) ? (
-                  <AzureAvatar 
-                    key={currentUser?.image ?? session.user.image ?? 'fallback'}
-                    src={currentUser?.image ?? session.user.image ?? ''} 
-                    alt={currentUser?.name ?? session.user.name ?? 'User'} 
-                    size={40}
-                    className="h-10 w-10"
-                    onError={() => console.error('Failed to load avatar image:', currentUser?.image ?? session.user.image)}
+                <Avatar className="h-10 w-10">
+                  <AvatarImage 
+                    src={getAvatarUrl(session.user.id, session.user.image)} 
+                    alt={session.user.name || 'User'} 
                   />
-                ) : (
-                  <Avatar className="h-10 w-10">
-                    <AvatarFallback>{getInitials(currentUser?.name ?? session.user.name)}</AvatarFallback>
-                  </Avatar>
-                )}
+                  <AvatarFallback>{getInitials(session.user.name)}</AvatarFallback>
+                </Avatar>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent side="right" align="start" className="w-56">
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none">{currentUser?.name ?? session.user.name ?? 'User'}</p>
-                  <p className="text-xs leading-none text-muted-foreground">{currentUser?.email ?? session.user.email}</p>
+                  <p className="text-sm font-medium leading-none">{session.user.name || 'User'}</p>
+                  <p className="text-xs leading-none text-muted-foreground">{session.user.email}</p>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
@@ -216,24 +190,17 @@ export default function UserControlsWidget({ collapsed = false }: UserControlsWi
             {/* User Info & Profile */}
             <div className="flex items-center gap-3">
               <div className="relative">
-                {(currentUser?.image ?? session.user.image) ? (
-                  <AzureAvatar 
-                    key={currentUser?.image ?? session.user.image ?? 'fallback'}
-                    src={currentUser?.image ?? session.user.image ?? ''} 
-                    alt={currentUser?.name ?? session.user.name ?? 'User'} 
-                    size={40}
-                    className="h-10 w-10 rounded-full"
-                    onError={() => console.error('Failed to load avatar image:', currentUser?.image ?? session.user.image)}
+                <Avatar className="h-10 w-10">
+                  <AvatarImage 
+                    src={getAvatarUrl(session.user.id, session.user.image)} 
+                    alt={session.user.name || 'User'} 
                   />
-                ) : (
-                  <Avatar className="h-10 w-10">
-                    <AvatarFallback>{getInitials(currentUser?.name ?? session.user.name)}</AvatarFallback>
-                  </Avatar>
-                )}
+                  <AvatarFallback>{getInitials(session.user.name)}</AvatarFallback>
+                </Avatar>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{currentUser?.name ?? session.user.name ?? 'User'}</p>
-                <p className="text-xs text-muted-foreground truncate">{currentUser?.email ?? session.user.email}</p>
+                <p className="text-sm font-medium truncate">{session.user.name || 'User'}</p>
+                <p className="text-xs text-muted-foreground truncate">{session.user.email}</p>
               </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

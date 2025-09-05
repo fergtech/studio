@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useActionState, useTransition } from 'reac
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { User } from '@prisma/client';
+import imageCompression from 'browser-image-compression';
 
 import { updateUserProfileAction, UpdateUserProfileActionState } from '@/app/actions/userActions';
 import { Input } from '@/components/ui/input';
@@ -104,15 +105,43 @@ export default function EditProfileForm({ user }: EditProfileFormProps) {
     }
   }, [formState, router, toast, user.id]);
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const compressImage = async (file: File, maxSizeMB: number = 1) => {
+    try {
+      const options = {
+        maxSizeMB,
+        maxWidthOrHeight: file.name.includes('banner') ? 1200 : 800,
+        useWebWorker: true,
+        fileType: 'image/jpeg',
+        quality: 0.8,
+      };
+      
+      const compressedFile = await imageCompression(file, options);
+      console.log(`Image compressed: ${(file.size / 1024 / 1024).toFixed(2)}MB -> ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`);
+      return compressedFile;
+    } catch (error) {
+      console.error('Image compression failed:', error);
+      return file; // Return original if compression fails
+    }
+  };
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      setSelectedFile(file);
+      // Show preview immediately with original file
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result as string);
       };
       reader.readAsDataURL(file);
+      
+      // Only compress if it's an image file
+      if (file.type.startsWith('image/')) {
+        const compressedFile = await compressImage(file, 1);
+        setSelectedFile(compressedFile);
+      } else {
+        // For videos and other files, use original
+        setSelectedFile(file);
+      }
     } else {
       setSelectedFile(null);
       // If user deselects file, revert to original image or null if none was there
@@ -120,15 +149,19 @@ export default function EditProfileForm({ user }: EditProfileFormProps) {
     }
   };
 
-  const handleBannerFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleBannerFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      setSelectedBannerFile(file);
+      // Show preview immediately with original file
       const reader = new FileReader();
       reader.onloadend = () => {
         setBannerPreview(reader.result as string);
       };
       reader.readAsDataURL(file);
+      
+      // Compress the file for upload (banner images can be slightly larger)
+      const compressedFile = await compressImage(file, 1.5);
+      setSelectedBannerFile(compressedFile);
     } else {
       setSelectedBannerFile(null);
       setBannerPreview((user.bannerImageUrl as string | null) ?? null);

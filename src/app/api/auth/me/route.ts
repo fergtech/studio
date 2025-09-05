@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 
 export async function GET(req: NextRequest) {
   try {
@@ -40,7 +41,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(user);
 
   } catch (error) {
-    console.error('Error fetching user data:', error);
+    logger.error('Error fetching user data', error);
     return NextResponse.json(
       { message: "Internal server error" },
       { status: 500 }
@@ -81,7 +82,7 @@ export async function PATCH(req: NextRequest) {
     });
     return NextResponse.json(updated);
   } catch (error) {
-    console.error('Error updating user data:', error);
+    logger.error('Error updating user data', error);
     return NextResponse.json(
       { message: "Internal server error" },
       { status: 500 }

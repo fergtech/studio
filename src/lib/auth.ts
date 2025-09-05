@@ -59,9 +59,13 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         (session.user as any).id = token.id;
         (session.user as any).image = token.image;
-        console.log('Session user:', session.user);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Session user:', session.user);
+        }
       } else {
-        console.warn('Session user is undefined');
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('Session user is undefined');
+        }
       }
       return session;
     },

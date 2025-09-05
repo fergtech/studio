@@ -3,9 +3,10 @@
 import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Share2, UserPlus, Menu, X, Edit, Plus } from 'lucide-react';
+import { Share2, UserPlus, Menu, X, Edit, Plus, Save, Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { SocietySidebar } from './SocietySidebar';
@@ -22,6 +23,10 @@ import { AudioPlayer } from '@/components/ui/audio-player';
 import { LinkPreview } from '@/components/ui/link-preview';
 import { DocumentPreview } from '@/components/ui/document-preview';
 import { AppSidebar } from '@/components/AppSidebar';
+import { updateSocietyPostContent } from '@/app/actions/postActions';
+import { LazyPostsFeed } from '@/components/LazyPostsFeed';
+import { LazySocietyStats } from '@/components/LazySocietyStats';
+import { useLazyLoad } from '@/hooks/useLazyLoad';
 
 // Define Member type
 interface Member {
@@ -48,6 +53,7 @@ export function SocietyClientPage({ society: initialSociety, members, posts: ini
   const isAdmin = members.find(m => m.id === userId)?.role === 'ADMIN';
   const [posts, setPosts] = useState(initialPosts);
   const [initiatives, setInitiatives] = useState<any[]>([]);
+  const [stats, setStats] = useState<any>(null);
   const [feedFilter, setFeedFilter] = useState('ALL');
   const [isJoining, setIsJoining] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
@@ -73,29 +79,42 @@ export function SocietyClientPage({ society: initialSociety, members, posts: ini
   // Check if current user is a member
   const isMember = userId && currentMembers.some(m => m.id === userId);
 
-  // Fetch posts on mount
-  useEffect(() => {
-    async function fetchPosts() {
-      const res = await fetch(`/api/societies/${society.id}/posts`);
-      if (res.ok) {
-        const data = await res.json();
-        setPosts(data);
-      }
+  // Lazy load initiatives only when needed
+  const fetchInitiatives = async () => {
+    const res = await fetch(`/api/societies/${society.id}/initiatives`);
+    if (!res.ok) {
+      throw new Error('Failed to fetch initiatives');
     }
-    fetchPosts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [society.id]);
+    return res.json();
+  };
 
-  // Fetch initiatives on mount
+  const { 
+    ref: initiativesRef, 
+    data: initiativesData, 
+    loading: initiativesLoading 
+  } = useLazyLoad(fetchInitiatives);
+
+  // Update initiatives state when lazy loaded data is available
   useEffect(() => {
-    async function fetchInitiatives() {
-      const res = await fetch(`/api/societies/${society.id}/initiatives`);
-      if (res.ok) {
-        const data = await res.json();
-        setInitiatives(data);
+    if (initiativesData) {
+      setInitiatives(initiativesData);
+    }
+  }, [initiativesData]);
+
+  // Fetch stats immediately for tab count
+  useEffect(() => {
+    async function fetchStats() {
+      try {
+        const res = await fetch(`/api/societies/${society.id}/stats`);
+        if (res.ok) {
+          const data = await res.json();
+          setStats(data);
+        }
+      } catch (error) {
+        console.error('Error fetching stats:', error);
       }
     }
-    fetchInitiatives();
+    fetchStats();
   }, [society.id]);
 
   // Fetch members on mount and when membership changes
@@ -213,17 +232,122 @@ export function SocietyClientPage({ society: initialSociety, members, posts: ini
     return audioExtensions.some(ext => lowerUrl.includes(ext));
   };
 
-  // Simple post card
-  function SocietyPostCard({ post }: { post: any }) {
+  // Simple post card with edit functionality
+  function SocietyPostCard({ post, onPostUpdate }: { post: any; onPostUpdate: () => Promise<void> }) {
+    const [editMode, setEditMode] = useState(false);
+    const [editContent, setEditContent] = useState(post.content);
+    const [editLoading, setEditLoading] = useState(false);
+
+    const handleEditSubmit = async () => {
+      if (!editContent.trim()) {
+        toast({
+          title: "Missing Content",
+          description: "Post content cannot be empty.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (editContent === post.content) {
+        setEditMode(false);
+        return;
+      }
+
+      setEditLoading(true);
+      try {
+        const result = await updateSocietyPostContent(post.id, editContent);
+        if (result.success) {
+          setEditMode(false);
+          toast({
+            title: "Post Updated!",
+            description: "Your post has been updated successfully.",
+          });
+          // Refresh posts
+          await onPostUpdate();
+        } else {
+          toast({
+            title: "Update Failed",
+            description: result.error || 'Failed to update post',
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error('Error updating post:', error);
+        toast({
+          title: "Update Failed",
+          description: "Could not update post. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setEditLoading(false);
+      }
+    };
+
     return (
       <div className="relative mb-2">
         <div className="border rounded p-4 bg-background min-h-[1px] relative">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-semibold px-2 py-0.5 rounded bg-muted mr-2">{post.type}</span>
-            <span className="text-xs text-muted-foreground">{post.user?.name || 'Unknown'}</span>
-            <span className="text-xs text-muted-foreground ml-auto">{new Date(post.createdAt).toLocaleString()}</span>
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-muted mr-2">{post.type}</span>
+              <span className="text-xs text-muted-foreground">{post.user?.name || 'Unknown'}</span>
+              <span className="text-xs text-muted-foreground">{new Date(post.createdAt).toLocaleString()}</span>
+            </div>
+            {/* Edit button - only show for post creator */}
+            {userId && post.user?.id === userId && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setEditMode(!editMode)}
+                className="h-6 w-6 p-0"
+              >
+                <Edit className="h-3 w-3" />
+              </Button>
+            )}
           </div>
-          <div className="whitespace-pre-line text-sm mb-2">{post.content}</div>
+          {/* Content - Edit or Display Mode */}
+          {editMode ? (
+            <div className="mb-2 space-y-2">
+              <Textarea
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                className="min-h-[80px] resize-none text-sm"
+                placeholder="What's on your mind?"
+              />
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleEditSubmit}
+                  disabled={editLoading}
+                  size="sm"
+                  className="h-7 text-xs"
+                >
+                  {editLoading ? (
+                    <>
+                      <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-3 h-3 mr-1" />
+                      Save
+                    </>
+                  )}
+                </Button>
+                <Button
+                  onClick={() => {
+                    setEditMode(false);
+                    setEditContent(post.content);
+                  }}
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="whitespace-pre-line text-sm mb-2">{post.content}</div>
+          )}
           {post.imageUrl && (
             <div className="my-2">
               {isVideoFile(post.imageUrl) ? (
@@ -543,25 +667,47 @@ export function SocietyClientPage({ society: initialSociety, members, posts: ini
                   <Button size="sm" variant={feedFilter === 'ISSUE' ? 'secondary' : 'ghost'} onClick={() => setFeedFilter('ISSUE')} className="flex-shrink-0">Issues</Button>
                   <Button size="sm" variant={feedFilter === 'IDEA' ? 'secondary' : 'ghost'} onClick={() => setFeedFilter('IDEA')} className="flex-shrink-0">Ideas</Button>
                   <Button size="sm" variant={feedFilter === 'INITIATIVES' ? 'secondary' : 'ghost'} onClick={() => setFeedFilter('INITIATIVES')} className="flex-shrink-0">
-                    Initiatives ({initiatives.length})
+                    Initiatives ({stats?.initiatives ?? 0})
                   </Button>
                 </div>
-                {filteredContent.data.length === 0 ? (
-                  <div className="text-center text-muted-foreground">
-                    {filteredContent.type === 'initiatives' ? 'No initiatives yet.' : 'No posts yet.'}
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    {filteredContent.type === 'initiatives' 
-                      ? filteredContent.data.map((initiative: any) => (
-                          <SocietyInitiativeCard key={initiative.id} initiative={initiative} />
-                        ))
-                      : filteredContent.data.map((post: any) => (
-                          <SocietyPostCard key={post.id} post={post} />
-                        ))
-                    }
-                  </div>
+                
+                {/* Always mount initiatives ref for lazy loading, but only show when selected */}
+                <div ref={initiativesRef} style={{ display: feedFilter === 'INITIATIVES' ? 'block' : 'none' }}>
+                  {initiativesLoading ? (
+                    <div className="text-center text-muted-foreground">Loading initiatives...</div>
+                  ) : initiatives.length === 0 ? (
+                    <div className="text-center text-muted-foreground">No initiatives yet.</div>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      {initiatives.map((initiative: any) => (
+                        <SocietyInitiativeCard key={initiative.id} initiative={initiative} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Posts content */}
+                {feedFilter !== 'INITIATIVES' && (
+                  <LazyPostsFeed
+                    societyId={society.id}
+                    initialPosts={[]}
+                    feedFilter={feedFilter}
+                    onPostUpdate={() => {
+                      // Refresh post creation form if needed
+                      window.location.reload();
+                    }}
+                  />
                 )}
+              </CardContent>
+            </Card>
+            
+            {/* Society Stats Section - Lazy Loaded */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Society Statistics</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <LazySocietyStats societyId={society.id} stats={stats} />
               </CardContent>
             </Card>
         </div>

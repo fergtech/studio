@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react'; // Import React hooks
+import React, { useState, useEffect, useCallback } from 'react'; // Import React hooks
 import { InitiativeCard } from "@/components/InitiativeCard";
 import { GeneralPostCard } from "@/components/GeneralPostCard";
 import { MetaActionCard } from "@/components/MetaActionCard";
@@ -12,7 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import Link from 'next/link';
 import { Button } from "@/components/ui/button";
-import { Star } from "lucide-react";
+import { Star, Loader2 } from "lucide-react";
 import { PostActions } from '@/components/PostActions';
 import { IdeaCard } from "@/components/IdeaCard";
 import { IssueCard } from "@/components/IssueCard";
@@ -256,7 +256,13 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const { toast } = useToast();
+
+  // Simple manual load more approach
+
 
   // Add this handler in HomeClient
   const handlePostDeleted = (postId: string) => {
@@ -267,12 +273,32 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
     const fetchFeedItems = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch('/api/feed?unified=true');
+        const response = await fetch('/api/feed?unified=true&limit=5');
         if (!response.ok) {
           throw new Error(`Failed to fetch feed items: ${response.statusText}`);
         }
         const data = await response.json();
-        setFeedItems(data);
+        
+        // Handle both new paginated format and legacy format for backward compatibility
+        console.log('Initial feed response:', data);
+        if (data.items && data.pagination) {
+          // New cursor-based format
+          console.log('Using cursor-based format');
+          setFeedItems(data.items);
+          setNextCursor(data.pagination.nextCursor);
+          setHasMore(data.pagination.hasMore);
+          console.log('Set initial state:', { 
+            itemCount: data.items.length, 
+            nextCursor: data.pagination.nextCursor, 
+            hasMore: data.pagination.hasMore 
+          });
+        } else {
+          // Legacy format - assume it's the items directly
+          console.log('Using legacy format');
+          setFeedItems(Array.isArray(data) ? data : []);
+          setHasMore(false); // No pagination info available
+          console.log('Set initial state (legacy):', { itemCount: Array.isArray(data) ? data.length : 0, hasMore: false });
+        }
       } catch (err: any) {
         setError(err.message);
       } finally {
@@ -337,6 +363,40 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
     };
   }, []);
 
+  // Load more posts function (following LazyPostsFeed pattern)
+  const loadMorePosts = useCallback(async () => {
+    console.log('loadMorePosts called with:', { hasMore, loadingMore, nextCursor });
+    if (!hasMore || loadingMore || !nextCursor) {
+      console.log('loadMorePosts early return - conditions not met');
+      return;
+    }
+    
+    setLoadingMore(true);
+    try {
+      const url = `/api/feed?unified=true&limit=5&cursor=${nextCursor}`;
+      console.log('Fetching more posts:', url);
+      const response = await fetch(url);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Received more posts:', data);
+        
+        if (data.items && data.pagination) {
+          // New cursor-based format
+          setFeedItems(prev => [...prev, ...data.items]);
+          setNextCursor(data.pagination.nextCursor);
+          setHasMore(data.pagination.hasMore);
+        }
+      } else {
+        console.error('Failed to load more posts:', response.status, response.statusText);
+      }
+    } catch (error) {
+      console.error('Error loading more posts:', error);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [hasMore, loadingMore, nextCursor]);
+
   useEffect(() => {
     // Restore scroll position if returning from a post detail page
     const savedScroll = sessionStorage.getItem('feedScrollPosition');
@@ -345,6 +405,7 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
       sessionStorage.removeItem('feedScrollPosition');
     }
   }, []);
+
 
   const handlePostCreated = async () => {
     // This will be handled by the server action in CreatePostForm
@@ -661,8 +722,29 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
             console.warn("Unknown feed item type:", item);
             return null;
           })}
-          {feedItems.length === 0 && (
+          {feedItems.length === 0 && !isLoading && (
             <p className="text-center text-gray-500">No posts or initiatives yet. Be the first to create one!</p>
+          )}
+          
+          {/* Load More Button */}
+          {hasMore && feedItems.length > 0 && (
+            <div className="flex justify-center py-8 w-full max-w-[500px]">
+              <Button 
+                onClick={loadMorePosts}
+                disabled={loadingMore}
+                variant="outline"
+                className="min-w-32"
+              >
+                {loadingMore ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Loading...
+                  </>
+                ) : (
+                  'Load More Posts'
+                )}
+              </Button>
+            </div>
           )}
         </div>
       </div>

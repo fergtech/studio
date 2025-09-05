@@ -10,9 +10,9 @@ import { notFound } from 'next/navigation';
 export const dynamic = 'force-dynamic';
 
 interface ProfilePageProps {
-  params: {
+  params: Promise<{
     identifier: string;
-  };
+  }>;
 }
 
 // Add this function before the ProfilePage component
@@ -28,7 +28,8 @@ function transformInitiative(initiative: any): Initiative {
   };
 }
 
-export default async function ProfilePage({ params: incomingParams }: ProfilePageProps) {
+export default async function ProfilePage({ params }: ProfilePageProps) {
+  const incomingParams = await params;
   const session = await getServerSession(authOptions);
   const loggedInUserId = session?.user?.id;
 

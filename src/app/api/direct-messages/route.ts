@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { emitNotification } from '@/lib/socket';
+import { logger } from '@/lib/logger';
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,11 +14,11 @@ export async function POST(req: NextRequest) {
     }
 
     const payload = await req.json();
-    console.log('API /api/direct-messages POST: Received payload:', payload);
+    logger.debug('API /api/direct-messages POST: Request received');
     const { receiverId, text } = payload;
 
     if (!receiverId || !text) {
-      console.error('API /api/direct-messages POST: Missing required fields in payload:', payload);
+      logger.error('API /api/direct-messages POST: Missing required fields');
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
@@ -35,13 +36,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Receiver not found' }, { status: 404 });
     }
 
-    console.log('API /api/direct-messages POST: Creating message with data:', {
-      text,
-      timestamp: new Date(),
-      senderName: session.user.name || 'Anonymous',
-      senderId: session.user.id,
-      receiverId: receiverId,
-    });
+    logger.debug('API /api/direct-messages POST: Creating message');
 
     const message = await prisma.chatMessage.create({
       data: {
@@ -58,7 +53,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    console.log('API /api/direct-messages POST: Message created successfully:', message);
+    logger.info('API /api/direct-messages POST: Message created successfully');
 
     // Create notification for the receiver
     try {
@@ -75,9 +70,9 @@ export async function POST(req: NextRequest) {
           },
         },
       });
-      console.log('API /api/direct-messages POST: Notification created successfully');
+      logger.debug('API /api/direct-messages POST: Notification created');
     } catch (notificationError) {
-      console.error('API /api/direct-messages POST: Error creating notification:', notificationError);
+      logger.error('API /api/direct-messages POST: Error creating notification', notificationError);
       // Don't fail the entire request if notification fails
     }
 
@@ -100,15 +95,10 @@ export async function POST(req: NextRequest) {
     emitNotification(receiverId, notification);
     */
 
-    console.log('API /api/direct-messages POST: Message saved successfully:', message);
+    logger.info('API /api/direct-messages POST: Message saved successfully');
     return NextResponse.json(message, { status: 201 });
   } catch (error) {
-    console.error('API /api/direct-messages POST: Error creating direct message:', error);
-    console.error('API /api/direct-messages POST: Error details:', {
-      name: (error as Error).name,
-      message: (error as Error).message,
-      stack: (error as Error).stack,
-    });
+    logger.error('API /api/direct-messages POST: Error creating direct message', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -151,10 +141,10 @@ export async function GET(req: NextRequest) {
       }
     });
 
-    console.log(`API /api/direct-messages GET: Fetched ${messages.length} direct messages between users ${session.user.id} and ${otherUserId}.`);
+    logger.info(`API /api/direct-messages GET: Fetched ${messages.length} direct messages`);
     return NextResponse.json(messages, { status: 200 });
   } catch (error) {
-    console.error('API /api/direct-messages GET: Error fetching direct messages:', error);
+    logger.error('API /api/direct-messages GET: Error fetching direct messages', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 } 

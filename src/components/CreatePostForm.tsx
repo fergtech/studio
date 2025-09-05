@@ -1,12 +1,11 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
-import { useSession } from 'next-auth/react'; // Import useSession
+import { useSession } from 'next-auth/react';
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { AzureAvatar } from "@/components/ui/azure-image";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Paperclip, Send, Palette, AlertCircle } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { createGeneralPost } from '@/app/actions/postActions'; // Import the server action
@@ -22,9 +21,21 @@ const backgroundOptions = [
   '#333333', // Dark Grey
 ];
 
+// Mock user avatars matching main feed pattern
+const mockUserAvatars: Record<string, string | undefined> = {
+  "user1": "https://i.pravatar.cc/40?u=user1",
+  "user3": "https://i.pravatar.cc/40?u=user3",
+  "user5": "https://i.pravatar.cc/40?u=user5",
+  "user7": "https://i.pravatar.cc/40?u=user7",
+};
+
 export default function CreatePostForm({ onPostCreated }: { onPostCreated: () => void }) {
-  const { data: session } = useSession();
-  const { toast } = useToast(); // For displaying messages
+  const { data: session, status } = useSession();
+  const { toast } = useToast();
+  
+  // Debug logging
+  console.log('CreatePostForm - Session status:', status);
+  console.log('CreatePostForm - Session data:', session);
   const [content, setContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState<File | null>(null);
@@ -32,29 +43,31 @@ export default function CreatePostForm({ onPostCreated }: { onPostCreated: () =>
   const [selectedBackground, setSelectedBackground] = useState<string>(backgroundOptions[1]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [currentUserData, setCurrentUserData] = useState<any>(null);
-
-  // Fetch current user data to get up-to-date profile photo
-  useEffect(() => {
-    const fetchCurrentUser = async () => {
-      if (session?.user?.id) {
-        try {
-          const response = await fetch('/api/auth/me');
-          if (response.ok) {
-            const userData = await response.json();
-            setCurrentUserData(userData);
-          }
-        } catch (error) {
-          console.error('Error fetching current user data:', error);
-        }
-      }
-    };
-
-    fetchCurrentUser();
-  }, [session?.user?.id]);
-
   const currentUser = session?.user;
-  const fallback = (currentUserData?.name || currentUser?.name)?.substring(0, 2).toUpperCase() || ((currentUserData?.email || currentUser?.email)?.substring(0, 2).toUpperCase() || 'U');
+
+  // Show loading state while session is loading
+  if (status === "loading") {
+    return (
+      <Card className="mb-6 shadow-sm border-none bg-card/80 backdrop-blur overflow-hidden">
+        <CardContent className="p-4 text-center text-muted-foreground">
+          Loading...
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Generate fallback initials matching main feed pattern
+  const getInitials = (name?: string | null) => {
+    if (!name) return "U";
+    return name.substring(0, 2).toUpperCase();
+  };
+
+  // Get avatar URL with fallback pattern matching main feed
+  const getAvatarUrl = (userId?: string, sessionImage?: string | null) => {
+    return sessionImage || mockUserAvatars[userId || ''] || "https://i.pravatar.cc/40?u=anonymous";
+  };
+
+  const fallback = getInitials(currentUser?.name);
 
   const handleMediaChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -217,18 +230,13 @@ export default function CreatePostForm({ onPostCreated }: { onPostCreated: () =>
       <CardContent className="p-4">
         <form onSubmit={handleSubmit}>
           <div className="flex items-start space-x-3">
-            {(currentUserData?.image || currentUser?.image) ? (
-              <AzureAvatar 
-                src={currentUserData?.image || currentUser?.image || ''}
-                alt={currentUserData?.name || currentUser?.name || 'User'} 
-                size={40}
-                className="h-10 w-10 mt-1"
+            <Avatar className="h-10 w-10 mt-1">
+              <AvatarImage 
+                src={getAvatarUrl(currentUser?.id, currentUser?.image)} 
+                alt={currentUser?.name || 'User'} 
               />
-            ) : (
-              <Avatar className="h-10 w-10 mt-1">
-                <AvatarFallback>{fallback}</AvatarFallback>
-              </Avatar>
-            )}
+              <AvatarFallback>{fallback}</AvatarFallback>
+            </Avatar>
             <Textarea
               placeholder="What's happening?"
               value={content}

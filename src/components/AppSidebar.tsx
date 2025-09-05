@@ -53,7 +53,7 @@ const getWidgetComponent = (type: SidebarWidgetType, context?: any, collapsed?: 
   }
 };
 
-export function AppSidebar({ 
+function AppSidebar({ 
   widgets = ['userControls', 'navigation', 'suggestions', 'location', 'resources', 'footer'], 
   className,
   children,
@@ -89,29 +89,37 @@ export function AppSidebar({
         {/* App Logo and Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
           {!desktopCollapsed ? (
-            <Link href="/" className="flex items-center space-x-2">
-              <img src="/apple-touch-icon.png" alt="Society+ logo" className="h-6 w-6 rounded-full" />
-              <span className="font-bold text-lg">society+</span>
-            </Link>
+            <>
+              <Link href="/" className="flex items-center space-x-2">
+                <img src="/apple-touch-icon.png" alt="Society+ logo" className="h-6 w-6 rounded-full" />
+                <span className="font-bold text-lg">society+</span>
+              </Link>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCollapseToggle}
+                className="h-8 w-8 p-0 hover:bg-muted flex-shrink-0"
+                aria-label="Collapse sidebar"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+            </>
           ) : (
-            <Link href="/" className="flex items-center justify-center w-full">
-              <img src="/apple-touch-icon.png" alt="Society+ logo" className="h-6 w-6 rounded-full" />
-            </Link>
+            <div className="flex flex-col items-center space-y-1 w-full">
+              <Link href="/" className="flex items-center justify-center">
+                <img src="/apple-touch-icon.png" alt="Society+ logo" className="h-6 w-6 rounded-full hover:scale-110 transition-transform" />
+              </Link>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCollapseToggle}
+                className="h-6 w-6 p-0 hover:bg-muted"
+                aria-label="Expand sidebar"
+              >
+                <ChevronRight className="h-3 w-3" />
+              </Button>
+            </div>
           )}
-          
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleCollapseToggle}
-            className="h-8 w-8 p-0 hover:bg-muted flex-shrink-0"
-            aria-label={desktopCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            {desktopCollapsed ? (
-              <ChevronRight className="h-4 w-4" />
-            ) : (
-              <ChevronLeft className="h-4 w-4" />
-            )}
-          </Button>
         </div>
         
         {/* Sidebar Content */}
@@ -122,28 +130,22 @@ export function AppSidebar({
           {!desktopCollapsed && renderWidgets()}
           {desktopCollapsed && (
             <div className="space-y-2">
-              {/* Collapsed state - show only icons */}
-              <div className="flex flex-col gap-2">
-                <Button variant="ghost" size="sm" className="h-10 w-10 p-0" title="Navigation">
-                  <Menu className="h-5 w-5" />
-                </Button>
-                {/* Add more collapsed icons as needed */}
-              </div>
+              {/* Collapsed state - no content, just the chevron button in header handles expand */}
             </div>
           )}
         </div>
       </aside>
 
-      {/* Tablet/Mobile Sidebar */}
+      {/* Mobile Sidebar - Only visible on mobile/tablet screens */}
       <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
         <SheetTrigger asChild>
           <Button
             variant="outline"
-            size="icon"
-            className="fixed top-4 left-4 z-50 lg:hidden bg-background/95 backdrop-blur-sm border shadow-lg rounded-full p-3 w-12 h-12 flex items-center justify-center hover:bg-background/90 transition-all duration-200"
+            className="fixed top-4 left-4 z-50 lg:hidden bg-background/95 backdrop-blur-sm border shadow-lg rounded-full px-3 py-2 h-12 flex items-center justify-center gap-2 hover:bg-background/90 transition-all duration-200 min-w-fit"
             aria-label="Open sidebar"
           >
-            <Menu className="h-5 w-5" />
+            <img src="/apple-touch-icon.png" alt="Society+ logo" className="h-6 w-6 rounded-full flex-shrink-0" />
+            <ChevronRight className="h-4 w-4 flex-shrink-0" />
           </Button>
         </SheetTrigger>
         <SheetContent side="left" className="w-80 p-0 max-h-screen overflow-y-auto">
@@ -166,4 +168,6 @@ export function AppSidebar({
   );
 }
 
+// Export both default and named for compatibility
 export default AppSidebar;
+export { AppSidebar };

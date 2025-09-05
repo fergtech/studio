@@ -4,12 +4,17 @@ import Link from 'next/link';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import PostSocialPanel from '@/components/PostSocialPanel';
 import React, { useRef, useState } from 'react';
-import { Pause, Play, Maximize2, ArrowLeft } from 'lucide-react';
+import { Pause, Play, Maximize2, ArrowLeft, Edit, Save, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/hooks/use-toast';
 import { VideoPlayer } from '@/components/ui/video-player';
 import { AudioPlayer } from '@/components/ui/audio-player';
 import { LinkPreview } from '@/components/ui/link-preview';
 import { DocumentPreview } from '@/components/ui/document-preview';
+import AppSidebar from '@/components/AppSidebar';
+import { updateGeneralPostContent, updateSocietyPostContent } from '@/app/actions/postActions';
 
 // Helper function to detect video files
 const isVideoFile = (url: string) => {
@@ -101,6 +106,14 @@ export default function PostDetailClient({
   links,
   documents,
 }: PostDetailClientProps) {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const { toast } = useToast();
+  
+  // Edit functionality state
+  const [editMode, setEditMode] = useState(false);
+  const [editContent, setEditContent] = useState(content);
+  const [editLoading, setEditLoading] = useState(false);
+  
   // Defensive checks for required props
   if (!id || !content || !creatorId || !creatorName || (postType === 'society' && (!society || !society.id))) {
     console.error('Missing required post data', { id, content, creatorId, creatorName, society });
@@ -108,6 +121,55 @@ export default function PostDetailClient({
   }
 
   const router = useRouter();
+  
+  // Handle edit submit
+  const handleEditSubmit = async () => {
+    if (!editContent.trim()) {
+      toast({
+        title: "Missing Content",
+        description: "Post content cannot be empty.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (editContent === content) {
+      setEditMode(false);
+      return;
+    }
+
+    setEditLoading(true);
+    try {
+      const result = postType === 'society' 
+        ? await updateSocietyPostContent(id, editContent)
+        : await updateGeneralPostContent(id, editContent);
+      if (result.success) {
+        setEditMode(false);
+        toast({
+          title: "Post Updated!",
+          description: "Your post has been updated successfully.",
+        });
+        // Refresh the page to show updated content
+        router.refresh();
+      } else {
+        toast({
+          title: "Update Failed",
+          description: result.error || 'Failed to update post',
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error updating post:', error);
+      toast({
+        title: "Update Failed",
+        description: "Could not update post. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setEditLoading(false);
+    }
+  };
+  
   // Time-ago formatting
   const postTime = timestamp
     ? formatDistanceToNow(typeof timestamp === 'string' ? parseISO(timestamp) : timestamp, { addSuffix: true })
@@ -162,36 +224,58 @@ export default function PostDetailClient({
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Back Button - minimal, top left, small */}
-      <div className="max-w-6xl mx-auto pt-2 px-2 flex items-start">
-        <button
-          className="flex items-center gap-1 text-muted-foreground hover:text-foreground text-sm px-2 py-1 rounded hover:bg-muted/40 transition shadow-none border-none bg-transparent"
-          onClick={() => router.back()}
-          type="button"
-          aria-label="Back"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          <span className="hidden sm:inline">Back</span>
-        </button>
-      </div>
-      {/* Main Content */}
-      <div className="flex flex-col lg:flex-row max-w-6xl mx-auto py-4 px-2 gap-6">
+      {/* Sidebar */}
+      <AppSidebar 
+        widgets={['userControls', 'navigation', 'suggestions', 'location', 'resources', 'footer']}
+        context={{ type: 'home' }}
+        onCollapseChange={setSidebarCollapsed}
+      />
+      
+      {/* Main Content - with dynamic left margin based on sidebar state */}
+      <div className={`transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'}`}>
+        {/* Back Button - minimal, top left, small */}
+        <div className="max-w-6xl mx-auto pt-2 px-2 flex items-start">
+          <button
+            className="flex items-center gap-1 text-muted-foreground hover:text-foreground text-sm px-2 py-1 rounded hover:bg-muted/40 transition shadow-none border-none bg-transparent"
+            onClick={() => router.back()}
+            type="button"
+            aria-label="Back"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span className="hidden sm:inline">Back</span>
+          </button>
+        </div>
+        {/* Main Content */}
+        <div className="flex flex-col lg:flex-row max-w-6xl mx-auto py-4 px-2 gap-6">
         {/* Main Post Content */}
         <div className="flex-1 min-w-0">
           <div className="bg-card rounded-xl shadow-lg border border-border overflow-hidden">
             {/* Author Header */}
             <div className="p-4 border-b border-border">
-              <div className="flex flex-row items-center gap-2 md:gap-4">
-                <Link href={`/profile/${creatorId}`} className="flex flex-row items-center gap-2 hover:opacity-80 transition-opacity">
-                  <Avatar className="w-10 h-10 md:w-12 md:h-12 ring-2 ring-border">
-                    {creatorAvatar ? (
-                      <AvatarImage src={creatorAvatar} alt={creatorName || 'User'} />
-                    ) : (
-                      <AvatarFallback className="bg-muted">{creatorName?.substring(0,2).toUpperCase() || '??'}</AvatarFallback>
-                    )}
-                  </Avatar>
-                  <span className="font-semibold text-foreground text-base md:text-lg">{creatorName}</span>
-                </Link>
+              <div className="flex flex-row items-center justify-between">
+                <div className="flex flex-row items-center gap-2 md:gap-4">
+                  <Link href={`/profile/${creatorId}`} className="flex flex-row items-center gap-2 hover:opacity-80 transition-opacity">
+                    <Avatar className="w-10 h-10 md:w-12 md:h-12 ring-2 ring-border">
+                      {creatorAvatar ? (
+                        <AvatarImage src={creatorAvatar} alt={creatorName || 'User'} />
+                      ) : (
+                        <AvatarFallback className="bg-muted">{creatorName?.substring(0,2).toUpperCase() || '??'}</AvatarFallback>
+                      )}
+                    </Avatar>
+                    <span className="font-semibold text-foreground text-base md:text-lg">{creatorName}</span>
+                  </Link>
+                </div>
+                {/* Edit button - only show for post creator */}
+                {currentUserId === creatorId && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEditMode(!editMode)}
+                    className="h-8 w-8 p-0"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
               <div className="text-xs text-muted-foreground ml-12 mt-1 md:ml-0 md:mt-0 md:ml-2 md:block">{postTime}</div>
               {/* Desktop: Society badge + post type in header */}
@@ -244,7 +328,49 @@ export default function PostDetailClient({
                   />
                 </div>
               )}
-              <div className="mt-2 text-foreground whitespace-pre-line">{content}</div>
+              {/* Content - Edit or Display Mode */}
+              {editMode ? (
+                <div className="mt-2 space-y-3">
+                  <Textarea
+                    value={editContent}
+                    onChange={(e) => setEditContent(e.target.value)}
+                    className="min-h-[120px] resize-none"
+                    placeholder="What's on your mind?"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handleEditSubmit}
+                      disabled={editLoading}
+                      size="sm"
+                      className="bg-primary hover:bg-primary/90"
+                    >
+                      {editLoading ? (
+                        <>
+                          <Loader2 className="w-3 h-3 animate-spin mr-2" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-3 h-3 mr-2" />
+                          Save
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        setEditMode(false);
+                        setEditContent(content);
+                      }}
+                      variant="outline"
+                      size="sm"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-2 text-foreground whitespace-pre-line">{content}</div>
+              )}
               
               {/* Single link preview (backward compatibility) */}
               {linkPreview && !hasImage && !hasVideo && !hasAudio && (!links || links.length === 0) && (
@@ -337,6 +463,7 @@ export default function PostDetailClient({
           <div className="bg-card rounded-xl shadow-lg border border-border sticky top-6">
             <PostSocialPanel postId={id} currentUserId={currentUserId} postType={postType} societyId={society?.id} />
           </div>
+        </div>
         </div>
       </div>
     </div>

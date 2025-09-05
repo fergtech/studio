@@ -86,98 +86,79 @@ export function MainFeedSocietyPostCard({ post }: MainFeedSocietyPostCardProps) 
     window.location.href = `/profile/${post.user.id}`;
   };
 
-  // Determine media type and URL
+  // Helper functions to detect file types
+  const isVideoFile = (url: string) => {
+    if (!url) return false;
+    const videoExtensions = ['.mp4', '.webm', '.mov', '.avi', '.mkv', '.wmv', '.flv', '.m4v'];
+    return videoExtensions.some(ext => url.toLowerCase().includes(ext));
+  };
+
+  const isAudioFile = (url: string) => {
+    if (!url) return false;
+    const audioExtensions = ['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.flac'];
+    return audioExtensions.some(ext => url.toLowerCase().includes(ext));
+  };
+
+  // Determine media type and URL (same logic as GeneralPostCard)
   const hasMedia = (post.media && post.media.length > 0) || post.imageUrl;
   const mediaUrl = post.media?.[0]?.url || post.imageUrl;
+  const isImage = hasMedia && ((post.media && post.media[0]?.type === 'image') || post.imageUrl) && !isVideoFile(mediaUrl!) && !isAudioFile(mediaUrl!);
+  const isVideo = hasMedia && (post.media?.[0]?.type === 'video' || isVideoFile(mediaUrl!));
+  const isAudio = hasMedia && (post.media?.[0]?.type === 'audio' || isAudioFile(mediaUrl!));
   const hasLinks = post.links && post.links.length > 0;
   const hasDocuments = post.documents && post.documents.length > 0;
   const hasSingleLink = post.linkPreview && !hasLinks;
-  const isVideo = post.media?.[0]?.type === 'video' || 
-                  (mediaUrl && (
-                    mediaUrl.toLowerCase().includes('.mp4') ||
-                    mediaUrl.toLowerCase().includes('.webm') ||
-                    mediaUrl.toLowerCase().includes('.mov') ||
-                    mediaUrl.toLowerCase().includes('.avi') ||
-                    mediaUrl.toLowerCase().includes('.mkv') ||
-                    mediaUrl.toLowerCase().includes('.wmv') ||
-                    mediaUrl.toLowerCase().includes('.flv') ||
-                    mediaUrl.toLowerCase().includes('.m4v')
-                  ));
-  const isAudio = post.media?.[0]?.type === 'audio' || 
-                  (mediaUrl && (
-                    mediaUrl.toLowerCase().includes('.mp3') ||
-                    mediaUrl.toLowerCase().includes('.wav') ||
-                    mediaUrl.toLowerCase().includes('.m4a') ||
-                    mediaUrl.toLowerCase().includes('.aac') ||
-                    mediaUrl.toLowerCase().includes('.ogg') ||
-                    mediaUrl.toLowerCase().includes('.flac')
-                  ));
+  const hasLinkPreview = post.linkPreview && !hasMedia;
+  const hasMultipleLinks = post.links && post.links.length > 0 && !hasMedia;
+  
+  // Use same backgroundStyle logic as GeneralPostCard
+  const backgroundStyle = isImage
+    ? { backgroundImage: `url(${mediaUrl})` }
+    : isVideo
+    ? { backgroundColor: '#000000' } // Black background for video thumbnails
+    : isAudio
+    ? { background: 'linear-gradient(to right, #667eea, #764ba2)' } // Purple gradient for audio
+    : hasLinkPreview || hasMultipleLinks
+    ? { background: 'linear-gradient(to right, #11998e, #38ef7d)' } // Green gradient for links
+    : hasDocuments
+    ? { background: 'linear-gradient(to right, #ff6b6b, #ffa726)' } // Orange gradient for documents
+    : { background: 'linear-gradient(to right, #6a11cb, #2575fc)' }; // Default gradient
 
   return (
     <div
       className="relative mb-4 rounded-lg overflow-hidden shadow-lg flex flex-col text-card-foreground bg-background cursor-pointer aspect-[9/12] hover:ring-2 hover:ring-primary/60 transition group w-full max-w-[500px]"
       onClick={handleCardClick}
     >
-      {/* Background media if present */}
-      {hasMedia && mediaUrl && (
-        <div className="absolute inset-0 z-0">
-          {isVideo ? (
-            <video 
-              src={mediaUrl} 
-              className="w-full h-full object-cover" 
-              muted
-              playsInline
-              preload="metadata"
-              style={{ pointerEvents: 'none' }}
-            />
-          ) : isAudio ? (
-            <div className="w-full h-full bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center">
-              <Music className="w-16 h-16 text-white/60" />
-            </div>
-          ) : (
-            <AzureImage src={mediaUrl} alt="Post media" fill className="object-cover" />
-          )}
-          <div className="absolute inset-0 bg-black/30 z-10" />
-        </div>
-      )}
-      
-      {/* Background for link posts */}
-      {!hasMedia && (hasLinks || hasSingleLink) && !hasDocuments && (
-        <div className="absolute inset-0 z-0">
-          {hasLinks && post.links![0]?.linkPreview?.image ? (
-            <>
-              <AzureImage 
-                src={post.links![0].linkPreview.image} 
-                alt="Link preview" 
-                fill
-                className="object-cover" 
-              />
-              <div className="absolute inset-0 bg-black/40 z-10" />
-            </>
-          ) : hasSingleLink && post.linkPreview?.image ? (
-            <>
-              <AzureImage 
-                src={post.linkPreview.image} 
-                alt="Link preview" 
-                fill
-                className="object-cover" 
-              />
-              <div className="absolute inset-0 bg-black/40 z-10" />
-            </>
-          ) : (
-            <div className="w-full h-full bg-gradient-to-br from-green-500/20 to-blue-500/20" />
-          )}
-        </div>
-      )}
-      
-      {/* Background for document posts */}
-      {!hasMedia && hasDocuments && (
-        <div className="absolute inset-0 z-0">
-          <div className="w-full h-full bg-gradient-to-br from-orange-500/20 to-red-500/20 flex items-center justify-center">
+      {/* Unified background using same logic as GeneralPostCard */}
+      <div 
+        className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat" 
+        style={backgroundStyle}
+      >
+        {/* Special handling for videos - show actual video element for images that are videos */}
+        {isVideo && mediaUrl && (
+          <video 
+            src={mediaUrl} 
+            className="w-full h-full object-cover" 
+            muted
+            playsInline
+            preload="metadata"
+            style={{ pointerEvents: 'none' }}
+          />
+        )}
+        {/* Special handling for audio - show music icon */}
+        {isAudio && (
+          <div className="w-full h-full flex items-center justify-center">
+            <Music className="w-16 h-16 text-white/60" />
+          </div>
+        )}
+        {/* Special handling for documents - show document icon */}
+        {hasDocuments && !hasMedia && (
+          <div className="w-full h-full flex items-center justify-center">
             <FileText className="w-16 h-16 text-white/60" />
           </div>
-        </div>
-      )}
+        )}
+        <div className="absolute inset-0 bg-black/30 z-10" />
+      </div>
       {/* Content Layer */}
       <div className="relative z-20 flex flex-col flex-grow p-4 h-full">
         {/* Header */}

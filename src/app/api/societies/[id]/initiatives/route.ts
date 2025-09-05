@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const societyId = params.id;
+    const { id } = await params;
+    const societyId = id;
 
     // Check if society exists
     const society = await prisma.society.findUnique({
@@ -14,9 +15,11 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       return NextResponse.json({ error: 'Society not found' }, { status: 404 });
     }
 
-    // Get all initiatives for this society
+    // Get only initiatives that are directly linked to this society
     const initiatives = await prisma.initiative.findMany({
-      where: { societyId },
+      where: {
+        societyId // Only initiatives explicitly belonging to this society
+      },
       include: {
         creator: {
           select: {

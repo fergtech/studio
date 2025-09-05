@@ -422,20 +422,20 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
       {/* Main Content with Tabs */}
       <div className="max-w-4xl mx-auto px-4">
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 bg-gray-100 dark:bg-gray-800">
-            <TabsTrigger value="overview" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700">
+          <TabsList className="flex w-full overflow-x-auto scrollbar-hide bg-gray-100 dark:bg-gray-800 gap-1 p-1">
+            <TabsTrigger value="overview" className="flex-shrink-0 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 min-w-max">
               <Activity className="w-4 h-4 mr-2" />
               Overview
             </TabsTrigger>
-            <TabsTrigger value="initiatives" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700">
+            <TabsTrigger value="initiatives" className="flex-shrink-0 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 min-w-max">
               <Rocket className="w-4 h-4 mr-2" />
               Initiatives
             </TabsTrigger>
-            <TabsTrigger value="activity" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700">
+            <TabsTrigger value="activity" className="flex-shrink-0 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 min-w-max">
               <Clock className="w-4 h-4 mr-2" />
               Activity
             </TabsTrigger>
-            <TabsTrigger value="circle" className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700">
+            <TabsTrigger value="circle" className="flex-shrink-0 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 min-w-max">
               <Users2 className="w-4 h-4 mr-2" />
               Circle
             </TabsTrigger>

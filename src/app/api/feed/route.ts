@@ -166,8 +166,11 @@ interface UnifiedFeedItem {
 // Legacy type for backward compatibility
 export type ApiFeedItem = InitiativeWithCreator | GeneralPostWithCreatorAndMedia | IssueWithCreator | IdeaWithCreator;
 
-async function getUnifiedFeedItems(page: number = 1, pageSize: number = 10): Promise<UnifiedFeedItem[]> {
-  // Fetch all content and meta actions in parallel
+async function getUnifiedFeedItems(cursor?: string, pageSize: number = 20): Promise<{ items: UnifiedFeedItem[], nextCursor: string | null, hasMore: boolean }> {
+  // Parse cursor to get timestamp
+  const cursorDate = cursor ? new Date(cursor) : new Date();
+  
+  // Fetch all content and meta actions in parallel with proper cursor-based pagination
   const [initiatives, generalPosts, societyPosts, issues, ideas, debates, updates, follows, joins] = await Promise.all([
     prisma.initiative.findMany({
       include: {
@@ -186,11 +189,15 @@ async function getUnifiedFeedItems(page: number = 1, pageSize: number = 10): Pro
           },
         },
       },
+      where: {
+        createdAt: {
+          lt: cursorDate,
+        },
+      },
       orderBy: {
         createdAt: 'desc',
       },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
+      take: Math.ceil(pageSize / 4), // Distribute across content types
     }),
     prisma.generalPost.findMany({
       include: {
@@ -257,11 +264,15 @@ async function getUnifiedFeedItems(page: number = 1, pageSize: number = 10): Pro
           }
         },
       },
+      where: {
+        timestamp: {
+          lt: cursorDate,
+        },
+      },
       orderBy: {
         timestamp: 'desc',
       },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
+      take: Math.ceil(pageSize / 4),
     }),
     prisma.societyPost.findMany({
       include: {
@@ -319,9 +330,13 @@ async function getUnifiedFeedItems(page: number = 1, pageSize: number = 10): Pro
           }
         },
       },
+      where: {
+        createdAt: {
+          lt: cursorDate,
+        },
+      },
       orderBy: { createdAt: 'desc' },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
+      take: Math.ceil(pageSize / 4),
     }),
     prisma.issue.findMany({
       include: {
@@ -348,11 +363,15 @@ async function getUnifiedFeedItems(page: number = 1, pageSize: number = 10): Pro
           },
         },
       },
+      where: {
+        createdAt: {
+          lt: cursorDate,
+        },
+      },
       orderBy: {
         createdAt: 'desc',
       },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
+      take: Math.ceil(pageSize / 8),
     }),
     prisma.idea.findMany({
       include: {
@@ -379,11 +398,15 @@ async function getUnifiedFeedItems(page: number = 1, pageSize: number = 10): Pro
           },
         },
       },
+      where: {
+        createdAt: {
+          lt: cursorDate,
+        },
+      },
       orderBy: {
         createdAt: 'desc',
       },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
+      take: Math.ceil(pageSize / 8),
     }),
     prisma.debateTopic.findMany({
       include: {
@@ -406,11 +429,15 @@ async function getUnifiedFeedItems(page: number = 1, pageSize: number = 10): Pro
           },
         },
       },
+      where: {
+        createdAt: {
+          lt: cursorDate,
+        },
+      },
       orderBy: {
         createdAt: 'desc',
       },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
+      take: Math.ceil(pageSize / 8),
     }),
     prisma.update.findMany({
       include: {
@@ -428,11 +455,15 @@ async function getUnifiedFeedItems(page: number = 1, pageSize: number = 10): Pro
           },
         },
       },
+      where: {
+        createdAt: {
+          lt: cursorDate,
+        },
+      },
       orderBy: {
         createdAt: 'desc',
       },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
+      take: Math.ceil(pageSize / 8),
     }),
     prisma.userFollow.findMany({
       include: {
@@ -451,11 +482,15 @@ async function getUnifiedFeedItems(page: number = 1, pageSize: number = 10): Pro
           },
         },
       },
+      where: {
+        createdAt: {
+          lt: cursorDate,
+        },
+      },
       orderBy: {
         createdAt: 'desc',
       },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
+      take: Math.ceil(pageSize / 8),
     }),
     prisma.initiativeMembership.findMany({
       include: {
@@ -473,11 +508,15 @@ async function getUnifiedFeedItems(page: number = 1, pageSize: number = 10): Pro
           },
         },
       },
+      where: {
+        createdAt: {
+          lt: cursorDate,
+        },
+      },
       orderBy: {
         createdAt: 'desc',
       },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
+      take: Math.ceil(pageSize / 8),
     }),
   ]);
 
@@ -631,7 +670,31 @@ async function getUnifiedFeedItems(page: number = 1, pageSize: number = 10): Pro
     }
   }
 
-  return deduped.slice(0, pageSize);
+  // Get final items limited to pageSize
+  const finalItems = deduped.slice(0, pageSize);
+  
+  // Generate next cursor from the last item's timestamp
+  const nextCursor = finalItems.length > 0 
+    ? finalItems[finalItems.length - 1].timestamp.toISOString()
+    : null;
+    
+  // Check if there are more items by checking if any content type returned its full limit
+  const hasMore = deduped.length > pageSize || 
+    (initiatives.length === Math.ceil(pageSize / 4) || 
+     generalPosts.length === Math.ceil(pageSize / 4) || 
+     societyPosts.length === Math.ceil(pageSize / 4) || 
+     issues.length === Math.ceil(pageSize / 8) || 
+     ideas.length === Math.ceil(pageSize / 8) || 
+     debates.length === Math.ceil(pageSize / 8) || 
+     updates.length === Math.ceil(pageSize / 8) || 
+     follows.length === Math.ceil(pageSize / 8) || 
+     joins.length === Math.ceil(pageSize / 8));
+
+  return {
+    items: finalItems,
+    nextCursor,
+    hasMore,
+  };
 }
 
 // Legacy function for backward compatibility
@@ -644,14 +707,32 @@ async function getFeedItemsFromDb(page: number = 1, pageSize: number = 10): Prom
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
+  const cursor = searchParams.get('cursor') || undefined;
+  const limit = parseInt(searchParams.get('limit') || '20', 10);
+  const unified = searchParams.get('unified') === 'true';
+  
+  // Legacy support
   const page = parseInt(searchParams.get('page') || '1', 10);
   const pageSize = parseInt(searchParams.get('pageSize') || '10', 10);
-  const unified = searchParams.get('unified') === 'true';
 
   try {
     if (unified) {
-      const feedItems = await getUnifiedFeedItems(page, pageSize);
-      return NextResponse.json(feedItems);
+      // Use cursor-based pagination if cursor is provided, otherwise use legacy
+      if (cursor !== undefined || !searchParams.has('page')) {
+        const result = await getUnifiedFeedItems(cursor, limit);
+        return NextResponse.json({
+          items: result.items,
+          pagination: {
+            nextCursor: result.nextCursor,
+            hasMore: result.hasMore,
+            limit,
+          }
+        });
+      } else {
+        // Legacy support - return old format
+        const result = await getUnifiedFeedItems(undefined, pageSize);
+        return NextResponse.json(result.items);
+      }
     } else {
       // Legacy endpoint for backward compatibility
       const feedItems = await getFeedItemsFromDb(page, pageSize);

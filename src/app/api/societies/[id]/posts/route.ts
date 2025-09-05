@@ -1,12 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
+    const { searchParams } = new URL(req.url);
+    const limit = parseInt(searchParams.get('limit') || '10');
+    const cursor = searchParams.get('cursor');
+    const type = searchParams.get('type'); // Filter by post type (GENERAL, IDEA, ISSUE)
+    
+    // Build where condition
+    const where: any = { societyId: id };
+    if (type && ['GENERAL', 'IDEA', 'ISSUE'].includes(type)) {
+      where.type = type;
+    }
+    if (cursor) {
+      where.createdAt = { lt: new Date(cursor) };
+    }
+    
     const posts = await prisma.societyPost.findMany({
-      where: { societyId: params.id },
+      where,
       include: { 
-        user: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            username: true,
+            image: true,
+          }
+        },
         linkPreview: true,
         links: {
           include: {
@@ -26,6 +48,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         }
       },
       orderBy: { createdAt: 'desc' },
+      take: limit + 1, // Take one extra to check if there are more
     });
 
     // Helper function to detect media type from URL
@@ -58,8 +81,12 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       return 'image';
     };
 
+    // Check if there are more posts
+    const hasMore = posts.length > limit;
+    const postsToReturn = hasMore ? posts.slice(0, limit) : posts;
+    
     // Transform posts to include media array for consistency with display components
-    const transformedPosts = posts.map(post => ({
+    const transformedPosts = postsToReturn.map(post => ({
       ...post,
       media: post.imageUrl ? [{
         type: getMediaType(post.imageUrl),
@@ -67,7 +94,19 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       }] : []
     }));
 
-    return NextResponse.json(transformedPosts);
+    // Get cursor for next page (createdAt of last post)
+    const nextCursor = hasMore && postsToReturn.length > 0 
+      ? postsToReturn[postsToReturn.length - 1].createdAt.toISOString()
+      : null;
+
+    return NextResponse.json({
+      posts: transformedPosts,
+      pagination: {
+        hasMore,
+        nextCursor,
+        limit,
+      }
+    });
   } catch (error) {
     return NextResponse.json({ error: 'Failed to fetch posts', details: error }, { status: 500 });
   }

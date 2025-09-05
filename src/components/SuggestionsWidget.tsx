@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useLazyLoad } from '@/hooks/useLazyLoad';
 // import { io, Socket } from 'socket.io-client'; // Temporarily disabled for Vercel deployment
 
 interface SuggestedUser {
@@ -27,34 +28,36 @@ interface SuggestedInitiative {
 export default function SuggestionsWidget() {
   const [users, setUsers] = useState<SuggestedUser[]>([]);
   const [initiatives, setInitiatives] = useState<SuggestedInitiative[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [following, setFollowing] = useState<string[]>([]);
   const [onlineUserIds, setOnlineUserIds] = useState<string[]>([]);
 
+  // Lazy load suggestions
+  const fetchSuggestions = async () => {
+    const [userRes, initiativeRes] = await Promise.all([
+      fetch('/api/users'),
+      fetch('/api/initiatives/suggestions'),
+    ]);
+    if (!userRes.ok) throw new Error('Failed to fetch user suggestions');
+    if (!initiativeRes.ok) throw new Error('Failed to fetch initiative suggestions');
+    const userData = await userRes.json();
+    const initiativeData = await initiativeRes.json();
+    return {
+      users: userData.users || [],
+      initiatives: initiativeData.initiatives || []
+    };
+  };
+
+  const { ref, data, loading, error } = useLazyLoad(fetchSuggestions);
+
+  // Update state when lazy loaded data is available
   useEffect(() => {
-    async function fetchSuggestions() {
-      setLoading(true);
-      setError(null);
-      try {
-        const [userRes, initiativeRes] = await Promise.all([
-          fetch('/api/users'),
-          fetch('/api/initiatives/suggestions'),
-        ]);
-        if (!userRes.ok) throw new Error('Failed to fetch user suggestions');
-        if (!initiativeRes.ok) throw new Error('Failed to fetch initiative suggestions');
-        const userData = await userRes.json();
-        const initiativeData = await initiativeRes.json();
-        setUsers(userData.users || []);
-        setInitiatives(initiativeData.initiatives || []);
-      } catch (err: any) {
-        setError(err.message || 'Error fetching suggestions');
-      } finally {
-        setLoading(false);
-      }
+    if (data) {
+      setUsers(data.users);
+      setInitiatives(data.initiatives);
     }
-    fetchSuggestions();
-  }, []);
+  }, [data]);
+
+  // Socket logic temporarily disabled for Vercel deployment
 
   // Socket logic temporarily disabled for Vercel deployment
   useEffect(() => {
@@ -89,7 +92,7 @@ export default function SuggestionsWidget() {
   }
 
   return (
-    <Card>
+    <Card ref={ref}>
       <CardHeader className="py-2 px-3">
         <CardTitle className="flex items-center gap-2 text-base font-semibold">
           <Users className="h-4 w-4" />

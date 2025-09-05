@@ -3,8 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { AzureAvatar } from '@/components/ui/azure-image';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { MessageCircle, Users, TrendingUp, Play, Volume2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -70,6 +69,19 @@ export function DebateTopicCard({
 
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
+  };
+
+  // Mock user avatars matching main feed pattern
+  const mockUserAvatars: Record<string, string | undefined> = {
+    "user1": "https://i.pravatar.cc/40?u=user1",
+    "user3": "https://i.pravatar.cc/40?u=user3",
+    "user5": "https://i.pravatar.cc/40?u=user5",
+    "user7": "https://i.pravatar.cc/40?u=user7",
+  };
+
+  // Get avatar URL with fallback pattern matching main feed
+  const getAvatarUrl = (userId?: string, sessionImage?: string | null) => {
+    return sessionImage || mockUserAvatars[userId || ''] || "https://i.pravatar.cc/40?u=anonymous";
   };
 
   // Determine media type
@@ -139,20 +151,15 @@ export function DebateTopicCard({
         )}>
         {/* Header with creator info */}
         <div className="flex items-center gap-3 mb-3">
-          {creator.image ? (
-            <AzureAvatar 
-              src={creator.image}
+          <Avatar className="w-8 h-8">
+            <AvatarImage 
+              src={getAvatarUrl(creator.id, creator.image)} 
               alt={creator.name} 
-              size={32}
-              className="w-8 h-8"
             />
-          ) : (
-            <Avatar className="w-8 h-8">
-              <AvatarFallback className="text-xs">
-                {getInitials(creator.name)}
-              </AvatarFallback>
-            </Avatar>
-          )}
+            <AvatarFallback className="text-xs">
+              {getInitials(creator.name)}
+            </AvatarFallback>
+          </Avatar>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium truncate">{creator.name}</p>
             <p className="text-xs text-muted-foreground">{timeAgo}</p>

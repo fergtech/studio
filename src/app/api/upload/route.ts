@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { BlobServiceClient, BlockBlobUploadOptions } from '@azure/storage-blob';
+import { put } from '@vercel/blob';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { v4 as uuidv4 } from 'uuid';
-import { prisma } from '@/lib/prisma'; // Added prisma import
+import { prisma } from '@/lib/prisma';
 //import { HttpsProxyAgent } from "https-proxy-agent";
 //import { StorageSharedKeyCredential } from "@azure/storage-blob";
 //import { createPipelineFromOptions, Pipeline } from "@azure/core-rest-pipeline";
@@ -15,17 +15,11 @@ export const maxRequestBodySize = '100mb';
 export async function POST(request: NextRequest) {
   console.log("Upload API route hit");
 
-  const AZURE_STORAGE_CONNECTION_STRING = process.env.AZURE_STORAGE_CONNECTION_STRING;
-  const AZURE_STORAGE_CONTAINER_NAME = process.env.AZURE_STORAGE_CONTAINER_NAME;
+  const BLOB_READ_WRITE_TOKEN = process.env.BLOB_READ_WRITE_TOKEN;
 
-  if (!AZURE_STORAGE_CONNECTION_STRING) {
-    console.error("Azure Storage Connection String is not configured.");
-    return NextResponse.json({ error: "Azure Storage Connection String is not configured." }, { status: 500 });
-  }
-  
-  if (!AZURE_STORAGE_CONTAINER_NAME) {
-    console.error("Azure Storage Container Name is not configured.");
-    return NextResponse.json({ error: "Azure Storage Container Name is not configured." }, { status: 500 });
+  if (!BLOB_READ_WRITE_TOKEN) {
+    console.error("Vercel Blob token is not configured.");
+    return NextResponse.json({ error: "Vercel Blob token is not configured." }, { status: 500 });
   }
 
   try {
@@ -107,13 +101,7 @@ export async function POST(request: NextRequest) {
           }
         : undefined,
     });*/
-    // ✅ ADDING THE CORRECT, SIMPLIFIED CLIENT INITIALIZATION
-    const blobServiceClient = BlobServiceClient.fromConnectionString(
-      AZURE_STORAGE_CONNECTION_STRING
-    );
-    const containerClient = blobServiceClient.getContainerClient(AZURE_STORAGE_CONTAINER_NAME);
-    // Optional: Ensure container exists. Usually, it's better to ensure it's created beforehand.
-    // await containerClient.createIfNotExists();
+    // Vercel Blob doesn't need client initialization - just direct upload
 
     const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '-');
     const uniqueFileName = `${Date.now()}-${uuidv4()}-${sanitizedFileName}`;
@@ -123,23 +111,18 @@ export async function POST(request: NextRequest) {
     const normalizedPath = filePath ? filePath.replace(/\\\\\\\\/g, '/').replace(/\/$/, '') : '';
     const blobName = normalizedPath ? `${normalizedPath}/${uniqueFileName}` : uniqueFileName;
     
-    console.log(`Attempting to upload blob: '${blobName}' to container '${AZURE_STORAGE_CONTAINER_NAME}'`);
+    console.log(`Attempting to upload blob: '${blobName}' to Vercel Blob`);
 
-    const blockBlobClient = containerClient.getBlockBlobClient(blobName);
-
-    const buffer = Buffer.from(await file.arrayBuffer());
-
-    const uploadOptions: BlockBlobUploadOptions = {
-      blobHTTPHeaders: { blobContentType: file.type }
-    };
-
-    const uploadBlobResponse = await blockBlobClient.uploadData(buffer, uploadOptions);
+    // Upload to Vercel Blob
+    const blob = await put(blobName, file, {
+      access: 'public',
+      token: BLOB_READ_WRITE_TOKEN,
+    });
     
-    console.log(`File uploaded successfully. Azure response status: ${uploadBlobResponse._response.status}`);
-    console.log(`Uploaded Blob URL: ${blockBlobClient.url}`);
+    console.log(`File uploaded successfully to Vercel Blob: ${blob.url}`);
 
     // --- BEGIN DATABASE UPDATE LOGIC ---
-    const imageUrl = blockBlobClient.url;
+    const imageUrl = blob.url;
     let updatedUser;
 
     console.log(`Attempting to update database for user: ${userId} with imageType: ${imageType}`);

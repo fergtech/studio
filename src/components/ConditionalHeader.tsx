@@ -10,13 +10,15 @@ export function ConditionalHeader() {
   const noHeaderPaths = [
     '/', // Main page (authenticated users)
     '/societies',
+    '/initiatives',
     '/activity', 
     '/explore',
     '/chat/',
     '/profile/',
     '/debates/',
     '/issues/',
-    '/ideas/'
+    '/ideas/',
+    '/posts/'
   ];
 
   // Check if current path should hide header

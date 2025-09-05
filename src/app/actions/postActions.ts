@@ -159,8 +159,48 @@ export async function updateGeneralPostContent(postId: string, newContent: strin
       where: { id: postId },
       data: { content: newContent },
     });
+    
+    // Revalidate the post detail page and home page
+    revalidatePath(`/posts/${postId}`);
+    revalidatePath("/");
+    
     return { success: true };
   } catch (error) {
+    console.error('Error in updateGeneralPostContent:', error);
+    return { success: false, error: (error instanceof Error ? error.message : 'Unknown error') };
+  }
+}
+
+export async function updateSocietyPostContent(postId: string, newContent: string) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return { success: false, error: 'Not authenticated' };
+  }
+  const currentUserId = session.user.id;
+  try {
+    // Check if the post exists and belongs to the user
+    const post = await prisma.societyPost.findUnique({
+      where: { id: postId },
+      select: { userId: true },
+    });
+    if (!post) {
+      return { success: false, error: 'Post not found' };
+    }
+    if (post.userId !== currentUserId) {
+      return { success: false, error: 'Not authorized' };
+    }
+    await prisma.societyPost.update({
+      where: { id: postId },
+      data: { content: newContent },
+    });
+    
+    // Revalidate the post detail page and home page
+    revalidatePath(`/posts/${postId}`);
+    revalidatePath("/");
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error in updateSocietyPostContent:', error);
     return { success: false, error: (error instanceof Error ? error.message : 'Unknown error') };
   }
 }

@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Send, X, CheckCircle, Paperclip, ExternalLink, TrendingUp, Pin, ThumbsUp, PartyPopper, Heart, Lightbulb, Share2, Image as ImageIcon, Archive, UserPlus, Plus, MessageSquare, Twitter, Facebook, Link2, Edit, Menu, Trash2, Download } from 'lucide-react';
+import { Send, X, CheckCircle, Paperclip, ExternalLink, TrendingUp, Pin, ThumbsUp, PartyPopper, Heart, Lightbulb, Share2, Image as ImageIcon, Archive, UserPlus, Plus, MessageSquare, Twitter, Facebook, Link2, Edit, Menu, Trash2, Download, Info } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDistanceToNow } from 'date-fns';
@@ -24,6 +24,7 @@ import type { Initiative, Role, UserSelectableMembershipRole, Member, EnhancedCh
 import { ALL_USER_SELECTABLE_MEMBERSHIP_ROLES } from "@/lib/types";
 import { MissionProgressBanner } from './MissionProgressBanner';
 import { InitiativeSidebar } from '@/components/initiatives/InitiativeSidebar'; // Corrected import path
+import AppSidebar from '@/components/AppSidebar'; // Add global AppSidebar
 import { CreateUpdateForm } from './CreateUpdateForm';
 import { ActivityFeed } from './ActivityFeed';
 import { EditInitiativeDialog } from './EditInitiativeDialog';
@@ -193,6 +194,7 @@ export function InitiativeClientPage({
   const [isChangeRoleModalOpen, setIsChangeRoleModalOpen] = useState(false);
   const [isCreateGoalDialogOpen, setIsCreateGoalDialogOpen] = useState(false); // State for goal dialog
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const isMobile = useIsMobile();
 
   // State for suggested goals
@@ -219,9 +221,6 @@ export function InitiativeClientPage({
     }
   }, [isMobile]); // Removed isSidebarOpen from dependencies to avoid loop with toggle
 
-  const toggleSidebar = () => {
-    setIsSidebarOpen(!isSidebarOpen);
-  };
 
   if (!initiative) {
     return null; // or a loading spinner, depending on your UX preference
@@ -696,34 +695,97 @@ export function InitiativeClientPage({
   };
 
   return (
-    <div className="relative min-h-screen">
-      {/* Overlay for Mobile Sidebar */}
+    <>
+      {/* Global AppSidebar for consistent navigation - matches society page pattern */}
+      <AppSidebar 
+        context={{ type: 'initiative', data: initiative }}
+        className="z-30"
+        onCollapseChange={setSidebarCollapsed}
+      />
+      
+      {/* Fixed Initiative Sidebar for Desktop - matches society pattern */}
+      {!isMobile && (
+        <div className="fixed right-4 top-6 z-30 w-80 h-[calc(100vh-3rem)] overflow-y-auto bg-background/95 backdrop-blur-sm border rounded-lg shadow-lg p-4">
+          <InitiativeSidebar 
+            initiative={initiative} 
+            members={initiative.memberships?.map(mem => ({
+              id: mem.user.id,
+              name: mem.user.name || 'Unknown',
+              image: mem.user.image || null,
+              email: undefined,
+              role: mem.role,
+              customRole: mem.customRole || null,
+              joinedAt: new Date(),
+              lastActive: mem.user.lastActive,
+            })) || []} 
+            isMobile={isMobile}
+            onToggleChat={() => setIsChatOpen(!isChatOpen)}
+            isChatOpen={isChatOpen}
+          />
+        </div>
+      )}
+
+      {/* Mobile Initiative Sidebar - overlay when needed */}
       {isMobile && isSidebarOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity duration-300 ease-in-out"
-          onClick={toggleSidebar} // Close sidebar when overlay is clicked
+          onClick={() => setIsSidebarOpen(false)}
           aria-hidden="true"
         />
       )}
+      
+      {isMobile && isSidebarOpen && (
+        <div className="fixed right-0 top-0 z-50 w-80 h-full bg-background border-l shadow-lg overflow-y-auto">
+          <div className="p-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-4 right-4"
+              onClick={() => setIsSidebarOpen(false)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+            <div className="mt-8">
+              <InitiativeSidebar 
+                initiative={initiative} 
+                members={initiative.memberships?.map(mem => ({
+                  id: mem.user.id,
+                  name: mem.user.name || 'Unknown',
+                  image: mem.user.image || null,
+                  email: undefined,
+                  role: mem.role,
+                  customRole: mem.customRole || null,
+                  joinedAt: new Date(),
+                  lastActive: mem.user.lastActive,
+                })) || []} 
+                isMobile={true}
+                isOpen={true}
+                onToggle={() => setIsSidebarOpen(false)}
+                onToggleChat={() => setIsChatOpen(!isChatOpen)}
+                isChatOpen={isChatOpen}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
-      {/* Mobile Sidebar Toggle Button */}
+      {/* Mobile Initiative Info Toggle Button */}
       {isMobile && (
         <Button
           variant="outline"
           size="icon"
-          className="fixed bottom-4 left-4 z-[60] bg-background shadow-lg rounded-full p-3 w-14 h-14 flex items-center justify-center"
-          onClick={toggleSidebar}
+          className="fixed bottom-4 left-4 z-[60] bg-background/95 backdrop-blur-sm shadow-lg rounded-full p-3 w-12 h-12 flex items-center justify-center"
+          onClick={() => setIsSidebarOpen(true)}
         >
-          {isSidebarOpen ? (
-            <X className="h-6 w-6" />
-          ) : (
-            <Menu className="h-6 w-6" />
-          )}
-          <span className="sr-only">{isSidebarOpen ? "Close menu" : "Open menu"}</span>
+          <Info className="h-5 w-5" />
+          <span className="sr-only">Open initiative info</span>
         </Button>
       )}
 
-      <div className="container mx-auto p-0 sm:p-4">
+      <div className={`relative min-h-screen transition-all duration-300 ${
+        sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'
+      } lg:pr-[22rem]`}>
+        <div className="container mx-auto p-0 sm:p-4">
         {/* Header Card */}
         <Card className="mb-6 rounded-none border-x-0 border-t-0">
           <div className="relative w-full aspect-[16/9] md:aspect-[21/9]">
@@ -763,9 +825,11 @@ export function InitiativeClientPage({
                       {initiative.status}
                     </Badge>
                     {initiative.society && (
-                      <Badge variant="outline" className="bg-white/10 text-foreground border-white/30 text-xs backdrop-blur-sm">
-                        🏛️ {initiative.society.name}
-                      </Badge>
+                      <Link href={`/societies/${initiative.society.id}`} className="hover:opacity-80 transition-opacity">
+                        <Badge variant="outline" className="bg-white/10 text-foreground border-white/30 text-xs backdrop-blur-sm cursor-pointer hover:bg-white/20 transition-colors">
+                          🏛️ {initiative.society.name}
+                        </Badge>
+                      </Link>
                     )}
                     <Badge variant="secondary" className="bg-card/30 text-foreground text-xs backdrop-blur-sm">
                       {initiative.memberships?.length || 0} members
@@ -853,10 +917,8 @@ export function InitiativeClientPage({
           </div>
         </Card>
 
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Main Content Column */}
-          <div className="md:col-span-2 space-y-6">
+        {/* Main Content - Full width with right sidebar space */}
+        <div className="space-y-6">
             {/* Mission Progress Banner */}
             <MissionProgressBanner 
               initiative={initiative} 
@@ -1058,29 +1120,6 @@ export function InitiativeClientPage({
                 </Card>
               )}
             </div>
-          </div>
-
-          {/* Sidebar Column */}
-          <div className="md:col-span-1">
-            <InitiativeSidebar 
-              initiative={initiative} 
-              members={initiative.memberships?.map(mem => ({
-                id: mem.user.id,
-                name: mem.user.name || 'Unknown',
-                image: mem.user.image || null,
-                email: undefined, // email is not in UserForDisplay
-                role: mem.role,
-                customRole: mem.customRole || null,
-                joinedAt: new Date(), // Placeholder for joinedAt
-                lastActive: mem.user.lastActive,
-              })) || []} 
-              isMobile={isMobile}
-              isOpen={isSidebarOpen}
-              onToggle={toggleSidebar}
-              onToggleChat={() => setIsChatOpen(!isChatOpen)}
-              isChatOpen={isChatOpen}
-            />
-          </div>
         </div>
 
         {/* Edit Dialog */}
@@ -1243,5 +1282,6 @@ export function InitiativeClientPage({
         />
       </div>
     </div>
+    </>
   );
 }

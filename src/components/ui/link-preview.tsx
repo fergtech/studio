@@ -88,7 +88,7 @@ export function LinkPreview({
           {/* Favicon */}
           <div className="flex-shrink-0">
             {metadata.favicon && !faviconError ? (
-              <Image
+              <img
                 src={metadata.favicon}
                 alt="Site favicon"
                 width={16}
@@ -141,11 +141,10 @@ export function LinkPreview({
         {/* Image section */}
         {metadata.image && !imageError && (
           <div className="w-32 h-24 flex-shrink-0 relative">
-            <Image
+            <img
               src={metadata.image}
               alt={metadata.title || 'Link preview'}
-              fill
-              className="object-cover"
+              className="object-cover w-full h-full"
               onError={handleImageError}
             />
           </div>
@@ -156,7 +155,7 @@ export function LinkPreview({
           {/* Site info */}
           <div className="flex items-center gap-2 mb-2">
             {metadata.favicon && !faviconError ? (
-              <Image
+              <img
                 src={metadata.favicon}
                 alt="Site favicon"
                 width={16}

@@ -734,39 +734,26 @@ export function InitiativeClientPage({
         />
       )}
       
-      {isMobile && isSidebarOpen && (
-        <div className="fixed right-0 top-0 z-50 w-80 h-full bg-background border-l shadow-lg overflow-y-auto">
-          <div className="p-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute top-4 right-4"
-              onClick={() => setIsSidebarOpen(false)}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-            <div className="mt-8">
-              <InitiativeSidebar 
-                initiative={initiative} 
-                members={initiative.memberships?.map(mem => ({
-                  id: mem.user.id,
-                  name: mem.user.name || 'Unknown',
-                  image: mem.user.image || null,
-                  email: undefined,
-                  role: mem.role,
-                  customRole: mem.customRole || null,
-                  joinedAt: new Date(),
-                  lastActive: mem.user.lastActive,
-                })) || []} 
-                isMobile={true}
-                isOpen={true}
-                onToggle={() => setIsSidebarOpen(false)}
-                onToggleChat={() => setIsChatOpen(!isChatOpen)}
-                isChatOpen={isChatOpen}
-              />
-            </div>
-          </div>
-        </div>
+      {/* Mobile Initiative Sidebar - only render when mobile and needed */}
+      {isMobile && (
+        <InitiativeSidebar 
+          initiative={initiative} 
+          members={initiative.memberships?.map(mem => ({
+            id: mem.user.id,
+            name: mem.user.name || 'Unknown',
+            image: mem.user.image || null,
+            email: undefined,
+            role: mem.role,
+            customRole: mem.customRole || null,
+            joinedAt: new Date(),
+            lastActive: mem.user.lastActive,
+          })) || []} 
+          isMobile={isMobile}
+          isOpen={isSidebarOpen}
+          onToggle={() => setIsSidebarOpen(false)}
+          onToggleChat={() => setIsChatOpen(!isChatOpen)}
+          isChatOpen={isChatOpen}
+        />
       )}
 
       {/* Mobile Initiative Info Toggle Button */}
@@ -774,11 +761,15 @@ export function InitiativeClientPage({
         <Button
           variant="outline"
           size="icon"
-          className="fixed bottom-4 left-4 z-[60] bg-background/95 backdrop-blur-sm shadow-lg rounded-full p-3 w-12 h-12 flex items-center justify-center"
-          onClick={() => setIsSidebarOpen(true)}
+          className="fixed top-4 right-4 z-[60] bg-background/95 backdrop-blur-sm border shadow-lg rounded-full p-3 w-12 h-12 flex items-center justify-center hover:bg-background/90 transition-all duration-200"
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
         >
-          <Info className="h-5 w-5" />
-          <span className="sr-only">Open initiative info</span>
+          {isSidebarOpen ? (
+            <X className="h-5 w-5" />
+          ) : (
+            <Info className="h-5 w-5" />
+          )}
+          <span className="sr-only">{isSidebarOpen ? "Close initiative info" : "Open initiative info"}</span>
         </Button>
       )}
 
@@ -1274,11 +1265,10 @@ export function InitiativeClientPage({
         {/* Chat Panel */}
         <ChatPanel
           isOpen={isChatOpen}
-          messages={transformedMessages}
-          onSendMessage={handleSendMessage}
           onClose={() => setIsChatOpen(false)}
-          socket={socket}
+          initiativeId={initiative.id}
           currentUserId={userId}
+          mode="modal" // You can make this dynamic: mode={chatMode}
         />
       </div>
     </div>

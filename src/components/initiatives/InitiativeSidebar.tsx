@@ -1,15 +1,16 @@
-import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
-import { Initiative, Member } from '@/lib/types';
-import { Users, CalendarDays, Info, X, MessageSquare, Lightbulb } from 'lucide-react'; // Added X and Lightbulb icons
-import { cn } from '@/lib/utils';
-import { useState } from 'react'; // Import useState
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'; // Added Dialog components
+'use client';
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Target, Users, CheckCircle2, Calendar, X, MessageSquare, Lightbulb } from "lucide-react";
+import type { Initiative, Member } from "@/lib/types";
+import { useState, useEffect } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import Link from 'next/link';
+import { cn } from '@/lib/utils';
+import { RelatedIssuesIdeasSection } from './RelatedIssuesIdeasSection';
 
 interface InitiativeSidebarProps {
   initiative: Initiative;
@@ -17,8 +18,15 @@ interface InitiativeSidebarProps {
   isMobile?: boolean;
   isOpen?: boolean;
   onToggle?: () => void;
-  onToggleChat: () => void; // Add new prop for toggling chat
-  isChatOpen: boolean; // Add new prop to indicate if chat is open
+  onToggleChat: () => void;
+  isChatOpen: boolean;
+}
+
+interface InitiativeStats {
+  goals: number;
+  completedGoals: number;
+  updates: number;
+  members: number;
 }
 
 export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
@@ -27,11 +35,17 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
   isMobile,
   isOpen,
   onToggle,
-  onToggleChat, // Destructure new prop
-  isChatOpen, // Destructure new prop
+  onToggleChat,
+  isChatOpen,
 }) => {
-  const [isAiGuidanceDialogOpen, setIsAiGuidanceDialogOpen] = useState(false); // State for AI Guidance Dialog
-  // Show more/less logic for description
+  // Stats state
+  const [stats, setStats] = useState<InitiativeStats | null>(null);
+  const [isAiGuidanceDialogOpen, setIsAiGuidanceDialogOpen] = useState(false);
+  const [isGeneratingGuidance, setIsGeneratingGuidance] = useState(false);
+  const [currentGuidance, setCurrentGuidance] = useState<string | null>(initiative.aiGuidance);
+  const [guidanceError, setGuidanceError] = useState<string | null>(null);
+  
+  // Description truncation logic
   const [showFullDescription, setShowFullDescription] = useState(false);
   const maxDescriptionLength = 160;
   const isLongDescription = initiative.description && initiative.description.length > maxDescriptionLength;
@@ -39,39 +53,100 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
     ? initiative.description
     : initiative.description.slice(0, maxDescriptionLength) + '...';
 
+  // Set stats directly from initiative data (no API call needed)
+  useEffect(() => {
+    setStats({
+      goals: initiative.goals?.length || 0,
+      completedGoals: initiative.goals?.filter(g => g.status === 'Completed').length || 0,
+      updates: initiative.updates?.length || 0,
+      members: members.length
+    });
+  }, [initiative.goals, initiative.updates, members.length]);
+
   const toggleAiGuidanceDialog = () => {
     setIsAiGuidanceDialogOpen(!isAiGuidanceDialogOpen);
+  };
+
+  const handleGenerateGuidance = async () => {
+    if (currentGuidance) {
+      setIsAiGuidanceDialogOpen(true);
+      return;
+    }
+
+    setIsGeneratingGuidance(true);
+    setGuidanceError(null);
+    
+    try {
+      const response = await fetch('/api/initiatives/generate-guidance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ initiativeId: initiative.id })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.guidance) {
+          setCurrentGuidance(data.guidance);
+          setIsAiGuidanceDialogOpen(true);
+        } else {
+          setGuidanceError(data.error || 'Failed to generate guidance');
+        }
+      } else {
+        setGuidanceError('Failed to generate guidance. Please try again.');
+      }
+    } catch (error) {
+      setGuidanceError('Network error. Please check your connection and try again.');
+    } finally {
+      setIsGeneratingGuidance(false);
+    }
   };
 
   const generateHtmlFromGuidance = (text: string | null | undefined): string => {
     if (!text) return '';
     let htmlText = text;
 
-    // Process ***bold*** (non-greedy)
+    // Process markdown headers
+    htmlText = htmlText.replace(/^### (.+)$/gm, '<h3 class="text-lg font-semibold mt-4 mb-2">$1</h3>');
+    htmlText = htmlText.replace(/^## (.+)$/gm, '<h2 class="text-xl font-bold mt-6 mb-3">$1</h2>');
+    htmlText = htmlText.replace(/^# (.+)$/gm, '<h1 class="text-2xl font-bold mt-8 mb-4">$1</h1>');
+    
+    // Process bold text
     htmlText = htmlText.replace(/\*\*\*(.+?)\*\*\*/g, '<strong>$1</strong>');
-    // Process **bold** (non-greedy)
     htmlText = htmlText.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
     
-    // Convert newlines to <br /> tags for HTML
-    htmlText = htmlText.replace(/\n/g, '<br />');
+    // Process bullet points
+    htmlText = htmlText.replace(/^\* (.+)$/gm, '<li class="ml-4 mb-1">$1</li>');
+    
+    // Wrap consecutive list items in ul tags
+    htmlText = htmlText.replace(/(<li[^>]*>.*?<\/li>\s*)+/gs, '<ul class="list-disc list-inside mb-4">$&</ul>');
+    
+    // Process numbered lists
+    htmlText = htmlText.replace(/^\d+\.\d+\s+(.+)$/gm, '<div class="ml-6 mb-2 font-medium">$1</div>');
+    htmlText = htmlText.replace(/^\d+\.\s+(.+)$/gm, '<div class="mb-3 font-medium">$1</div>');
+    
+    // Convert newlines to line breaks, but preserve existing HTML
+    htmlText = htmlText.replace(/\n(?![<\/])/g, '<br />');
+    
+    // Clean up extra br tags around block elements
+    htmlText = htmlText.replace(/<br \/>\s*(<h[1-6]|<ul|<div)/g, '$1');
+    htmlText = htmlText.replace(/(<\/h[1-6]>|<\/ul>|<\/div>)\s*<br \/>/g, '$1');
+    
     return htmlText;
   };
 
-  const cardBaseClasses = "transition-transform duration-300 ease-in-out";
   let computedCardClassName;
-
   if (isMobile) {
     computedCardClassName = cn(
-      cardBaseClasses,
-      "fixed top-0 left-0 bottom-0 z-50 w-80 bg-background overflow-y-auto shadow-xl",
-      isOpen ? "transform translateX(0)" : "transform -translate-x-full pointer-events-none"
+      'transition-transform duration-300 ease-in-out',
+      'fixed top-0 right-0 bottom-0 z-50 w-80 bg-background overflow-y-auto shadow-xl border-l',
+      isOpen ? 'transform translate-x-0' : 'transform translate-x-full pointer-events-none',
     );
   } else {
-    computedCardClassName = "md:sticky md:top-20 h-fit";
+    computedCardClassName = 'space-y-6 md:sticky md:top-20 h-fit';
   }
 
   return (
-    <Card className={computedCardClassName}>
+    <div className={computedCardClassName}>
       {isMobile && isOpen && (
         <Button
           variant="ghost"
@@ -83,13 +158,49 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
           <X className="h-6 w-6" />
         </Button>
       )}
-      <CardHeader className={cn("border-b", { "pt-12 sm:pt-4": isMobile && isOpen })}>
-        <CardTitle className="text-lg">About Initiative</CardTitle>
-      </CardHeader>
-      <CardContent className={cn("space-y-4 py-4", { "pb-4": isMobile && isOpen })}>
-        <div>
-          <h3 className="font-semibold text-sm mb-1">Description</h3>
-          <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+
+      {/* Quick Stats Card */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Quick Stats</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {stats ? (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col items-center">
+                <Target className="h-5 w-5 text-blue-500 mb-1" />
+                <span className="font-bold text-lg">{stats.goals}</span>
+                <span className="text-xs text-muted-foreground">Goals</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <CheckCircle2 className="h-5 w-5 text-green-500 mb-1" />
+                <span className="font-bold text-lg">{stats.completedGoals}</span>
+                <span className="text-xs text-muted-foreground">Completed</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <Calendar className="h-5 w-5 text-purple-500 mb-1" />
+                <span className="font-bold text-lg">{stats.updates}</span>
+                <span className="text-xs text-muted-foreground">Updates</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <Users className="h-5 w-5 text-orange-500 mb-1" />
+                <span className="font-bold text-lg">{stats.members}</span>
+                <span className="text-xs text-muted-foreground">Members</span>
+              </div>
+            </div>
+          ) : (
+            <div className="text-xs text-muted-foreground">Loading stats...</div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* About Card */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>About</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="whitespace-pre-line text-sm text-muted-foreground">
             {displayedDescription || 'No description provided.'}
             {isLongDescription && (
               <button
@@ -99,62 +210,84 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
                 {showFullDescription ? 'Show less' : 'Show more'}
               </button>
             )}
-          </p>
-        </div>
+          </div>
+        </CardContent>
+      </Card>
 
-        <Separator /> {/* Added Separator */}
-
-        <div> {/* AI Guidance Section - always visible */}
-          <h3 className="font-semibold text-sm mb-2 flex items-center">
+      {/* AI Guidance Card */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center">
             <Lightbulb className="h-4 w-4 mr-2 text-muted-foreground" />
             AI Guidance
-          </h3>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
           <Button
             variant="outline"
-            className="w-full justify-start text-sm"
-            onClick={toggleAiGuidanceDialog} // onClick is fine, disabled state handles it
-            disabled={!initiative.aiGuidance}
+            className="w-full"
+            onClick={handleGenerateGuidance}
+            disabled={isGeneratingGuidance}
           >
-            <Lightbulb className="h-4 w-4 mr-1.5" />
-            {initiative.aiGuidance ? (isAiGuidanceDialogOpen ? 'Hide AI Guidance' : 'View AI Guidance') : 'No AI Guidance Available'}
+            <Lightbulb className="h-4 w-4 mr-2" />
+            {isGeneratingGuidance 
+              ? 'Generating...' 
+              : currentGuidance 
+                ? 'View AI Guidance' 
+                : 'Generate AI Guidance'
+            }
           </Button>
-        </div>
+          {guidanceError && (
+            <div className="mt-2 text-xs text-red-500 text-center">
+              {guidanceError}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-        <Separator /> {/* This separator now correctly follows the AI Guidance section */}
-        
-        <div className="py-0"> {/* Ensure this div doesn't add unwanted vertical space if Button is self-spacing */}
-          <Button variant="outline" className="w-full" onClick={onToggleChat}>
+      {/* Related Issues & Ideas Section */}
+      <RelatedIssuesIdeasSection initiativeId={initiative.id} />
+
+      {/* Chat Toggle Card */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Communication</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Button 
+            variant="outline" 
+            className="w-full" 
+            onClick={onToggleChat}
+          >
             <MessageSquare className="h-4 w-4 mr-2" />
             {isChatOpen ? 'Close Chat' : 'Open Chat'}
           </Button>
-        </div>
-        <Separator />
-        <div>
-          <h3 className="font-semibold text-sm mb-2 flex items-center">
-            <Users className="h-4 w-4 mr-2 text-muted-foreground" />
-            Members ({members.length})
-          </h3>
-          <div className="space-y-2">
-            {members.slice(0, 5).map((member: Member) => (
-              <div key={member.id} className="flex items-center space-x-2">
-                <Link href={`/profile/${member.id}`} className="cursor-pointer hover:opacity-80 transition-opacity">
-                  <Avatar className="h-6 w-6">
-                    <AvatarImage src={member.image || undefined} alt={member.name} />
-                    <AvatarFallback>{member.name?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
-                  </Avatar>
-                </Link>
-                <div className="text-xs">
+        </CardContent>
+      </Card>
+
+      {/* Members Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Members</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {members.slice(0, 5).map((member) => (
+              <div key={member.id} className="flex items-center gap-3">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={member.image ?? undefined} alt={member.name} />
+                  <AvatarFallback>{member.name?.[0]?.toUpperCase() || '?'}</AvatarFallback>
+                </Avatar>
+                <div>
                   <Link href={`/profile/${member.id}`} className="cursor-pointer hover:underline">
-                    <p className="font-medium">{member.name}</p>
+                    <div className="font-medium">{member.name}</div>
                   </Link>
-                  <div className="flex gap-1 items-center">
-                    <Badge variant="outline" className="text-xs px-1 py-0">
-                      {member.role}
-                    </Badge>
+                  <div className="flex gap-1">
+                    {member.role && (
+                      <Badge variant="secondary" className="text-xs">{member.role}</Badge>
+                    )}
                     {member.customRole && (
-                      <Badge variant="secondary" className="text-xs px-1 py-0 ml-1">
-                        {member.customRole}
-                      </Badge>
+                      <Badge variant="outline" className="text-xs">{member.customRole}</Badge>
                     )}
                   </div>
                 </div>
@@ -162,47 +295,30 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
             ))}
             {members.length > 5 && (
               <Button variant="link" size="sm" className="text-xs p-0 h-auto">
-                View all members
+                View all {members.length} members
               </Button>
             )}
           </div>
-        </div>
-        <Separator />
-        <div>
-          <h3 className="font-semibold text-sm mb-2 flex items-center">
-            <Info className="h-4 w-4 mr-2 text-muted-foreground" />
-            Details
-          </h3>
-          <div className="space-y-1 text-xs">
-            <div className="flex items-center">
-              <CalendarDays className="h-3 w-3 mr-1.5 text-muted-foreground" />
-              Created: {new Date(initiative.createdAt).toLocaleDateString()}
-            </div>
-            {/* Add more details as needed */}
-          </div>
-        </div>
-        {/* Add more sections like "Settings", "Roles" etc. if applicable */}
-      </CardContent>
+        </CardContent>
+      </Card>
 
-      {initiative.aiGuidance && (
-        <Dialog open={isAiGuidanceDialogOpen} onOpenChange={setIsAiGuidanceDialogOpen}>
-          <DialogContent className="sm:max-w-[600px]">
-            <DialogHeader>
-              <DialogTitle className="flex items-center">
-                <Lightbulb className="h-5 w-5 mr-2" />
-                AI Guidance
-              </DialogTitle>
-            </DialogHeader>
-            <DialogDescription asChild>
-              <div
-                className="prose dark:prose-invert prose-sm sm:prose-base max-h-[70vh] overflow-y-auto"
-                dangerouslySetInnerHTML={{ __html: generateHtmlFromGuidance(initiative.aiGuidance) }}
-              />
-            </DialogDescription>
-            {/* Removed explicit close button, relying on onOpenChange and the toggle button */}
-          </DialogContent>
-        </Dialog>
-      )}
-    </Card>
+      {/* AI Guidance Dialog */}
+      <Dialog open={isAiGuidanceDialogOpen} onOpenChange={setIsAiGuidanceDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center">
+              <Lightbulb className="h-5 w-5 mr-2" />
+              AI Guidance
+            </DialogTitle>
+          </DialogHeader>
+          <DialogDescription asChild>
+            <div
+              className="prose dark:prose-invert prose-sm sm:prose-base max-h-[70vh] overflow-y-auto"
+              dangerouslySetInnerHTML={{ __html: generateHtmlFromGuidance(currentGuidance) }}
+            />
+          </DialogDescription>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 };

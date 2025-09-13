@@ -45,9 +45,9 @@ export default function SmartSuggestionsWidget() {
         if (!initiativeRes.ok) throw new Error('Failed to fetch initiative suggestions');
         const userData = await userRes.json();
         const initiativeData = await initiativeRes.json();
-        // Limit to 3 users and 2 initiatives for smart suggestions
+        // Limit to 3 users and 4 initiatives for smart suggestions
         setUsers((userData.users || []).slice(0, 3));
-        setInitiatives((initiativeData.initiatives || []).slice(0, 2));
+        setInitiatives((initiativeData.initiatives || []).slice(0, 4));
       } catch (err: any) {
         setError(err.message || 'Error fetching suggestions');
       } finally {
@@ -57,23 +57,31 @@ export default function SmartSuggestionsWidget() {
     fetchSuggestions();
   }, []);
 
-  // Socket logic temporarily disabled for Vercel deployment
+  // Use polling for online status instead of Socket.io
   useEffect(() => {
-    // TODO: Re-enable online status after implementing polling system
-    // const socket: Socket = io(SOCKET_URL, {
-    //   path: '/api/socketio',
-    //   transports: ['websocket', 'polling'],
-    // });
-    // socket.on('connect', () => {
-    //   // Connected
-    // });
-    // socket.on('onlineUsers', (ids: string[]) => {
-    //   setOnlineUserIds(ids);
-    // });
-    // return () => {
-    //   socket.disconnect();
-    // };
-    setOnlineUserIds([]); // Default to no online users when Socket.io is disabled
+    // Set up polling for online status
+    const pollOnlineUsers = async () => {
+      try {
+        const response = await fetch('/api/users/online');
+        if (response.ok) {
+          const data = await response.json();
+          setOnlineUserIds(data.onlineUserIds || []);
+        }
+      } catch (error) {
+        console.error('Error fetching online users:', error);
+        setOnlineUserIds([]); // Fallback to no online users
+      }
+    };
+
+    // Initial poll
+    pollOnlineUsers();
+
+    // Poll every 30 seconds for online status
+    const pollInterval = setInterval(pollOnlineUsers, 30000);
+
+    return () => {
+      clearInterval(pollInterval);
+    };
   }, []);
 
   // Merge online status into users
@@ -155,7 +163,12 @@ export default function SmartSuggestionsWidget() {
             {/* Initiative suggestions */}
             {initiatives.length > 0 && (
               <div>
-                <div className="text-xs font-semibold mb-2 text-muted-foreground">Trending initiatives</div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-xs font-semibold text-muted-foreground">Trending initiatives</div>
+                  <Button size="sm" variant="ghost" className="text-xs h-6 px-2" asChild>
+                    <Link href="/initiatives">Browse All</Link>
+                  </Button>
+                </div>
                 <div className="space-y-2">
                   {initiatives.map(initiative => (
                     <div key={initiative.id} className="p-2 rounded-lg bg-muted/20">

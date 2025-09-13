@@ -4,12 +4,16 @@ import React, { createContext, useState, useContext, ReactNode } from 'react';
 
 interface CreateInitiativeModalState {
   isOpen: boolean;
+  initialTitle: string | null;
   initialDescription: string | null;
+  initialImageUrl: string | null;
+  originatingIssueId?: string | null;
+  originatingIdeaId?: string | null;
 }
 
 interface ModalContextType {
   createInitiativeModal: CreateInitiativeModalState;
-  openCreateInitiativeModal: (description?: string) => void;
+  openCreateInitiativeModal: (title?: string, description?: string, imageUrl?: string, originatingIssueId?: string, originatingIdeaId?: string) => void;
   closeCreateInitiativeModal: () => void;
   // New for Issues
   createIssueModal: { isOpen: boolean };
@@ -34,24 +38,34 @@ const ModalContext = createContext<ModalContextType | undefined>(undefined);
 export const ModalProvider = ({ children }: { children: ReactNode }) => {
   const [createInitiativeModal, setCreateInitiativeModal] = useState<CreateInitiativeModalState>({
     isOpen: false,
+    initialTitle: null,
     initialDescription: null,
+    initialImageUrl: null,
   });
   const [createIssueModal, setCreateIssueModal] = useState<{ isOpen: boolean }>({ isOpen: false });
   const [createIdeaModal, setCreateIdeaModal] = useState<{ isOpen: boolean }>({ isOpen: false });
   const [createSocietyModal, setCreateSocietyModal] = useState<{ isOpen: boolean }>({ isOpen: false });
   const [createDebateTopicModal, setCreateDebateTopicModal] = useState<{ isOpen: boolean }>({ isOpen: false });
 
-  const openCreateInitiativeModal = (description?: string) => {
+  const openCreateInitiativeModal = (title?: string, description?: string, imageUrl?: string, originatingIssueId?: string, originatingIdeaId?: string) => {
     setCreateInitiativeModal({
       isOpen: true,
+      initialTitle: title || null,
       initialDescription: description || null,
+      initialImageUrl: imageUrl || null,
+      originatingIssueId: originatingIssueId || null,
+      originatingIdeaId: originatingIdeaId || null,
     });
   };
 
   const closeCreateInitiativeModal = () => {
     setCreateInitiativeModal({
       isOpen: false,
-      initialDescription: null, // Clear description on close
+      initialTitle: null,
+      initialDescription: null,
+      initialImageUrl: null,
+      originatingIssueId: null,
+      originatingIdeaId: null,
     });
   };
 

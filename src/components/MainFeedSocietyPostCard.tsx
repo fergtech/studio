@@ -71,6 +71,27 @@ export function MainFeedSocietyPostCard({ post }: MainFeedSocietyPostCardProps) 
     ? new Date(post.createdAt).toLocaleString()
     : post.createdAt.toLocaleString();
 
+  // Helper function to parse issue/idea content
+  const parseContent = () => {
+    if (post.type === 'ISSUE' || post.type === 'IDEA') {
+      // Try to parse the "Title\n\nDescription" format
+      const parts = post.content.split('\n\n');
+      if (parts.length >= 2) {
+        return {
+          title: parts[0],
+          description: parts.slice(1).join('\n\n')
+        };
+      }
+    }
+    // For general posts or unparseable content, return as is
+    return {
+      title: null,
+      description: post.content
+    };
+  };
+
+  const { title, description } = parseContent();
+
   // Handler for card click (except on interactive elements)
   const handleCardClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
@@ -99,12 +120,12 @@ export function MainFeedSocietyPostCard({ post }: MainFeedSocietyPostCardProps) 
     return audioExtensions.some(ext => url.toLowerCase().includes(ext));
   };
 
-  // Determine media type and URL (same logic as GeneralPostCard)
-  const hasMedia = (post.media && post.media.length > 0) || post.imageUrl;
-  const mediaUrl = post.media?.[0]?.url || post.imageUrl;
-  const isImage = hasMedia && ((post.media && post.media[0]?.type === 'image') || post.imageUrl) && !isVideoFile(mediaUrl!) && !isAudioFile(mediaUrl!);
-  const isVideo = hasMedia && (post.media?.[0]?.type === 'video' || isVideoFile(mediaUrl!));
-  const isAudio = hasMedia && (post.media?.[0]?.type === 'audio' || isAudioFile(mediaUrl!));
+  // Determine media type and URL - SocietyPost only uses imageUrl
+  const hasMedia = post.imageUrl && post.imageUrl.trim();
+  const mediaUrl = post.imageUrl;
+  const isImage = hasMedia && mediaUrl && !isVideoFile(mediaUrl) && !isAudioFile(mediaUrl);
+  const isVideo = hasMedia && mediaUrl && isVideoFile(mediaUrl);
+  const isAudio = hasMedia && mediaUrl && isAudioFile(mediaUrl);
   const hasLinks = post.links && post.links.length > 0;
   const hasDocuments = post.documents && post.documents.length > 0;
   const hasSingleLink = post.linkPreview && !hasLinks;
@@ -172,18 +193,12 @@ export function MainFeedSocietyPostCard({ post }: MainFeedSocietyPostCardProps) 
         {/* Header */}
         <div className="flex items-center gap-2 mb-2">
           <div onClick={handleUserClick} className="cursor-pointer hover:opacity-80 transition-opacity flex items-center gap-2">
-            {post.user?.image ? (
-              <AzureAvatar 
-                src={post.user.image} 
-                alt={post.user?.name || 'User'} 
-                size={32}
-                className="h-8 w-8"
-              />
-            ) : (
-              <Avatar className="h-8 w-8">
-                <AvatarFallback>{post.user?.name?.substring(0, 2).toUpperCase() || '??'}</AvatarFallback>
-              </Avatar>
-            )}
+            <Avatar className="h-8 w-8">
+              {post.user?.image && post.user.image.trim() ? (
+                <AvatarImage src={post.user.image} alt={post.user?.name || 'User'} />
+              ) : null}
+              <AvatarFallback>{post.user?.name?.substring(0, 2).toUpperCase() || '??'}</AvatarFallback>
+            </Avatar>
             <span className="text-sm font-semibold hover:underline">{post.user?.name || 'Unknown'}</span>
           </div>
           <span className="text-xs text-muted-foreground ml-auto">{postTime}</span>
@@ -196,7 +211,14 @@ export function MainFeedSocietyPostCard({ post }: MainFeedSocietyPostCardProps) 
         <div className="absolute left-0 bottom-0 z-30 p-4 flex flex-col items-start w-full pointer-events-none">
           {/* Post caption */}
           <div className="mb-2 pointer-events-auto">
-            <p className="text-base font-medium whitespace-pre-wrap text-left px-2 bg-black/70 rounded-md py-1 w-fit max-w-[80%] text-white" style={{marginLeft: 0}}>{post.content}</p>
+            {title ? (
+              <div className="text-left px-2 bg-black/70 rounded-md py-1 w-fit max-w-[80%] text-white" style={{marginLeft: 0}}>
+                <p className="text-lg font-bold mb-1">{title}</p>
+                <p className="text-sm font-medium whitespace-pre-wrap">{description}</p>
+              </div>
+            ) : (
+              <p className="text-base font-medium whitespace-pre-wrap text-left px-2 bg-black/70 rounded-md py-1 w-fit max-w-[80%] text-white" style={{marginLeft: 0}}>{description}</p>
+            )}
           </div>
           
           {/* Links preview */}

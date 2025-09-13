@@ -1,6 +1,6 @@
 generator client {
   provider      = "prisma-client-js"
-  output        = "../node_modules/.prisma/client" // Explicitly set output path
+  output        = "../node_modules/.prisma/client"
   binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
@@ -9,7 +9,687 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Enums from types.ts
+model User {
+  id                    String                 @id @default(cuid())
+  email                 String                 @unique
+  passwordHash          String
+  name                  String?
+  image                 String?
+  dateCreated           DateTime               @default(now())
+  bio                   String?
+  skills                String[]               @default([])
+  interests             String[]               @default([])
+  profession            String?
+  organization          String?
+  institution           String?
+  bannerImageUrl        String?
+  gender                String?
+  username              String?                @unique
+  websites              String[]               @default([])
+  primaryIntent         String?
+  location              String?
+  city                  String?
+  showLocation          Boolean                @default(true)
+  lastActiveAt          DateTime?
+  assignedActions       Action[]               @relation("AssigneeOfAction")
+  completedActionsBy    Action[]               @relation("CompleterOfAction")
+  createdActions        Action[]               @relation("CreatorOfAction")
+  receivedChatMessages  ChatMessage[]          @relation("ReceiverOfChatMessage")
+  sentChatMessages      ChatMessage[]          @relation("SenderOfChatMessage")
+  comments              Comment[]              @relation("UserComments")
+  debateArguments       DebateArgument[]
+  debateArgumentVotes   DebateArgumentVote[]
+  createdDebateTopics   DebateTopic[]
+  debateVotes           DebateVote[]
+  createdGeneralPosts   GeneralPost[]          @relation("CreatorOfGeneralPost")
+  generalPostComments   GeneralPostComment[]
+  generalPostLikes      GeneralPostLike[]
+  generalPostShares     GeneralPostShare[]
+  ownedGoals            Goal[]                 @relation("OwnerOfGoal")
+  championedIdeas       Idea[]                 @relation("ChampionedIdeaBy")
+  createdIdeas          Idea[]                 @relation("CreatorOfIdea")
+  ideaComments          IdeaComment[]
+  ideaLikes             IdeaLike[]
+  ideaShares            IdeaShare[]
+  createdInitiatives    Initiative[]           @relation("CreatorOfInitiative")
+  initiativeMemberships InitiativeMembership[]
+  championedIssues      Issue[]                @relation("ChampionedIssueBy")
+  createdIssues         Issue[]                @relation("CreatorOfIssue")
+  issueComments         IssueComment[]
+  issueLikes            IssueLike[]
+  issueShares           IssueShare[]
+  createdMilestones     Milestone[]            @relation("CreatorOfMilestone")
+  notifications         Notification[]         @relation("UserNotifications")
+  posts                 Post[]                 @relation("UserPosts")
+  societies             Society[]              @relation("CreatorOfSociety")
+  societyMemberships    SocietyMembership[]
+  societyPosts          SocietyPost[]
+  societyPostComments   SocietyPostComment[]
+  societyPostLikes      SocietyPostLike[]
+  societyPostShares     SocietyPostShare[]
+  assignedSteps         Step[]                 @relation("AssigneeOfStep")
+  createdSteps          Step[]                 @relation("CreatorOfStep")
+  createdUpdates        Update[]               @relation("CreatorOfUpdate")
+  userFollowers         UserFollow[]           @relation("UserFollowers")
+  userFollowing         UserFollow[]           @relation("UserFollowing")
+}
+
+model Initiative {
+  id                 String                 @id @default(cuid())
+  title              String
+  description        String
+  imageUrl           String?
+  roles              String[]               @default([])
+  status             InitiativeStatus
+  createdAt          DateTime               @default(now())
+  creatorId          String
+  aiGuidance         String?
+  updatedAt          DateTime?              @updatedAt
+  location           String?
+  progress           Int?
+  showLocation       Boolean                @default(true)
+  societyId          String?
+  originatingIdeaId  String?                @unique
+  originatingIssueId String?                @unique
+  actions            Action[]
+  chatMessages       ChatMessage[]
+  linkedPosts        GeneralPost[]          @relation("LinkedInitiativePosts")
+  goals              Goal[]
+  championedIdea     Idea?                  @relation("ChampionedIdea")
+  originatingIdea    Idea?                  @relation("InitiativeFromIdea")
+  creator            User                   @relation("CreatorOfInitiative", fields: [creatorId], references: [id])
+  society            Society?               @relation(fields: [societyId], references: [id])
+  memberships        InitiativeMembership[]
+  originatingIssue   Issue?                 @relation("InitiativeAddressingIssue")
+  championedIssue    Issue?                 @relation("ChampionedIssue")
+  milestones         Milestone[]
+  steps              Step[]
+  updates            Update[]
+}
+
+model Milestone {
+  id           String          @id @default(cuid())
+  initiativeId String
+  title        String
+  description  String?
+  status       MilestoneStatus
+  order        Int?
+  createdAt    DateTime        @default(now())
+  creatorId    String
+  dueDate      DateTime?
+  creator      User            @relation("CreatorOfMilestone", fields: [creatorId], references: [id])
+  initiative   Initiative      @relation(fields: [initiativeId], references: [id])
+  steps        Step[]
+}
+
+model Step {
+  id           String     @id @default(cuid())
+  initiativeId String
+  milestoneId  String
+  title        String
+  description  String?
+  status       StepStatus
+  assigneeId   String?
+  dueDate      DateTime?
+  createdAt    DateTime   @default(now())
+  creatorId    String
+  completedAt  DateTime?
+  assignee     User?      @relation("AssigneeOfStep", fields: [assigneeId], references: [id])
+  creator      User       @relation("CreatorOfStep", fields: [creatorId], references: [id])
+  initiative   Initiative @relation(fields: [initiativeId], references: [id])
+  milestone    Milestone  @relation(fields: [milestoneId], references: [id])
+}
+
+model ChatMessage {
+  id           String      @id @default(cuid())
+  initiativeId String?
+  senderId     String
+  senderName   String
+  text         String
+  timestamp    DateTime    @default(now())
+  receiverId   String?
+  initiative   Initiative? @relation(fields: [initiativeId], references: [id])
+  receiver     User?       @relation("ReceiverOfChatMessage", fields: [receiverId], references: [id])
+  sender       User        @relation("SenderOfChatMessage", fields: [senderId], references: [id])
+}
+
+model MediaItem {
+  id       String       @id @default(cuid())
+  url      String
+  type     MediaType
+  updateId String?
+  postId   String?
+  ideaId   String?
+  issueId  String?
+  idea     Idea?        @relation("IdeaMedia", fields: [ideaId], references: [id])
+  issue    Issue?       @relation("IssueMedia", fields: [issueId], references: [id])
+  post     GeneralPost? @relation(fields: [postId], references: [id])
+  update   Update?      @relation(fields: [updateId], references: [id])
+}
+
+model Update {
+  id           String      @id @default(cuid())
+  initiativeId String
+  type         UpdateType
+  userId       String
+  content      String
+  details      Json?
+  createdAt    DateTime    @default(now())
+  goalId       String?
+  updatedAt    DateTime?   @updatedAt
+  media        MediaItem[]
+  goal         Goal?       @relation("GoalUpdates", fields: [goalId], references: [id])
+  initiative   Initiative  @relation(fields: [initiativeId], references: [id])
+  user         User        @relation("CreatorOfUpdate", fields: [userId], references: [id])
+}
+
+model GeneralPost {
+  id                 String                @id @default(cuid())
+  creatorId          String
+  creatorName        String
+  creatorAvatar      String?
+  content            String
+  background         String?
+  timestamp          DateTime              @default(now())
+  linkedInitiativeId String?
+  linkPreviewId      String?
+  linkUrl            String?
+  creator            User                  @relation("CreatorOfGeneralPost", fields: [creatorId], references: [id])
+  linkPreview        LinkPreview?          @relation(fields: [linkPreviewId], references: [id])
+  linkedInitiative   Initiative?           @relation("LinkedInitiativePosts", fields: [linkedInitiativeId], references: [id])
+  comments           GeneralPostComment[]
+  documents          GeneralPostDocument[]
+  likes              GeneralPostLike[]
+  links              GeneralPostLink[]
+  shares             GeneralPostShare[]
+  media              MediaItem[]
+}
+
+model GeneralPostLike {
+  id        String      @id @default(cuid())
+  postId    String
+  userId    String
+  createdAt DateTime    @default(now())
+  post      GeneralPost @relation(fields: [postId], references: [id])
+  user      User        @relation(fields: [userId], references: [id])
+
+  @@unique([postId, userId])
+}
+
+model GeneralPostShare {
+  id        String      @id @default(cuid())
+  postId    String
+  userId    String
+  createdAt DateTime    @default(now())
+  post      GeneralPost @relation(fields: [postId], references: [id])
+  user      User        @relation(fields: [userId], references: [id])
+
+  @@unique([postId, userId])
+}
+
+model GeneralPostComment {
+  id              String               @id @default(cuid())
+  postId          String
+  userId          String
+  text            String
+  timestamp       DateTime             @default(now())
+  parentCommentId String?
+  parentComment   GeneralPostComment?  @relation("GeneralPostCommentThread", fields: [parentCommentId], references: [id])
+  replies         GeneralPostComment[] @relation("GeneralPostCommentThread")
+  post            GeneralPost          @relation(fields: [postId], references: [id])
+  user            User                 @relation(fields: [userId], references: [id])
+}
+
+model UserFollow {
+  id          String   @id @default(cuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+  follower    User     @relation("UserFollowers", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("UserFollowing", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  data      Json?
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  user      User             @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ContributionItem {
+  id                  String           @id @default(cuid())
+  type                ContributionType
+  title               String
+  date                DateTime         @default(now())
+  link                String?
+  details             String?
+  relatedInitiativeId String?
+  relatedMilestoneId  String?
+  relatedStepId       String?
+  userId              String?
+}
+
+model Goal {
+  id           String     @id @default(cuid())
+  initiativeId String
+  title        String
+  description  String?
+  ownerId      String?
+  status       GoalStatus
+  dueDate      DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  priority     Priority?
+  tags         String[]   @default([])
+  ownerAvatar  String?
+  ownerName    String?
+  progress     Int?
+  actions      Action[]
+  initiative   Initiative @relation(fields: [initiativeId], references: [id])
+  owner        User?      @relation("OwnerOfGoal", fields: [ownerId], references: [id])
+  updates      Update[]   @relation("GoalUpdates")
+}
+
+model Action {
+  id             String     @id @default(cuid())
+  initiativeId   String
+  goalId         String?
+  title          String
+  description    String?
+  status         StepStatus
+  assigneeId     String?
+  assigneeName   String?
+  assigneeAvatar String?
+  dueDate        DateTime?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  completedAt    DateTime?
+  completedById  String?
+  priority       Priority?
+  creatorId      String?
+  assignee       User?      @relation("AssigneeOfAction", fields: [assigneeId], references: [id])
+  completedBy    User?      @relation("CompleterOfAction", fields: [completedById], references: [id])
+  creator        User?      @relation("CreatorOfAction", fields: [creatorId], references: [id])
+  goal           Goal?      @relation(fields: [goalId], references: [id])
+  initiative     Initiative @relation(fields: [initiativeId], references: [id])
+}
+
+model InitiativeMembership {
+  id           String             @id @default(cuid())
+  userId       String
+  initiativeId String
+  role         InitiativeRoleType
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  customRole   String?
+  initiative   Initiative         @relation(fields: [initiativeId], references: [id])
+  user         User               @relation(fields: [userId], references: [id])
+
+  @@unique([userId, initiativeId])
+}
+
+model Issue {
+  id                       String         @id @default(cuid())
+  title                    String
+  description              String
+  creatorId                String
+  createdAt                DateTime       @default(now())
+  tags                     String[]       @default([])
+  location                 String?
+  championedByInitiativeId String?        @unique
+  championCount            Int            @default(0)
+  championedById           String?
+  addressedByInitiativeId  String?        @unique
+  societyId                String?
+  relatedIdeas             Idea[]         @relation("IssueIdeas")
+  addressedByInitiative    Initiative?    @relation("InitiativeAddressingIssue", fields: [addressedByInitiativeId], references: [id])
+  championedBy             User?          @relation("ChampionedIssueBy", fields: [championedById], references: [id])
+  championedByInitiative   Initiative?    @relation("ChampionedIssue", fields: [championedByInitiativeId], references: [id])
+  creator                  User           @relation("CreatorOfIssue", fields: [creatorId], references: [id])
+  society                  Society?       @relation("SocietyIssues", fields: [societyId], references: [id])
+  comments                 IssueComment[]
+  likes                    IssueLike[]
+  shares                   IssueShare[]
+  media                    MediaItem[]    @relation("IssueMedia")
+}
+
+model Idea {
+  id                        String        @id @default(cuid())
+  title                     String
+  description               String
+  creatorId                 String
+  createdAt                 DateTime      @default(now())
+  tags                      String[]      @default([])
+  location                  String?
+  championedByInitiativeId  String?       @unique
+  championCount             Int           @default(0)
+  championedById            String?
+  addressingIssueId         String?
+  implementedAsInitiativeId String?       @unique
+  societyId                 String?
+  addressingIssue           Issue?        @relation("IssueIdeas", fields: [addressingIssueId], references: [id])
+  championedBy              User?         @relation("ChampionedIdeaBy", fields: [championedById], references: [id])
+  championedByInitiative    Initiative?   @relation("ChampionedIdea", fields: [championedByInitiativeId], references: [id])
+  creator                   User          @relation("CreatorOfIdea", fields: [creatorId], references: [id])
+  implementedAsInitiative   Initiative?   @relation("InitiativeFromIdea", fields: [implementedAsInitiativeId], references: [id])
+  society                   Society?      @relation("SocietyIdeas", fields: [societyId], references: [id])
+  comments                  IdeaComment[]
+  likes                     IdeaLike[]
+  shares                    IdeaShare[]
+  media                     MediaItem[]   @relation("IdeaMedia")
+}
+
+model IssueLike {
+  id        String   @id @default(cuid())
+  issueId   String
+  userId    String
+  createdAt DateTime @default(now())
+  issue     Issue    @relation(fields: [issueId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([issueId, userId])
+}
+
+model IssueShare {
+  id        String   @id @default(cuid())
+  issueId   String
+  userId    String
+  createdAt DateTime @default(now())
+  issue     Issue    @relation(fields: [issueId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([issueId, userId])
+}
+
+model IssueComment {
+  id        String   @id @default(cuid())
+  issueId   String
+  userId    String
+  text      String
+  timestamp DateTime @default(now())
+  issue     Issue    @relation(fields: [issueId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model IdeaLike {
+  id        String   @id @default(cuid())
+  ideaId    String
+  userId    String
+  createdAt DateTime @default(now())
+  idea      Idea     @relation(fields: [ideaId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([ideaId, userId])
+}
+
+model IdeaShare {
+  id        String   @id @default(cuid())
+  ideaId    String
+  userId    String
+  createdAt DateTime @default(now())
+  idea      Idea     @relation(fields: [ideaId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([ideaId, userId])
+}
+
+model IdeaComment {
+  id        String   @id @default(cuid())
+  ideaId    String
+  userId    String
+  text      String
+  timestamp DateTime @default(now())
+  idea      Idea     @relation(fields: [ideaId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  postId    String
+  userId    String
+  text      String
+  timestamp DateTime @default(now())
+  Post      Post     @relation(fields: [postId], references: [id])
+  User      User     @relation("UserComments", fields: [userId], references: [id])
+}
+
+model Post {
+  id        String    @id @default(uuid())
+  content   String
+  creatorId String
+  timestamp DateTime  @default(now())
+  comments  Comment[]
+  User      User      @relation("UserPosts", fields: [creatorId], references: [id])
+}
+
+model Society {
+  id          String              @id @default(cuid())
+  name        String
+  description String?
+  image       String?
+  createdAt   DateTime            @default(now())
+  creatorId   String
+  ideas       Idea[]              @relation("SocietyIdeas")
+  initiatives Initiative[]
+  issues      Issue[]             @relation("SocietyIssues")
+  creator     User                @relation("CreatorOfSociety", fields: [creatorId], references: [id])
+  memberships SocietyMembership[]
+  posts       SocietyPost[]
+}
+
+model SocietyMembership {
+  id         String   @id @default(cuid())
+  userId     String
+  societyId  String
+  role       String?
+  customRole String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  society    Society  @relation(fields: [societyId], references: [id])
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, societyId])
+}
+
+model SocietyPost {
+  id            String                @id @default(cuid())
+  societyId     String
+  userId        String
+  type          String
+  content       String
+  createdAt     DateTime              @default(now())
+  imageUrl      String?
+  linkPreviewId String?
+  linkUrl       String?
+  linkPreview   LinkPreview?          @relation(fields: [linkPreviewId], references: [id])
+  society       Society               @relation(fields: [societyId], references: [id])
+  user          User                  @relation(fields: [userId], references: [id])
+  comments      SocietyPostComment[]
+  documents     SocietyPostDocument[]
+  likes         SocietyPostLike[]
+  links         SocietyPostLink[]
+  shares        SocietyPostShare[]
+}
+
+model SocietyPostLike {
+  id        String      @id @default(cuid())
+  postId    String
+  userId    String
+  createdAt DateTime    @default(now())
+  post      SocietyPost @relation(fields: [postId], references: [id])
+  user      User        @relation(fields: [userId], references: [id])
+
+  @@unique([postId, userId])
+}
+
+model SocietyPostShare {
+  id        String      @id @default(cuid())
+  postId    String
+  userId    String
+  createdAt DateTime    @default(now())
+  post      SocietyPost @relation(fields: [postId], references: [id])
+  user      User        @relation(fields: [userId], references: [id])
+
+  @@unique([postId, userId])
+}
+
+model SocietyPostComment {
+  id              String               @id @default(cuid())
+  postId          String
+  userId          String
+  text            String
+  createdAt       DateTime             @default(now())
+  parentCommentId String?
+  parentComment   SocietyPostComment?  @relation("CommentThread", fields: [parentCommentId], references: [id])
+  replies         SocietyPostComment[] @relation("CommentThread")
+  post            SocietyPost          @relation(fields: [postId], references: [id])
+  user            User                 @relation(fields: [userId], references: [id])
+}
+
+model LinkPreview {
+  id               String            @id @default(cuid())
+  url              String            @unique
+  title            String?
+  description      String?
+  image            String?
+  siteName         String?
+  favicon          String?
+  type             String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  generalPosts     GeneralPost[]
+  generalPostLinks GeneralPostLink[]
+  societyPosts     SocietyPost[]
+  societyPostLinks SocietyPostLink[]
+}
+
+model SocietyPostLink {
+  id            String      @id @default(cuid())
+  postId        String
+  linkPreviewId String
+  order         Int         @default(0)
+  createdAt     DateTime    @default(now())
+  linkPreview   LinkPreview @relation(fields: [linkPreviewId], references: [id], onDelete: Cascade)
+  post          SocietyPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, linkPreviewId])
+  @@index([postId, order])
+}
+
+model GeneralPostLink {
+  id            String      @id @default(cuid())
+  postId        String
+  linkPreviewId String
+  order         Int         @default(0)
+  createdAt     DateTime    @default(now())
+  linkPreview   LinkPreview @relation(fields: [linkPreviewId], references: [id], onDelete: Cascade)
+  post          GeneralPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, linkPreviewId])
+  @@index([postId, order])
+}
+
+model Document {
+  id                   String                @id @default(cuid())
+  url                  String                @unique
+  filename             String
+  fileType             String
+  fileSize             Int
+  extension            String
+  title                String?
+  description          String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  generalPostDocuments GeneralPostDocument[]
+  societyPostDocuments SocietyPostDocument[]
+}
+
+model SocietyPostDocument {
+  id         String      @id @default(cuid())
+  postId     String
+  documentId String
+  order      Int         @default(0)
+  createdAt  DateTime    @default(now())
+  document   Document    @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  post       SocietyPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, documentId])
+  @@index([postId, order])
+}
+
+model GeneralPostDocument {
+  id         String      @id @default(cuid())
+  postId     String
+  documentId String
+  order      Int         @default(0)
+  createdAt  DateTime    @default(now())
+  document   Document    @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  post       GeneralPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, documentId])
+  @@index([postId, order])
+}
+
+model DebateTopic {
+  id        String           @id @default(cuid())
+  title     String
+  content   String
+  creatorId String
+  imageUrl  String?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  arguments DebateArgument[]
+  creator   User             @relation(fields: [creatorId], references: [id])
+  votes     DebateVote[]
+}
+
+model DebateVote {
+  id        String      @id @default(cuid())
+  topicId   String
+  userId    String
+  side      DebateSide
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  topic     DebateTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id])
+
+  @@unique([topicId, userId])
+}
+
+model DebateArgument {
+  id        String               @id @default(cuid())
+  topicId   String
+  userId    String
+  side      DebateSide
+  content   String
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+  parentId  String?
+  parent    DebateArgument?      @relation("ArgumentThread", fields: [parentId], references: [id])
+  replies   DebateArgument[]     @relation("ArgumentThread")
+  topic     DebateTopic          @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  user      User                 @relation(fields: [userId], references: [id])
+  votes     DebateArgumentVote[]
+}
+
+model DebateArgumentVote {
+  id         String         @id @default(cuid())
+  argumentId String
+  userId     String
+  isUpvote   Boolean
+  createdAt  DateTime       @default(now())
+  argument   DebateArgument @relation(fields: [argumentId], references: [id], onDelete: Cascade)
+  user       User           @relation(fields: [userId], references: [id])
+
+  @@unique([argumentId, userId])
+}
 
 enum InitiativeStatus {
   Idea
@@ -50,7 +730,7 @@ enum UpdateType {
 
 enum ContributionType {
   commit
-  post_contribution // Renamed from 'post' to avoid conflict if 'post' is a model name
+  post_contribution
   comment
   initiative_join
   initiative_creation
@@ -94,732 +774,10 @@ enum DebateSide {
   CON
 }
 
-// Models from types.ts
-
-model User {
-  id                          String         @id @default(cuid())
-  email                       String         @unique
-  passwordHash                String
-  name                        String?
-  username                    String?        @unique
-  location                    String?        // (Optional legacy field, not used for display)
-  gender                      String?
-  websites                    String[]       @default([])
-  image                       String?
-  bannerImageUrl              String?        // New field for banner image
-  dateCreated                 DateTime       @default(now())
-  // UserProfile fields merged
-  bio                         String?
-  skills                      String[]       @default([])
-  interests                   String[]       @default([])
-  primaryIntent               String?        // User's main reason for joining
-  profession                  String?
-  organization                String?
-  institution                 String?
-  // --- Only city is tracked for user location ---
-  city                        String?
-  showLocation                Boolean        @default(true)
-  // --- End location fields ---
-  createdInitiatives          Initiative[]   @relation("CreatorOfInitiative")
-  initiativeMemberships       InitiativeMembership[]
-  createdMilestones           Milestone[]    @relation("CreatorOfMilestone")
-  createdSteps                Step[]         @relation("CreatorOfStep")
-  assignedSteps               Step[]         @relation("AssigneeOfStep")
-  sentChatMessages            ChatMessage[]  @relation("SenderOfChatMessage")
-  receivedChatMessages        ChatMessage[]  @relation("ReceiverOfChatMessage")
-  createdUpdates              Update[]       @relation("CreatorOfUpdate")
-  createdGeneralPosts         GeneralPost[]  @relation("CreatorOfGeneralPost")
-  ownedGoals                  Goal[]         @relation("OwnerOfGoal")
-  assignedActions             Action[]       @relation("AssigneeOfAction")
-  completedActionsBy          Action[]       @relation("CompleterOfAction")
-  createdActions              Action[]       @relation("CreatorOfAction") // If creatorId is added to Action
-  createdIssues               Issue[]        @relation("CreatorOfIssue") // New: Issues created by this user
-  createdIdeas                Idea[]         @relation("CreatorOfIdea")  // New: Ideas created by this user
-  championedIssues            Issue[]        @relation("ChampionedIssueBy") // New: Issues championed by this user
-  championedIdeas             Idea[]         @relation("ChampionedIdeaBy")  // New: Ideas championed by this user
-  posts                       Post[]         @relation("UserPosts")
-  comments                    Comment[]      @relation("UserComments")
-  generalPostLikes            GeneralPostLike[]
-  generalPostShares           GeneralPostShare[]
-  generalPostComments         GeneralPostComment[]
-  issueLikes                  IssueLike[]
-  issueShares                 IssueShare[]
-  issueComments               IssueComment[]
-  ideaLikes                   IdeaLike[]
-  ideaShares                  IdeaShare[]
-  ideaComments                IdeaComment[]
-  userFollowers               UserFollow[]   @relation("UserFollowers")
-  userFollowing               UserFollow[]   @relation("UserFollowing")
-  notifications               Notification[] @relation("UserNotifications")
-  societies                   Society[]      @relation("CreatorOfSociety") // New: Societies created by this user
-  societyMemberships          SocietyMembership[] // New: societies this user is a member of
-  societyPosts                SocietyPost[]  // New: Posts created by this user
-  societyPostComments         SocietyPostComment[]
-  societyPostLikes            SocietyPostLike[] // New: Likes on society posts
-  societyPostShares           SocietyPostShare[] // New: Shares on society posts
-  createdDebateTopics         DebateTopic[]  // New: Debate topics created by this user
-  debateVotes                 DebateVote[]   // New: Votes cast by this user on debates
-  debateArguments             DebateArgument[] // New: Arguments made by this user
-  debateArgumentVotes         DebateArgumentVote[] // New: Votes on arguments by this user
-}
-
-model Initiative {
-  id            String           @id @default(cuid())
-  title         String
-  description   String
-  imageUrl      String?
-  roles         String[]         @default([]) // Array of roles/skills needed (tags)
-  status        InitiativeStatus
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime?        @updatedAt // Made updatedAt optional for existing records
-  creatorId     String
-  creator       User             @relation("CreatorOfInitiative", fields: [creatorId], references: [id])
-  societyId     String?          // Optional: initiatives can belong to a society
-  society       Society?         @relation(fields: [societyId], references: [id])
-  memberships   InitiativeMembership[]
-  milestones    Milestone[]
-  steps         Step[]
-  chatMessages  ChatMessage[]
-  updates       Update[]
-  goals         Goal[]
-  actions       Action[]
-  linkedPosts   GeneralPost[]    @relation("LinkedInitiativePosts")
-  aiGuidance    String? // Store AI-generated getting started guidance
-  championedIssue     Issue?       @relation("ChampionedIssue") // New: Link to an Issue this initiative championed
-  championedIdea      Idea?        @relation("ChampionedIdea")  // New: Link to an Idea this initiative championed
-  location      String?           // Optional location for MVP
-  // --- New field for location visibility ---
-  showLocation  Boolean           @default(true)
-  // --- End new field ---
-  progress      Int?              // Overall progress percentage (0-100)
-}
-
-model Milestone {
-  id            String          @id @default(cuid())
-  initiativeId  String
-  initiative    Initiative      @relation(fields: [initiativeId], references: [id])
-  title         String
-  description   String?
-  status        MilestoneStatus
-  order         Int?
-  createdAt     DateTime        @default(now())
-  creatorId     String
-  creator       User            @relation("CreatorOfMilestone", fields: [creatorId], references: [id])
-  dueDate       DateTime?
-  steps         Step[]
-}
-
-model Step {
-  id            String        @id @default(cuid())
-  initiativeId  String
-  initiative    Initiative    @relation(fields: [initiativeId], references: [id])
-  milestoneId   String
-  milestone     Milestone     @relation(fields: [milestoneId], references: [id])
-  title         String
-  description   String?
-  status        StepStatus
-  assigneeId    String?
-  assignee      User?         @relation("AssigneeOfStep", fields: [assigneeId], references: [id])
-  dueDate       DateTime?
-  createdAt     DateTime      @default(now())
-  creatorId     String
-  creator       User          @relation("CreatorOfStep", fields: [creatorId], references: [id])
-  completedAt   DateTime?
-}
-
-model ChatMessage {
-  id            String     @id @default(cuid())
-  initiativeId  String? // Optional for direct messages
-  initiative    Initiative? @relation(fields: [initiativeId], references: [id])
-  senderId      String
-  sender        User       @relation("SenderOfChatMessage", fields: [senderId], references: [id])
-  receiverId    String? // For direct messages (when initiativeId is null)
-  receiver      User?      @relation("ReceiverOfChatMessage", fields: [receiverId], references: [id])
-  senderName    String // Denormalized, consider removing if always fetching sender
-  text          String
-  timestamp     DateTime   @default(now())
-}
-
-model MediaItem {
-  id        String    @id @default(cuid())
-  url       String
-  type      MediaType
-  updateId  String?   // Link to Update if part of an update
-  update    Update?   @relation(fields: [updateId], references: [id])
-  postId    String?   // Link to GeneralPost if part of a post
-  post      GeneralPost? @relation(fields: [postId], references: [id])
-  issueId   String?     // New: Link to Issue if part of an issue
-  issue     Issue?      @relation("IssueMedia", fields: [issueId], references: [id])
-  ideaId    String?     // New: Link to Idea if part of an idea
-  idea      Idea?       @relation("IdeaMedia", fields: [ideaId], references: [id])
-  // alt    String?
-  // width  Int?
-  // height Int?
-}
-
-model Update {
-  id            String    @id @default(cuid())
-  initiativeId  String
-  initiative    Initiative @relation(fields: [initiativeId], references: [id])
-  userId        String
-  user          User      @relation("CreatorOfUpdate", fields: [userId], references: [id])
-  type          UpdateType
-  content       String
-  details       Json? // Store arbitrary details about the update, e.g., { goalId: "...", milestoneId: "..." }
-  media         MediaItem[]
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime? @updatedAt // Make updatedAt optional
-
-  // Relationships based on details or content, potentially denormalized
-  goalId String? // Optional field to link update to a Goal
-  goal   Goal? @relation("GoalUpdates", fields: [goalId], references: [id])
-}
-
-model GeneralPost {
-  id                  String      @id @default(cuid())
-  creatorId           String
-  creator             User        @relation("CreatorOfGeneralPost", fields: [creatorId], references: [id])
-  creatorName         String // Denormalized
-  creatorAvatar       String? // Denormalized
-  content             String
-  media               MediaItem[] // One-to-many relation to MediaItem
-  background          String?
-  timestamp           DateTime    @default(now())
-  linkedInitiativeId  String?
-  linkedInitiative    Initiative? @relation("LinkedInitiativePosts", fields: [linkedInitiativeId], references: [id])
-  linkUrl             String?  // Optional link URL (deprecated - kept for backward compatibility)
-  linkPreviewId       String?  // Link to LinkPreview (deprecated - kept for backward compatibility)
-  linkPreview         LinkPreview? @relation(fields: [linkPreviewId], references: [id])
-  links               GeneralPostLink[] // New: many-to-many relationship with LinkPreview
-  documents           GeneralPostDocument[] // New: many-to-many relationship with Document
-  // likeCount        Int?     @default(0)
-  // commentCount     Int?     @default(0)
-  likes               GeneralPostLike[]
-  shares              GeneralPostShare[]
-  comments            GeneralPostComment[]
-}
-
-model GeneralPostLike {
-  id        String   @id @default(cuid())
-  postId    String
-  userId    String
-  createdAt DateTime @default(now())
-
-  post      GeneralPost @relation(fields: [postId], references: [id])
-  user      User        @relation(fields: [userId], references: [id])
-
-  @@unique([postId, userId])
-}
-
-model GeneralPostShare {
-  id        String   @id @default(cuid())
-  postId    String
-  userId    String
-  createdAt DateTime @default(now())
-
-  post      GeneralPost @relation(fields: [postId], references: [id])
-  user      User        @relation(fields: [userId], references: [id])
-
-  @@unique([postId, userId])
-}
-
-model GeneralPostComment {
-  id        String   @id @default(cuid())
-  postId    String
-  userId    String
-  text      String
-  timestamp DateTime @default(now())
-  parentComment   GeneralPostComment? @relation("GeneralPostCommentThread", fields: [parentCommentId], references: [id])
-  parentCommentId String?
-  replies    GeneralPostComment[] @relation("GeneralPostCommentThread")
-
-  post      GeneralPost @relation(fields: [postId], references: [id])
-  user      User        @relation(fields: [userId], references: [id])
-}
-
-// User Follow Relationships
-model UserFollow {
-  id          String   @id @default(cuid())
-  followerId  String   // The user who is following
-  followingId String   // The user being followed
-  createdAt   DateTime @default(now())
-
-  follower    User     @relation("UserFollowers", fields: [followerId], references: [id], onDelete: Cascade)
-  following   User     @relation("UserFollowing", fields: [followingId], references: [id], onDelete: Cascade)
-
-  @@unique([followerId, followingId])
-}
-
-// User Notifications
-model Notification {
-  id        String           @id @default(cuid())
-  userId    String           // User receiving the notification
-  user      User             @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
-  type      NotificationType
-  title     String
-  message   String
-  data      Json?            // Additional data (e.g., senderId, initiativeId, etc.)
-  read      Boolean          @default(false)
-  createdAt DateTime         @default(now())
-}
-
 enum NotificationType {
   DIRECT_MESSAGE
   FOLLOW
   INITIATIVE_INVITE
   GOAL_COMPLETED
   MILESTONE_REACHED
-}
-
-// ContributionItem might be better as a derived view or logged differently,
-// but if direct storage is needed:
-model ContributionItem {
-  id                  String            @id @default(cuid())
-  type                ContributionType
-  title               String
-  date                DateTime          @default(now())
-  link                String?
-  details             String?
-  relatedInitiativeId String?
-  // relatedInitiative Initiative?    @relation(fields: [relatedInitiativeId], references: [id]) // Needs careful thought on relations
-  relatedMilestoneId  String?
-  // relatedMilestone  Milestone?       @relation(fields: [relatedMilestoneId], references: [id])
-  relatedStepId       String?
-  // relatedStep       Step?            @relation(fields: [relatedStepId], references: [id])
-  userId              String? // Who made the contribution
-  // user             User?            @relation(fields: [userId], references: [id])
-}
-
-model Goal {
-  id            String   @id @default(cuid())
-  initiativeId  String
-  initiative    Initiative @relation(fields: [initiativeId], references: [id])
-  title         String
-  description   String?
-  status        GoalStatus
-  priority      Priority?
-  dueDate       DateTime?
-  ownerId       String?
-  owner         User?     @relation("OwnerOfGoal", fields: [ownerId], references: [id])
-  ownerName     String?   // Added for denormalized owner display name
-  ownerAvatar   String?   // Added for denormalized owner avatar
-  tags          String[]  @default([])
-  progress      Int?      // Added progress property
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  actions       Action[]
-  updates       Update[]  @relation("GoalUpdates")
-}
-
-model Action { // Renamed from Task in types.ts
-  id            String     @id @default(cuid())
-  initiativeId  String
-  initiative    Initiative @relation(fields: [initiativeId], references: [id])
-  goalId        String?
-  goal          Goal?      @relation(fields: [goalId], references: [id])
-  title         String
-  description   String?
-  status        StepStatus // Reusing StepStatus as per types.ts
-  assigneeId    String?
-  assignee      User?      @relation("AssigneeOfAction", fields: [assigneeId], references: [id])
-  assigneeName  String? // Denormalized
-  assigneeAvatar String? // Denormalized
-  dueDate       DateTime?
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-  completedAt   DateTime?
-  completedById String?
-  completedBy   User?      @relation("CompleterOfAction", fields: [completedById], references: [id])
-  priority      Priority?
-  creatorId     String? // Assuming actions also have a creator
-  creator       User?      @relation("CreatorOfAction", fields: [creatorId], references: [id])
-}
-
-model InitiativeMembership {
-  id           String             @id @default(cuid())
-  user         User               @relation(fields: [userId], references: [id])
-  userId       String
-  initiative   Initiative         @relation(fields: [initiativeId], references: [id])
-  initiativeId String
-  role         InitiativeRoleType
-  customRole   String?
-  createdAt    DateTime           @default(now())
-  updatedAt    DateTime           @updatedAt
-
-  @@unique([userId, initiativeId])
-}
-
-// New Model for Issues
-model Issue {
-  id                        String      @id @default(cuid())
-  title                     String
-  description               String
-  creatorId                 String
-  creator                   User        @relation("CreatorOfIssue", fields: [creatorId], references: [id])
-  createdAt                 DateTime    @default(now())
-  tags                      String[]    @default([])
-  location                  String?     
-  media                     MediaItem[] @relation("IssueMedia") // Corrected: Added @relation attribute
-  championCount             Int         @default(0)
-  championedById            String?
-  championedBy              User?       @relation("ChampionedIssueBy", fields: [championedById], references: [id])
-  championedByInitiativeId  String?     @unique 
-  championedByInitiative    Initiative? @relation("ChampionedIssue", fields: [championedByInitiativeId], references: [id])
-  likes                     IssueLike[]
-  shares                    IssueShare[]
-  comments                  IssueComment[]
-}
-
-// New Model for Ideas
-model Idea {
-  id                        String      @id @default(cuid())
-  title                     String
-  description               String
-  creatorId                 String
-  creator                   User        @relation("CreatorOfIdea", fields: [creatorId], references: [id])
-  createdAt                 DateTime    @default(now())
-  tags                      String[]    @default([])
-  location                  String?     
-  media                     MediaItem[] @relation("IdeaMedia") // Corrected: Added @relation attribute
-  championCount             Int         @default(0)
-  championedById            String?
-  championedBy              User?       @relation("ChampionedIdeaBy", fields: [championedById], references: [id])
-  championedByInitiativeId  String?     @unique 
-  championedByInitiative    Initiative? @relation("ChampionedIdea", fields: [championedByInitiativeId], references: [id])
-  likes                     IdeaLike[]
-  shares                    IdeaShare[]
-  comments                  IdeaComment[]
-}
-
-// Issue Like, Share, and Comment models
-model IssueLike {
-  id        String   @id @default(cuid())
-  issueId   String
-  userId    String
-  createdAt DateTime @default(now())
-
-  issue     Issue    @relation(fields: [issueId], references: [id])
-  user      User     @relation(fields: [userId], references: [id])
-
-  @@unique([issueId, userId])
-}
-
-model IssueShare {
-  id        String   @id @default(cuid())
-  issueId   String
-  userId    String
-  createdAt DateTime @default(now())
-
-  issue     Issue    @relation(fields: [issueId], references: [id])
-  user      User     @relation(fields: [userId], references: [id])
-
-  @@unique([issueId, userId])
-}
-
-model IssueComment {
-  id        String   @id @default(cuid())
-  issueId   String
-  userId    String
-  text      String
-  timestamp DateTime @default(now())
-
-  issue     Issue    @relation(fields: [issueId], references: [id])
-  user      User     @relation(fields: [userId], references: [id])
-}
-
-// Idea Like, Share, and Comment models
-model IdeaLike {
-  id        String   @id @default(cuid())
-  ideaId    String
-  userId    String
-  createdAt DateTime @default(now())
-
-  idea      Idea     @relation(fields: [ideaId], references: [id])
-  user      User     @relation(fields: [userId], references: [id])
-
-  @@unique([ideaId, userId])
-}
-
-model IdeaShare {
-  id        String   @id @default(cuid())
-  ideaId    String
-  userId    String
-  createdAt DateTime @default(now())
-
-  idea      Idea     @relation(fields: [ideaId], references: [id])
-  user      User     @relation(fields: [userId], references: [id])
-
-  @@unique([ideaId, userId])
-}
-
-model IdeaComment {
-  id        String   @id @default(cuid())
-  ideaId    String
-  userId    String
-  text      String
-  timestamp DateTime @default(now())
-
-  idea      Idea     @relation(fields: [ideaId], references: [id])
-  user      User     @relation(fields: [userId], references: [id])
-}
-
-model Comment {
-  id        String   @id @default(uuid())
-  postId    String
-  userId    String
-  text      String
-  timestamp DateTime @default(now())
-
-  Post      Post     @relation(fields: [postId], references: [id])
-  User      User     @relation("UserComments", fields: [userId], references: [id])
-}
-
-model Post {
-  id        String     @id @default(uuid())
-  content   String
-  creatorId String
-  timestamp DateTime   @default(now())
-
-  comments  Comment[]
-  User      User       @relation("UserPosts", fields: [creatorId], references: [id])
-}
-
-model Society {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  image       String?
-  createdAt   DateTime @default(now())
-  creatorId   String
-  creator     User     @relation("CreatorOfSociety", fields: [creatorId], references: [id])
-  memberships SocietyMembership[] // New: memberships for this society
-  posts       SocietyPost[]  // New: posts for this society
-  initiatives Initiative[] // New: initiatives that belong to this society
-  // Location to be added later
-}
-
-model SocietyMembership {
-  id         String   @id @default(cuid())
-  user       User     @relation(fields: [userId], references: [id])
-  userId     String
-  society    Society  @relation(fields: [societyId], references: [id])
-  societyId  String
-  role       String?  // Optional: can be extended to enum if needed
-  customRole String?  // Optional: for custom role names
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  @@unique([userId, societyId])
-}
-
-model SocietyPost {
-  id            String   @id @default(cuid())
-  society       Society  @relation(fields: [societyId], references: [id])
-  societyId     String
-  user          User     @relation(fields: [userId], references: [id])
-  userId        String
-  type          String   // "GENERAL" | "ISSUE" | "IDEA"
-  content       String
-  createdAt     DateTime @default(now())
-  imageUrl      String?  // Optional image/video/audio for the post
-  linkUrl       String?  // Optional link URL (deprecated - kept for backward compatibility)
-  linkPreviewId String?  // Link to LinkPreview (deprecated - kept for backward compatibility)
-  linkPreview   LinkPreview? @relation(fields: [linkPreviewId], references: [id])
-  links         SocietyPostLink[] // New: many-to-many relationship with LinkPreview
-  documents     SocietyPostDocument[] // New: many-to-many relationship with Document
-  comments      SocietyPostComment[]
-  likes         SocietyPostLike[] // New: likes for this society post
-  shares        SocietyPostShare[] // New: shares for this society post
-}
-
-model SocietyPostLike {
-  id        String   @id @default(cuid())
-  postId    String
-  userId    String
-  createdAt DateTime @default(now())
-
-  post      SocietyPost @relation(fields: [postId], references: [id])
-  user      User        @relation(fields: [userId], references: [id])
-
-  @@unique([postId, userId])
-}
-
-model SocietyPostShare {
-  id        String   @id @default(cuid())
-  postId    String
-  userId    String
-  createdAt DateTime @default(now())
-
-  post      SocietyPost @relation(fields: [postId], references: [id])
-  user      User        @relation(fields: [userId], references: [id])
-
-  @@unique([postId, userId])
-}
-
-model SocietyPostComment {
-  id         String   @id @default(cuid())
-  post       SocietyPost @relation(fields: [postId], references: [id])
-  postId     String
-  user       User     @relation(fields: [userId], references: [id])
-  userId     String
-  text       String
-  createdAt  DateTime @default(now())
-  parentComment   SocietyPostComment? @relation("CommentThread", fields: [parentCommentId], references: [id])
-  parentCommentId String?
-  replies    SocietyPostComment[] @relation("CommentThread")
-}
-
-model LinkPreview {
-  id          String   @id @default(cuid())
-  url         String   @unique
-  title       String?
-  description String?
-  image       String?
-  siteName    String?
-  favicon     String?
-  type        String?  // 'website', 'video', 'article', etc.
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  // Relations to posts (deprecated - kept for backward compatibility)
-  societyPosts SocietyPost[]
-  generalPosts GeneralPost[]
-  
-  // New many-to-many relations
-  societyPostLinks SocietyPostLink[]
-  generalPostLinks GeneralPostLink[]
-}
-
-model SocietyPostLink {
-  id            String      @id @default(cuid())
-  postId        String
-  linkPreviewId String
-  order         Int         @default(0) // Order for displaying multiple links
-  createdAt     DateTime    @default(now())
-  
-  post          SocietyPost @relation(fields: [postId], references: [id], onDelete: Cascade)
-  linkPreview   LinkPreview @relation(fields: [linkPreviewId], references: [id], onDelete: Cascade)
-  
-  @@unique([postId, linkPreviewId])
-  @@index([postId, order])
-}
-
-model GeneralPostLink {
-  id            String      @id @default(cuid())
-  postId        String
-  linkPreviewId String
-  order         Int         @default(0) // Order for displaying multiple links
-  createdAt     DateTime    @default(now())
-  
-  post          GeneralPost @relation(fields: [postId], references: [id], onDelete: Cascade)
-  linkPreview   LinkPreview @relation(fields: [linkPreviewId], references: [id], onDelete: Cascade)
-  
-  @@unique([postId, linkPreviewId])
-  @@index([postId, order])
-}
-
-model Document {
-  id          String   @id @default(cuid())
-  url         String   @unique
-  filename    String   // Original filename
-  fileType    String   // MIME type or detected type
-  fileSize    Int      // File size in bytes
-  extension   String   // File extension (.pdf, .docx, etc.)
-  title       String?  // Optional display title
-  description String?  // Optional description
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  // Many-to-many relations with posts
-  societyPostDocuments SocietyPostDocument[]
-  generalPostDocuments GeneralPostDocument[]
-}
-
-model SocietyPostDocument {
-  id         String      @id @default(cuid())
-  postId     String
-  documentId String
-  order      Int         @default(0) // Order for displaying multiple documents
-  createdAt  DateTime    @default(now())
-  
-  post       SocietyPost @relation(fields: [postId], references: [id], onDelete: Cascade)
-  document   Document    @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  
-  @@unique([postId, documentId])
-  @@index([postId, order])
-}
-
-model GeneralPostDocument {
-  id         String      @id @default(cuid())
-  postId     String
-  documentId String
-  order      Int         @default(0) // Order for displaying multiple documents
-  createdAt  DateTime    @default(now())
-  
-  post       GeneralPost @relation(fields: [postId], references: [id], onDelete: Cascade)
-  document   Document    @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  
-  @@unique([postId, documentId])
-  @@index([postId, order])
-}
-
-// Debate Topic Models
-model DebateTopic {
-  id          String   @id @default(cuid())
-  title       String
-  content     String
-  creatorId   String
-  creator     User     @relation(fields: [creatorId], references: [id])
-  imageUrl    String?  // Optional media for the debate topic
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  // Relations
-  votes       DebateVote[]
-  arguments   DebateArgument[]
-}
-
-model DebateVote {
-  id        String    @id @default(cuid())
-  topicId   String
-  topic     DebateTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
-  userId    String
-  user      User      @relation(fields: [userId], references: [id])
-  side      DebateSide // PRO or CON
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt // Allow users to change their vote
-  
-  @@unique([topicId, userId]) // One vote per user per topic
-}
-
-model DebateArgument {
-  id              String    @id @default(cuid())
-  topicId         String
-  topic           DebateTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
-  userId          String
-  user            User      @relation(fields: [userId], references: [id])
-  side            DebateSide // PRO or CON
-  content         String
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  
-  // Nested commenting support (like Reddit/Facebook)
-  parentId        String?
-  parent          DebateArgument? @relation("ArgumentThread", fields: [parentId], references: [id])
-  replies         DebateArgument[] @relation("ArgumentThread")
-  
-  // Voting on individual arguments
-  votes           DebateArgumentVote[]
-}
-
-model DebateArgumentVote {
-  id         String     @id @default(cuid())
-  argumentId String
-  argument   DebateArgument @relation(fields: [argumentId], references: [id], onDelete: Cascade)
-  userId     String
-  user       User       @relation(fields: [userId], references: [id])
-  isUpvote   Boolean    // true for upvote, false for downvote
-  createdAt  DateTime   @default(now())
-  
-  @@unique([argumentId, userId]) // One vote per user per argument
 }

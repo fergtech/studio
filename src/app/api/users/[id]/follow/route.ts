@@ -5,7 +5,7 @@ import { authOptions } from '@/lib/auth';
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -15,7 +15,7 @@ export async function POST(
     }
 
     const followerId = session.user.id;
-    const followingId = params.id;
+    const { id: followingId } = await params;
 
     // Prevent users from following themselves
     if (followerId === followingId) {
@@ -92,7 +92,7 @@ export async function POST(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -102,7 +102,7 @@ export async function DELETE(
     }
 
     const followerId = session.user.id;
-    const followingId = params.id;
+    const { id: followingId } = await params;
 
     // Check if the follow relationship exists
     const existingFollow = await prisma.userFollow.findUnique({
@@ -143,7 +143,7 @@ export async function DELETE(
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -155,7 +155,8 @@ export async function GET(
     }
 
     const currentUserId = session.user.id;
-    const targetUserId = userId || params.id;
+    const { id } = await params;
+    const targetUserId = userId || id;
 
     // Get follow status
     const isFollowing = await prisma.userFollow.findUnique({

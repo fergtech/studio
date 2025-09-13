@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     // Allow lookup by id or username
     const user = await prisma.user.findFirst({
       where: {
         OR: [
-          { id: params.id },
-          { username: params.id },
+          { id },
+          { username: id },
         ],
       },
       select: {

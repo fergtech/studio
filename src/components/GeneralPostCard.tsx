@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { GeneralPost } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from "@/components/ui/button";
-import { PlusCircle, MessageSquare, Share2, X, Send, Star, Trash2, Play, Pause } from 'lucide-react';
+import { PlusCircle, MessageSquare, Share2, X, Send, Star, Trash2, Play, Pause, Edit } from 'lucide-react';
 import Link from 'next/link';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -14,6 +14,7 @@ import { deletePostAction, updateGeneralPostContent } from '@/app/actions/postAc
 import { ShareModal } from './ShareModal';
 import { LinkPreview } from '@/components/ui/link-preview';
 import { AudioPlayer } from '@/components/ui/audio-player';
+import { saveScrollPositionForKey } from '@/hooks/useScrollPosition';
 
 // Helper function to detect video files
 const isVideoFile = (url: string) => {
@@ -88,9 +89,9 @@ export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralP
     if (editContent.trim() && editContent !== post.content) {
       const result = await updateGeneralPostContent(post.id, editContent);
       if (result.success) {
+        // Update the post content locally to avoid page reload
+        post.content = editContent;
         setEditMode(false);
-        // Optionally, trigger a re-fetch or update the post content in state
-        window.location.reload(); // Simple way to refresh
       } else {
         alert(result.error || 'Failed to update post');
       }
@@ -267,7 +268,9 @@ export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralP
   const handleCreateInitiativeFromPost = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    openCreateInitiativeModal(post.content);
+    // For general posts, use content as description and empty title
+    const imageUrl = post.imageUrl || undefined;
+    openCreateInitiativeModal("", post.content, imageUrl);
   };
 
   const [isDeleting, setIsDeleting] = useState(false);
@@ -334,9 +337,7 @@ export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralP
 
   // Add a handler to save scroll position before navigating to detail page
   const handlePostClick = () => {
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem('feedScrollPosition', window.scrollY.toString());
-    }
+    saveScrollPositionForKey('homeFeed');
   };
 
   return (
@@ -406,6 +407,7 @@ export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralP
           <div 
             onClick={(e) => {
               e.stopPropagation(); // Prevent card click
+              saveScrollPositionForKey('homeFeed');
               window.location.href = `/profile/${post.creatorId}`;
             }}
             className="cursor-pointer hover:opacity-80 transition-opacity"
@@ -419,6 +421,7 @@ export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralP
             <div 
               onClick={(e) => {
                 e.stopPropagation(); // Prevent card click
+                saveScrollPositionForKey('homeFeed');
                 window.location.href = `/profile/${post.creatorId}`;
               }}
               className="cursor-pointer hover:underline"
@@ -427,44 +430,94 @@ export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralP
             </div>
             <p className="text-xs opacity-80">{postTime}</p>
           </div>
-          {/* Delete Button - Show only to author */}
+          {/* Edit and Delete Buttons - Show only to author */}
           {currentUserId && post.creatorId === currentUserId && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={(e) => {
-                e.stopPropagation(); // Prevent card click
-                handleDelete(e);
-              }}
-              disabled={isDeleting}
-              className="ml-auto text-destructive-foreground hover:text-destructive hover:bg-destructive/10"
-              aria-label="Delete post"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            <div className="ml-auto flex gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={(e) => {
+                  e.stopPropagation(); // Prevent card click
+                  setEditMode(true);
+                }}
+                className="text-muted-foreground hover:text-primary hover:bg-primary/10"
+                aria-label="Edit post"
+              >
+                <Edit className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={(e) => {
+                  e.stopPropagation(); // Prevent card click
+                  handleDelete(e);
+                }}
+                disabled={isDeleting}
+                className="text-destructive-foreground hover:text-destructive hover:bg-destructive/10"
+                aria-label="Delete post"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
           )}
         </div>
 
         {/* Main Content Text - Always above social bar, not absolutely positioned */}
         <div className="mb-2">
-          <p 
-            className="text-base font-medium text-left px-2 bg-black/40 rounded-md py-1 w-fit max-w-full text-white line-clamp-3 overflow-hidden" 
-            style={{marginLeft: 0}}
-            title={post.content.length > 150 ? post.content : undefined}
-          >
-            {post.content.length > 150 ? `${post.content.substring(0, 150)}...` : post.content}
-          </p>
-          {post.content.length > 150 && (
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                handlePostClick();
-                window.location.href = `/posts/${post.id}`;
-              }}
-              className="text-xs text-white/80 hover:text-white underline mt-1 px-2"
-            >
-              Read more
-            </button>
+          {editMode ? (
+            <form onSubmit={handleEditSubmit} className="space-y-2">
+              <Textarea
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                className="bg-black/40 text-white border-white/20 resize-none min-h-[80px]"
+                placeholder="Edit your post..."
+                onClick={(e) => e.stopPropagation()}
+              />
+              <div className="flex gap-2">
+                <Button 
+                  type="submit" 
+                  size="sm"
+                  disabled={!editContent.trim() || editContent === post.content}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Save
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditMode(false);
+                    setEditContent(post.content);
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          ) : (
+            <>
+              <p 
+                className="text-base font-medium text-left px-2 bg-black/40 rounded-md py-1 w-fit max-w-full text-white line-clamp-3 overflow-hidden" 
+                style={{marginLeft: 0}}
+                title={post.content.length > 150 ? post.content : undefined}
+              >
+                {post.content.length > 150 ? `${post.content.substring(0, 150)}...` : post.content}
+              </p>
+              {post.content.length > 150 && (
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handlePostClick();
+                    window.location.href = `/posts/${post.id}`;
+                  }}
+                  className="text-xs text-white/80 hover:text-white underline mt-1 px-2"
+                >
+                  Read more
+                </button>
+              )}
+            </>
           )}
         </div>
         
@@ -599,6 +652,7 @@ export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralP
               <div 
                 onClick={(e) => {
                   e.stopPropagation();
+                  saveScrollPositionForKey('homeFeed');
                   window.location.href = `/profile/${post.creatorId}`;
                 }}
                 className="cursor-pointer hover:opacity-80 transition-opacity"
@@ -612,6 +666,7 @@ export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralP
                 <div 
                   onClick={(e) => {
                     e.stopPropagation();
+                    saveScrollPositionForKey('homeFeed');
                     window.location.href = `/profile/${post.creatorId}`;
                   }}
                   className="cursor-pointer hover:underline"
@@ -641,6 +696,7 @@ export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralP
                     <div 
                       onClick={(e) => {
                         e.stopPropagation();
+                        saveScrollPositionForKey('homeFeed');
                         window.location.href = `/profile/${comment.userId}`;
                       }}
                       className="cursor-pointer hover:opacity-80 transition-opacity"
@@ -655,6 +711,7 @@ export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralP
                         <div 
                           onClick={(e) => {
                             e.stopPropagation();
+                            saveScrollPositionForKey('homeFeed');
                             window.location.href = `/profile/${comment.userId}`;
                           }}
                           className="cursor-pointer hover:underline"

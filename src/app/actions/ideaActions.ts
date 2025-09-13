@@ -23,6 +23,8 @@ interface CreateIdeaData {
   tags: string[];
   location?: string | null;
   mediaUrl?: string | null;
+  societyId?: string | null;
+  addressingIssueId?: string | null;
 }
 
 interface UpdateIdeaData {
@@ -31,6 +33,8 @@ interface UpdateIdeaData {
   tags?: string[];
   location?: string | null;
   mediaUrl?: string | null;
+  societyId?: string | null;
+  addressingIssueId?: string | null;
 }
 
 interface CreateIdeaResult {
@@ -58,6 +62,8 @@ interface UpdateIdeaArgs {
   tags?: string[];
   location?: string;
   mediaUrl?: string;
+  societyId?: string | null;
+  addressingIssueId?: string | null;
 }
 
 export async function createIdea(data: CreateIdeaData): Promise<CreateIdeaResult> {
@@ -67,20 +73,46 @@ export async function createIdea(data: CreateIdeaData): Promise<CreateIdeaResult
     return { success: false, error: "Not authenticated" };
   }
 
+  // Add validation logging
+  console.log("Creating idea with data:", data);
+  console.log("Session user ID:", session.user.id);
+
+  if (!data.title?.trim()) {
+    console.error("Idea creation failed: Missing title");
+    return { success: false, error: "Title is required" };
+  }
+
+  if (!data.description?.trim()) {
+    console.error("Idea creation failed: Missing description");
+    return { success: false, error: "Description is required" };
+  }
+
   try {
     const result = await prisma.$transaction(async (tx: any) => {
-      const newIdea = await tx.idea.create({
-        data: {
-          title: data.title,
-          description: data.description,
-          tags: data.tags || [],
-          location: data.location,
-          creator: {
-            connect: {
-              id: session.user.id,
-            },
+      const createData: any = {
+        title: data.title,
+        description: data.description,
+        tags: data.tags || [],
+        location: data.location,
+        creator: {
+          connect: {
+            id: session.user.id,
           },
         },
+      };
+
+      // Only add societyId if it's provided and not null
+      if (data.societyId) {
+        createData.societyId = data.societyId;
+      }
+
+      // Only add addressingIssueId if it's provided and not null
+      if (data.addressingIssueId) {
+        createData.addressingIssueId = data.addressingIssueId;
+      }
+
+      const newIdea = await tx.idea.create({
+        data: createData,
       });
 
       if (data.mediaUrl) {
@@ -103,6 +135,11 @@ export async function createIdea(data: CreateIdeaData): Promise<CreateIdeaResult
     return { success: true, idea: result };
   } catch (error) {
     console.error("Error creating idea:", error);
+    if (error instanceof Error) {
+      console.error("Error message:", error.message);
+      console.error("Error stack:", error.stack);
+      return { success: false, error: `Database error: ${error.message}` };
+    }
     return { success: false, error: "Failed to create idea." };
   }
 }
@@ -141,6 +178,8 @@ export async function updateIdea({
   tags,
   location,
   mediaUrl,
+  societyId,
+  addressingIssueId,
 }: UpdateIdeaArgs) {
   const session = await getServerSession(authOptions);
 
@@ -166,7 +205,9 @@ export async function updateIdea({
     if (title) updateData.title = title;
     if (description) updateData.description = description;
     if (tags) updateData.tags = tags;
-    if (location) updateData.location = location;
+    if (location !== undefined) updateData.location = location;
+    if (societyId !== undefined) updateData.societyId = societyId;
+    if (addressingIssueId !== undefined) updateData.addressingIssueId = addressingIssueId;
 
     const updatedIdea = await prisma.idea.update({
       where: { id: ideaId },

@@ -2,10 +2,11 @@
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import Link from 'next/link';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import PostSocialPanel from '@/components/PostSocialPanel';
-import React, { useRef, useState } from 'react';
+import PostReactions from '@/components/PostReactions';
+import CommentPanel from '@/components/CommentPanel';
+import React, { useRef, useState, useEffect } from 'react';
 import { Pause, Play, Maximize2, ArrowLeft, Edit, Save, Loader2 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
@@ -107,6 +108,9 @@ export default function PostDetailClient({
   documents,
 }: PostDetailClientProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [commentPanelOpen, setCommentPanelOpen] = useState(false);
+  const [commentCount, setCommentCount] = useState(0);
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   
   // Edit functionality state
@@ -121,6 +125,18 @@ export default function PostDetailClient({
   }
 
   const router = useRouter();
+
+  // Auto-open comment panel if arriving via comment intent
+  useEffect(() => {
+    const shouldOpenComments = searchParams.get('comments') === 'true';
+    if (shouldOpenComments) {
+      setCommentPanelOpen(true);
+      // Clean up the URL parameter after opening
+      const url = new URL(window.location.href);
+      url.searchParams.delete('comments');
+      window.history.replaceState({}, '', url.pathname);
+    }
+  }, [searchParams]);
   
   // Handle edit submit
   const handleEditSubmit = async () => {
@@ -224,19 +240,21 @@ export default function PostDetailClient({
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Sidebar */}
-      <AppSidebar 
-        widgets={['userControls', 'navigation', 'suggestions', 'location', 'resources', 'footer']}
-        context={{ type: 'home' }}
-        onCollapseChange={setSidebarCollapsed}
-      />
+      {/* Sidebar - blurred when comment panel is open */}
+      <div className={commentPanelOpen ? 'blur-sm pointer-events-none' : ''}>
+        <AppSidebar 
+          widgets={['userControls', 'navigation', 'suggestions', 'location', 'resources', 'footer']}
+          context={{ type: 'home' }}
+          onCollapseChange={setSidebarCollapsed}
+        />
+      </div>
       
-      {/* Main Content - with dynamic left margin based on sidebar state */}
-      <div className={`transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'}`}>
-        {/* Back Button - minimal, top left, small */}
-        <div className="max-w-6xl mx-auto pt-2 px-2 flex items-start">
+      {/* Main Content - with dynamic left margin based on sidebar state and blur when comment panel open */}
+      <div className={`transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'} ${commentPanelOpen ? 'blur-sm pointer-events-none' : ''}`}>
+        {/* Back Button - positioned to avoid mobile sidebar toggle */}
+        <div className="max-w-6xl mx-auto pt-6 lg:pt-2 px-2 flex items-start">
           <button
-            className="flex items-center gap-1 text-muted-foreground hover:text-foreground text-sm px-2 py-1 rounded hover:bg-muted/40 transition shadow-none border-none bg-transparent"
+            className="flex items-center gap-1 text-muted-foreground hover:text-foreground text-sm px-2 py-1 rounded hover:bg-muted/40 transition shadow-none border-none bg-transparent ml-16 lg:ml-0"
             onClick={() => router.back()}
             type="button"
             aria-label="Back"
@@ -246,9 +264,9 @@ export default function PostDetailClient({
           </button>
         </div>
         {/* Main Content */}
-        <div className="flex flex-col lg:flex-row max-w-6xl mx-auto py-4 px-2 gap-6">
+        <div className="flex flex-col lg:flex-row max-w-4xl mx-auto py-4 px-2 gap-6 pb-20 lg:pb-4">
         {/* Main Post Content */}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 max-w-3xl">
           <div className="bg-card rounded-xl shadow-lg border border-border overflow-hidden">
             {/* Author Header */}
             <div className="p-4 border-b border-border">
@@ -383,24 +401,25 @@ export default function PostDetailClient({
               )}
               
               {/* Multiple links display */}
-              {links && links.length > 0 && !hasImage && !hasVideo && !hasAudio && (!documents || documents.length === 0) && (
-                <div className="my-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="text-sm font-medium text-muted-foreground">
+              {links && links.length > 0 && (
+                <div className="my-2">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xs font-medium text-muted-foreground">
                       Links ({links.length})
                     </span>
                   </div>
                   <div 
-                    className="flex gap-4 overflow-x-auto pb-2" 
+                    className="flex gap-3 overflow-x-auto pb-2"
                     style={{ 
                       scrollbarWidth: 'thin',
                       scrollbarColor: 'rgba(155, 155, 155, 0.5) transparent'
                     }}
                   >
                     {links.map((postLink) => (
-                      <div key={postLink.id} className="flex-shrink-0 w-96">
+                      <div key={postLink.id} className="flex-shrink-0 w-80">
                         <LinkPreview 
                           metadata={postLink.linkPreview}
+                          compact={true}
                           className="w-full"
                         />
                       </div>
@@ -410,24 +429,25 @@ export default function PostDetailClient({
               )}
               
               {/* Multiple documents display */}
-              {documents && documents.length > 0 && !hasImage && !hasVideo && !hasAudio && (
-                <div className="my-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="text-sm font-medium text-muted-foreground">
+              {documents && documents.length > 0 && (
+                <div className="my-2">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xs font-medium text-muted-foreground">
                       Documents ({documents.length})
                     </span>
                   </div>
                   <div 
-                    className="flex gap-4 overflow-x-auto pb-2" 
+                    className="flex gap-3 overflow-x-auto pb-2"
                     style={{ 
                       scrollbarWidth: 'thin',
                       scrollbarColor: 'rgba(155, 155, 155, 0.5) transparent'
                     }}
                   >
                     {documents.map((postDocument) => (
-                      <div key={postDocument.id} className="flex-shrink-0 w-96">
+                      <div key={postDocument.id} className="flex-shrink-0 w-80">
                         <DocumentPreview 
                           metadata={postDocument.document}
+                          compact={true}
                           className="w-full"
                         />
                       </div>
@@ -458,14 +478,32 @@ export default function PostDetailClient({
           </div>
         </div>
 
-        {/* Side Panel: Comments + Social Actions */}
-        <div className="w-full lg:w-[380px] lg:flex-shrink-0">
-          <div className="bg-card rounded-xl shadow-lg border border-border sticky top-6">
-            <PostSocialPanel postId={id} currentUserId={currentUserId} postType={postType} societyId={society?.id} />
+        {/* Side Panel: Reactions - Fixed bottom on mobile, fixed right on desktop */}
+        <div className="fixed bottom-0 left-0 right-0 lg:fixed lg:bottom-auto lg:right-6 lg:top-1/2 lg:-translate-y-1/2 lg:left-auto lg:w-20 z-10">
+          <div className="bg-card border-t lg:border lg:rounded-xl shadow-lg p-3 lg:p-4">
+            <PostReactions 
+              postId={id} 
+              currentUserId={currentUserId} 
+              postType={postType} 
+              societyId={society?.id}
+              societyPostType={societyPostType}
+              onCommentClick={() => setCommentPanelOpen(true)}
+            />
           </div>
         </div>
         </div>
       </div>
+
+      {/* Sliding Comment Panel */}
+      <CommentPanel
+        postId={id}
+        currentUserId={currentUserId}
+        postType={postType}
+        societyId={society?.id}
+        isOpen={commentPanelOpen}
+        onClose={() => setCommentPanelOpen(false)}
+        onCommentUpdate={(newCount) => setCommentCount(newCount)}
+      />
     </div>
   );
 }

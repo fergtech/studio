@@ -12,13 +12,14 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import Link from 'next/link';
 import { Button } from "@/components/ui/button";
-import { Star, Loader2 } from "lucide-react";
+import { Star, Loader2, Target, Filter } from "lucide-react";
 import { PostActions } from '@/components/PostActions';
 import { IdeaCard } from "@/components/IdeaCard";
 import { IssueCard } from "@/components/IssueCard";
 import ActivityFeed from "@/components/ActivityFeed";
 import AppSidebar from "@/components/AppSidebar";
 import { useToast } from "@/hooks/use-toast";
+import { useWindowScrollPosition } from "@/hooks/useScrollPosition";
 // import { io, Socket } from 'socket.io-client'; // Temporarily disabled for Vercel deployment
 import { MainFeedSocietyPostCard } from './MainFeedSocietyPostCard';
 import { DebateTopicsWidget } from './DebateTopicsWidget';
@@ -259,10 +260,28 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [feedFilter, setFeedFilter] = useState<'all' | 'initiatives' | 'generalPosts' | 'ideas' | 'issues' | 'community'>('all');
   const { toast } = useToast();
+  
 
-  // Simple manual load more approach
-
+  // Filter feed items based on selected filter - Simple and straightforward
+  const filteredFeedItems = feedItems.filter((item) => {
+    switch (feedFilter) {
+      case 'initiatives':
+        return item.type === 'initiative' || (isMetaAction(item) && (item.type === 'update' || item.type === 'initiativeJoin'));
+      case 'generalPosts':
+        return item.type === 'generalPost' || item.type === 'societyPost' || item.type === 'debate';
+      case 'ideas':
+        return item.type === 'idea';
+      case 'issues':
+        return item.type === 'issue';
+      case 'community':
+        return isMetaAction(item) && item.type === 'follow';
+      case 'all':
+      default:
+        return true;
+    }
+  });
 
   // Add this handler in HomeClient
   const handlePostDeleted = (postId: string) => {
@@ -280,24 +299,20 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
         const data = await response.json();
         
         // Handle both new paginated format and legacy format for backward compatibility
-        console.log('Initial feed response:', data);
+        // Feed response received
         if (data.items && data.pagination) {
           // New cursor-based format
-          console.log('Using cursor-based format');
+          // Using cursor-based pagination
           setFeedItems(data.items);
           setNextCursor(data.pagination.nextCursor);
           setHasMore(data.pagination.hasMore);
-          console.log('Set initial state:', { 
-            itemCount: data.items.length, 
-            nextCursor: data.pagination.nextCursor, 
-            hasMore: data.pagination.hasMore 
-          });
+          // Initial state set
         } else {
           // Legacy format - assume it's the items directly
-          console.log('Using legacy format');
+          // Using legacy format
           setFeedItems(Array.isArray(data) ? data : []);
           setHasMore(false); // No pagination info available
-          console.log('Set initial state (legacy):', { itemCount: Array.isArray(data) ? data.length : 0, hasMore: false });
+          // Legacy state set
         }
       } catch (err: any) {
         setError(err.message);
@@ -365,27 +380,69 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
 
   // Load more posts function (following LazyPostsFeed pattern)
   const loadMorePosts = useCallback(async () => {
-    console.log('loadMorePosts called with:', { hasMore, loadingMore, nextCursor });
+    // Loading more posts
     if (!hasMore || loadingMore || !nextCursor) {
-      console.log('loadMorePosts early return - conditions not met');
+      // Cannot load more
       return;
     }
     
     setLoadingMore(true);
     try {
       const url = `/api/feed?unified=true&limit=5&cursor=${nextCursor}`;
-      console.log('Fetching more posts:', url);
+      // Fetching more posts
       const response = await fetch(url);
       
       if (response.ok) {
         const data = await response.json();
-        console.log('Received more posts:', data);
+        // More posts received
         
         if (data.items && data.pagination) {
-          // New cursor-based format
-          setFeedItems(prev => [...prev, ...data.items]);
+          // New cursor-based format - filter out duplicates
+          setFeedItems(prev => {
+            const existingIds = new Set(prev.map(item => {
+              if (isContentItem(item) && item.data) {
+                return item.data.id;
+              }
+              return item.id;
+            }));
+            
+            const newItems = data.items.filter(item => {
+              const itemId = isContentItem(item) && item.data ? item.data.id : item.id;
+              return !existingIds.has(itemId);
+            });
+            
+            // Items added, duplicates filtered
+            // Pagination updated
+            
+            return [...prev, ...newItems];
+          });
+          
+          // Update pagination state
           setNextCursor(data.pagination.nextCursor);
-          setHasMore(data.pagination.hasMore);
+          
+          // If no new items after filtering, we've reached the end regardless of API hasMore
+          if (data.items.length > 0) {
+            const existingIds = new Set(feedItems.map(item => {
+              if (isContentItem(item) && item.data) {
+                return item.data.id;
+              }
+              return item.id;
+            }));
+            
+            const newItemsCount = data.items.filter(item => {
+              const itemId = isContentItem(item) && item.data ? item.data.id : item.id;
+              return !existingIds.has(itemId);
+            }).length;
+            
+            if (newItemsCount === 0) {
+              // No new items, reached end
+              setHasMore(false);
+            } else {
+              setHasMore(data.pagination.hasMore);
+            }
+          } else {
+            setHasMore(data.pagination.hasMore);
+          }
         }
       } else {
         console.error('Failed to load more posts:', response.status, response.statusText);
@@ -397,14 +454,15 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
     }
   }, [hasMore, loadingMore, nextCursor]);
 
-  useEffect(() => {
-    // Restore scroll position if returning from a post detail page
-    const savedScroll = sessionStorage.getItem('feedScrollPosition');
-    if (savedScroll) {
-      window.scrollTo(0, parseInt(savedScroll, 10));
-      sessionStorage.removeItem('feedScrollPosition');
-    }
-  }, []);
+  // Basic scroll position saving (auto-restore disabled due to performance issues)
+  const saveScrollPosition = () => {
+    const position = {
+      scrollTop: window.scrollY,
+      scrollLeft: window.scrollX,
+      timestamp: Date.now()
+    };
+    // Scroll position saved for future enhancement
+  };
 
 
   const handlePostCreated = async () => {
@@ -428,8 +486,8 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
         context={{ type: 'home' }}
         onCollapseChange={setSidebarCollapsed}
       />
-      {/* Main Feed - with dynamic left margin based on sidebar state */}
-      <div className={`flex flex-col items-center space-y-6 px-4 lg:px-6 min-w-0 transition-all duration-300 ${
+      {/* Main Feed - with dynamic left margin based on sidebar state and top padding for mobile sidebar toggle */}
+      <div className={`flex flex-col items-center space-y-6 px-4 lg:px-6 min-w-0 transition-all duration-300 pt-20 lg:pt-6 ${
         sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'
       }`}>
         {/* Debate Topics Widget - Full width with larger max width */}
@@ -441,7 +499,76 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
           <div className="w-full max-w-[500px]">
             <CreatePostForm onPostCreated={handlePostCreated} />
           </div>
-          {feedItems.map((item) => {
+          
+          {/* Feed Filter Controls - Modern Pill Style */}
+          <div className="w-full max-w-[500px] px-1">
+            <div className="flex items-center gap-1 flex-wrap">
+              <Filter className="h-4 w-4 text-muted-foreground mr-2" />
+              <button
+                onClick={() => setFeedFilter('all')}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                  feedFilter === 'all'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-border/50'
+                }`}
+              >
+                All Activity
+              </button>
+              <button
+                onClick={() => setFeedFilter('initiatives')}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
+                  feedFilter === 'initiatives'
+                    ? 'bg-blue-500/10 text-blue-600 border border-blue-500/20 shadow-sm'
+                    : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-border/50'
+                }`}
+              >
+                <Target className="h-3.5 w-3.5" />
+                Initiatives
+              </button>
+              <button
+                onClick={() => setFeedFilter('generalPosts')}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                  feedFilter === 'generalPosts'
+                    ? 'bg-green-500/10 text-green-600 border border-green-500/20 shadow-sm'
+                    : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-border/50'
+                }`}
+              >
+                Posts
+              </button>
+              <button
+                onClick={() => setFeedFilter('ideas')}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                  feedFilter === 'ideas'
+                    ? 'bg-yellow-500/10 text-yellow-600 border border-yellow-500/20 shadow-sm'
+                    : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-border/50'
+                }`}
+              >
+                Ideas
+              </button>
+              <button
+                onClick={() => setFeedFilter('issues')}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                  feedFilter === 'issues'
+                    ? 'bg-red-500/10 text-red-600 border border-red-500/20 shadow-sm'
+                    : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-border/50'
+                }`}
+              >
+                Issues
+              </button>
+              <button
+                onClick={() => setFeedFilter('community')}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                  feedFilter === 'community'
+                    ? 'bg-purple-500/10 text-purple-600 border border-purple-500/20 shadow-sm'
+                    : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-border/50'
+                }`}
+              >
+                Community
+              </button>
+            </div>
+          </div>
+          
+          {filteredFeedItems.map((item) => {
             // Handle meta actions
             if (isMetaAction(item)) {
               const metaAction = patchMetaActionUsernames(convertToMetaAction(item));
@@ -722,8 +849,27 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
             console.warn("Unknown feed item type:", item);
             return null;
           })}
-          {feedItems.length === 0 && !isLoading && (
-            <p className="text-center text-gray-500">No posts or initiatives yet. Be the first to create one!</p>
+          {filteredFeedItems.length === 0 && !isLoading && (
+            <div className="text-center py-12">
+              <div className="text-muted-foreground mb-2">
+                {feedFilter === 'all' && "No activity yet. Be the first to create something!"}
+                {feedFilter === 'initiatives' && "No initiatives found. Create your first initiative!"}
+                {feedFilter === 'generalPosts' && "No posts found. Share something with the community!"}
+                {feedFilter === 'ideas' && "No ideas found. Submit your first idea!"}
+                {feedFilter === 'issues' && "No issues found. Report your first issue!"}
+                {feedFilter === 'community' && "No community activity yet."}
+              </div>
+              {feedFilter !== 'all' && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setFeedFilter('all')}
+                  className="text-xs mt-2"
+                >
+                  Show all activity
+                </Button>
+              )}
+            </div>
           )}
           
           {/* Load More Button */}

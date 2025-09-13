@@ -70,9 +70,24 @@ interface CreateInitiativeFormProps {
   onCreated?: (initiative: any) => void;
   onSuccess?: () => void; // New prop for society initiative creation
   societyId?: string; // New prop for society initiatives
+  initialTitle?: string | null; // Pre-fill title from modal context
+  initialDescription?: string | null; // Pre-fill description from modal context
+  initialImageUrl?: string | null; // Pre-fill image from modal context
+  originatingIssueId?: string | null; // Issue this initiative addresses
+  originatingIdeaId?: string | null; // Idea this initiative implements
 }
 
-export function CreateInitiativeForm({ setOpen, onCreated, onSuccess, societyId }: CreateInitiativeFormProps) {
+export function CreateInitiativeForm({ 
+  setOpen, 
+  onCreated, 
+  onSuccess, 
+  societyId, 
+  initialTitle,
+  initialDescription, 
+  initialImageUrl,
+  originatingIssueId, 
+  originatingIdeaId 
+}: CreateInitiativeFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams(); // Get search params
   const { data: session } = useSession();
@@ -83,21 +98,31 @@ export function CreateInitiativeForm({ setOpen, onCreated, onSuccess, societyId 
   const [selectedBackground, setSelectedBackground] = useState<string>(backgroundOptions[1]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Get postContent from URL query params for initial description
-  const initialDescription = searchParams.get('postContent') || "";
+  // Get values from props or URL query params
+  const initialTitleValue = initialTitle || "";
+  const initialDescriptionValue = initialDescription || searchParams.get('postContent') || "";
 
   const form = useForm<InitiativeFormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      title: "",
-      description: decodeURIComponent(initialDescription),
+      title: initialTitleValue,
+      description: decodeURIComponent(initialDescriptionValue),
       imageFile: undefined,
       backgroundColor: selectedBackground,
       roles: [],
-      status: PrismaInitiativeStatus.Idea,
+      status: PrismaInitiativeStatus.PLANNING,
       location: "",
     },
   });
+
+  // Set initial image if provided
+  useEffect(() => {
+    if (initialImageUrl) {
+      setMediaPreview(initialImageUrl);
+      // Note: We can't set selectedMedia to a File object from a URL,
+      // but the form will use the existing image URL when submitting
+    }
+  }, [initialImageUrl]);
 
   // Effect to update description if query param changes after initial load (optional, but good practice)
   useEffect(() => {
@@ -240,6 +265,9 @@ export function CreateInitiativeForm({ setOpen, onCreated, onSuccess, societyId 
         setIsSubmitting(false);
         return;
       }
+    } else if (initialImageUrl) {
+      // Use the initial image URL from the issue/idea
+      imageUrl = initialImageUrl;
     } else {
       backgroundColor = selectedBackground;
     }
@@ -250,6 +278,8 @@ export function CreateInitiativeForm({ setOpen, onCreated, onSuccess, societyId 
         imageUrl: imageUrl || undefined,
         location: values.location || undefined,
         societyId: societyId || undefined,
+        originatingIssueId: originatingIssueId || undefined,
+        originatingIdeaId: originatingIdeaId || undefined,
       });
       if (result.success && result.initiative) {
         toast({
@@ -357,7 +387,7 @@ export function CreateInitiativeForm({ setOpen, onCreated, onSuccess, societyId 
         />
 
         {/* Media Upload and Background Selection */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
           <input
             type="file"
             ref={fileInputRef}
@@ -365,7 +395,7 @@ export function CreateInitiativeForm({ setOpen, onCreated, onSuccess, societyId 
             accept="image/*"
             style={{ display: 'none' }}
           />
-          <Button type="button" variant="outline" onClick={triggerFileInput}>
+          <Button type="button" variant="outline" onClick={triggerFileInput} className="min-h-[44px] flex-1 sm:flex-initial">
             <Upload className="mr-2 h-4 w-4" />
             {mediaPreview ? "Change Image" : "Upload Image"}
           </Button>
@@ -373,7 +403,7 @@ export function CreateInitiativeForm({ setOpen, onCreated, onSuccess, societyId 
           {!selectedMedia && (
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" type="button">
+                <Button variant="outline" type="button" className="min-h-[44px] flex-1 sm:flex-initial">
                   <Palette className="mr-2 h-4 w-4" />
                   Background
                 </Button>
@@ -384,7 +414,7 @@ export function CreateInitiativeForm({ setOpen, onCreated, onSuccess, societyId 
                     <button
                       key={bg}
                       type="button"
-                      className={`w-8 h-8 rounded border ${selectedBackground === bg ? 'ring-2 ring-primary ring-offset-2' : ''}`}
+                      className={`min-w-[44px] min-h-[44px] rounded border ${selectedBackground === bg ? 'ring-2 ring-primary ring-offset-2' : ''}`}
                       style={{ background: bg }}
                       onClick={() => setSelectedBackground(bg)}
                     />
@@ -404,18 +434,20 @@ export function CreateInitiativeForm({ setOpen, onCreated, onSuccess, societyId 
                 control={form.control}
                 name={`roles.${index}`}
                 render={({ field: roleField }) => (
-                  <FormItem className="flex items-center gap-2">
-                    <Tag className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    <FormControl>
-                      <Input placeholder="e.g., Designer, Developer" {...roleField} />
-                    </FormControl>
+                  <FormItem className="flex flex-col sm:flex-row sm:items-center gap-2">
+                    <div className="flex items-center gap-2 flex-1">
+                      <Tag className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <FormControl>
+                        <Input placeholder="e.g., Designer, Developer" {...roleField} className="min-h-[44px]" />
+                      </FormControl>
+                    </div>
                     {roleArray.fields.length > 1 && (
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
                         onClick={() => roleArray.remove(index)}
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10 min-h-[44px] min-w-[44px] self-center sm:self-auto"
                       >
                         <X className="h-4 w-4" />
                         <span className="sr-only">Remove Role</span>
@@ -431,7 +463,7 @@ export function CreateInitiativeForm({ setOpen, onCreated, onSuccess, societyId 
             variant="outline"
             size="sm"
             onClick={() => roleArray.append("")}
-            className="mt-2"
+            className="mt-2 min-h-[44px] w-full sm:w-auto"
           >
             <Plus className="mr-2 h-4 w-4" /> Add Role
           </Button>
@@ -476,7 +508,7 @@ export function CreateInitiativeForm({ setOpen, onCreated, onSuccess, societyId 
           )}
         />
 
-        <Button type="submit" className="w-full" disabled={isSubmitting}>
+        <Button type="submit" className="w-full min-h-[44px]" disabled={isSubmitting}>
           {isSubmitting ? "Creating Initiative..." : "Create Initiative"}
         </Button>
       </form>

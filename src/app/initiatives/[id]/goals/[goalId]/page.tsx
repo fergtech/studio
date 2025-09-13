@@ -4,168 +4,194 @@ export const dynamic = 'force-dynamic';
 
 import { useParams, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { Timestamp } from 'firebase/firestore';
 import Link from 'next/link';
-import { ArrowLeft, Tag, User, Flag, CheckCircle, Clock, AlertCircle, Plus } from 'lucide-react';
-import { Calendar } from '@/components/ui/calendar';
+import { ArrowLeft, Target, User, Flag, CheckCircle2, Calendar, AlertCircle, Plus, Clock, Users } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { CalendarIcon } from 'lucide-react';
+import AppSidebar from '@/components/AppSidebar';
 
-import type { Goal, Action, Initiative, GoalStatus, Priority, StepStatus, UserForDisplay } from '@/lib/types'; // Added UserForDisplay
+import type { Goal, Action, Initiative, GoalStatus, Priority, StepStatus } from '@/lib/types';
 import { getGoalDetails, getInitiativeDetailsForGoalPage, getRelatedActions } from '@/app/actions/goalActions';
 import { getInitiativeById } from '@/app/actions/initiativeActions';
-import { InitiativeMembershipClient } from '@/lib/types';
-import { SuggestedActionTag } from '@/components/initiatives/SuggestedActionTag'; // Import SuggestedActionTag
+import { SuggestedActionTag } from '@/components/initiatives/SuggestedActionTag';
 
 const STEP_STATUSES: StepStatus[] = ["ToDo", "InProgress", "Blocked", "InReview", "Done"];
 
 function ActionList({ actions, onActionStatusChange }: { actions: Action[], onActionStatusChange: (result: { action: Action, goal: Goal, initiativeProgress: number }) => void }) {
   const { data: session } = useSession();
   const userId = session?.user?.id;
+  
   return (
     <div className="space-y-4">
-      {actions.map((action) => {
-        // Only assignee or admin can change status
-        const canEditStatus = userId && (action.assignee?.id === userId /* || isAdmin */); // Add isAdmin logic if available
-        return (
-          <Card key={action.id} className="hover:bg-accent/50 transition-colors">
-            <CardHeader className="p-4">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">{action.title}</CardTitle>
-                <div className="flex items-center gap-2">
-                  <Badge variant={action.status === 'Done' ? 'default' : 'secondary'}>
-                    {action.status}
-                  </Badge>
-                  {canEditStatus && (
-                    <Select
-                      value={action.status}
-                      onValueChange={async (newStatus) => {
-                        if (newStatus === action.status) return;
+      {actions.length === 0 ? (
+        <Card className="text-center py-8">
+          <CardContent>
+            <Target className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">No actions yet</h3>
+            <p className="text-muted-foreground mb-4">Create your first action to start making progress on this goal.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        actions.map((action) => {
+          const canEditStatus = userId && (action.assignee?.id === userId);
+          const getStatusIcon = (status: string) => {
+            switch (status) {
+              case 'Done': return <CheckCircle2 className="h-4 w-4 text-green-500" />;
+              case 'InProgress': return <Clock className="h-4 w-4 text-blue-500" />;
+              case 'Blocked': return <AlertCircle className="h-4 w-4 text-red-500" />;
+              default: return <Target className="h-4 w-4 text-muted-foreground" />;
+            }
+          };
+
+          return (
+            <Card key={action.id} className="hover:shadow-md transition-all duration-200">
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      {getStatusIcon(action.status)}
+                      <CardTitle className="text-lg">{action.title}</CardTitle>
+                    </div>
+                    {action.description && (
+                      <CardDescription className="mt-2">{action.description}</CardDescription>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 ml-4">
+                    <Badge variant={action.status === 'Done' ? 'default' : 'secondary'} className="shrink-0">
+                      {action.status}
+                    </Badge>
+                    {canEditStatus && (
+                      <Select
+                        value={action.status}
+                        onValueChange={async (newStatus) => {
+                          if (newStatus === action.status) return;
+                          try {
+                            const response = await fetch('/api/actions/update', {
+                              method: 'PATCH',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ actionId: action.id, status: newStatus, completedById: userId }),
+                            });
+                            if (response.ok) {
+                              const result = await response.json();
+                              onActionStatusChange(result);
+                            } else {
+                              console.error('Failed to update action status');
+                            }
+                          } catch (error) {
+                            console.error('Error updating action status:', error);
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="w-[120px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {STEP_STATUSES.map((status) => (
+                            <SelectItem key={status} value={status}>{status}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+                </div>
+              </CardHeader>
+
+              <CardContent className="pt-0">
+                <div className="flex flex-wrap gap-4 text-sm text-muted-foreground mb-3">
+                  {action.assignee && (
+                    <div className="flex items-center gap-2">
+                      <Avatar className="h-6 w-6">
+                        <AvatarImage src={action.assignee.avatar} alt={action.assignee.name} />
+                        <AvatarFallback className="text-xs">{action.assignee.name[0]}</AvatarFallback>
+                      </Avatar>
+                      <span>{action.assignee.name}</span>
+                    </div>
+                  )}
+                  {action.dueDate && (
+                    <div className="flex items-center gap-1">
+                      <Calendar className="h-4 w-4" />
+                      <span>Due: {new Date(action.dueDate).toLocaleDateString()}</span>
+                    </div>
+                  )}
+                  {action.priority && (
+                    <div className="flex items-center gap-1">
+                      <Flag className={cn("h-4 w-4", 
+                        action.priority === 'High' ? 'text-red-500' : 
+                        action.priority === 'Medium' ? 'text-yellow-500' : 'text-green-500'
+                      )} />
+                      <span>{action.priority} priority</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  {action.status !== 'Done' ? (
+                    <Button
+                      size="sm"
+                      onClick={async () => {
                         try {
-                          const url = `/api/actions/update`;
-                          const response = await fetch(url, {
+                          const response = await fetch('/api/actions/update', {
                             method: 'PATCH',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ actionId: action.id, status: newStatus, completedById: userId }),
+                            body: JSON.stringify({ actionId: action.id, status: 'Done', completedById: userId }),
                           });
                           if (response.ok) {
                             const result = await response.json();
                             onActionStatusChange(result);
-                          } else {
-                            console.error('Failed to update action status');
                           }
                         } catch (error) {
                           console.error('Error updating action status:', error);
                         }
                       }}
                     >
-                      <SelectTrigger className="w-[120px] ml-2">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {STEP_STATUSES.map((status) => (
-                          <SelectItem key={status} value={status}>{status}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      <CheckCircle2 className="h-4 w-4 mr-1" />
+                      Mark Done
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={async () => {
+                        try {
+                          const response = await fetch('/api/actions/update', {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ actionId: action.id, status: 'InProgress', completedById: userId }),
+                          });
+                          if (response.ok) {
+                            const result = await response.json();
+                            onActionStatusChange(result);
+                          }
+                        } catch (error) {
+                          console.error('Error reopening action:', error);
+                        }
+                      }}
+                    >
+                      Reopen
+                    </Button>
                   )}
                 </div>
-              </div>
-              {action.description && (
-                <CardDescription>{action.description}</CardDescription>
-              )}
-            </CardHeader>
-            <CardContent className="p-4 pt-0 flex flex-wrap gap-4"> {/* Added flex-wrap to prevent overlapping */}
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                {action.assignee && (
-                  <div className="flex items-center gap-2">
-                    <span>{action.assignee.name}</span>
-                  </div>
-                )}
-                {action.dueDate && (
-                  <div className="flex items-center gap-2">
-                    <span>Due: {new Date(action.dueDate).toLocaleDateString()}</span>
-                  </div>
-                )}
-                {action.priority && (
-                  <div className="flex items-center gap-2">
-                    <span>Priority: {action.priority}</span>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-            <CardFooter className="p-4">
-              {action.status !== 'Done' ? (
-                <Button
-                  variant="secondary"
-                  onClick={async () => {
-                    try {
-                      const url = `/api/actions/update`;
-                      const response = await fetch(url, {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ actionId: action.id, status: 'Done', completedById: userId }),
-                      });
-
-                      if (response.ok) {
-                        const result = await response.json();
-                        onActionStatusChange(result);
-                      } else {
-                        console.error('Failed to update action status');
-                      }
-                    } catch (error) {
-                      console.error('Error updating action status:', error);
-                    }
-                  }}
-                >
-                  Mark as Done
-                </Button>
-              ) : (
-                <Button
-                  variant="outline"
-                  onClick={async () => {
-                    try {
-                      const url = `/api/actions/update`;
-                      const response = await fetch(url, {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ actionId: action.id, status: 'InProgress', completedById: userId }),
-                      });
-
-                      if (response.ok) {
-                        const result = await response.json();
-                        onActionStatusChange(result);
-                      } else {
-                        console.error('Failed to reopen action');
-                      }
-                    } catch (error) {
-                      console.error('Error reopening action:', error);
-                    }
-                  }}
-                >
-                  Reopen
-                </Button>
-              )}
-            </CardFooter>
-          </Card>
-        );
-      })}
+              </CardContent>
+            </Card>
+          );
+        })
+      )}
     </div>
   );
 }
@@ -173,29 +199,29 @@ function ActionList({ actions, onActionStatusChange }: { actions: Action[], onAc
 export default function GoalDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const [goal, setGoal] = useState<Goal | null>(null); // Type remains Goal from @/lib/types
-  const [initiative, setInitiative] = useState<Partial<Initiative> | null>(null); // Initiative can be partial
-  const [actions, setActions] = useState<Action[]>([]); // Type remains Action from @/lib/types
+  const [goal, setGoal] = useState<Goal | null>(null);
+  const [initiative, setInitiative] = useState<Partial<Initiative> | null>(null);
+  const [actions, setActions] = useState<Action[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isAddActionModalOpen, setIsAddActionModalOpen] = useState(false);
   const [newAction, setNewAction] = useState({
     title: '',
     description: '',
     dueDate: '',
     priority: '',
-    assigneeId: '' // Added assigneeId property
+    assigneeId: ''
   });
   const [dueDatePickerOpen, setDueDatePickerOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [initiativeMembers, setInitiativeMembers] = useState<{ id: string; name: string }[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  // State for suggested actions
   const [suggestedActions, setSuggestedActions] = useState<Array<{ title: string; description: string }>>([]);
   const [selectedSuggestedAction, setSelectedSuggestedAction] = useState<{ title: string; description: string } | null>(null);
 
   const { data: session } = useSession();
 
+  // Fetch goal data
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -209,18 +235,11 @@ export default function GoalDetailPage() {
           return;
         }
 
-        // Fetch data using server actions
         const goalData = await getGoalDetails(goalId);
         const initiativeData = await getInitiativeDetailsForGoalPage(initiativeId);
         const actionsData = await getRelatedActions(goalId);
 
-        // Transform Prisma types to client-side types if necessary, or adjust client types
-        // For now, assuming direct compatibility or that Prisma types are close enough
-        // to what @/lib/types expects for Goal, Initiative (partial), and Action.
-        // This might require careful mapping if structures diverge significantly.
-
         if (goalData) {
-          // Map Prisma Goal to lib/types.Goal
           setGoal({
             ...goalData,
             owner: goalData.owner ? { 
@@ -232,23 +251,21 @@ export default function GoalDetailPage() {
             createdAt: new Date(goalData.createdAt),
             updatedAt: new Date(goalData.updatedAt),
             tags: goalData.tags || [],
-            status: goalData.status as GoalStatus, // Correctly cast to GoalStatus
-            priority: goalData.priority as Priority | null | undefined, // Correctly cast to Priority | null | undefined
+            status: goalData.status as GoalStatus,
+            priority: goalData.priority as Priority | null | undefined,
           });
         }
         if (initiativeData) {
           setInitiative({
             id: initiativeData.id,
             title: initiativeData.title,
-            imageUrl: initiativeData.imageUrl, // Ensure imageUrl is included
-            // Map other fields from initiativeData as needed for the context display
+            imageUrl: initiativeData.imageUrl,
           });
         }
-        // Map Prisma Action[] to lib/types.Action[]
         setActions(actionsData.map(action => ({
           ...action,
           goalId: action.goalId === null ? undefined : action.goalId, 
-          description: action.description === null ? undefined : action.description, // Handle null for description
+          description: action.description === null ? undefined : action.description,
           assignee: action.assignee ? { 
             id: action.assignee.id, 
             name: action.assignee.name || 'N/A', 
@@ -263,13 +280,12 @@ export default function GoalDetailPage() {
           updatedAt: new Date(action.updatedAt),
           completedAt: action.completedAt ? new Date(action.completedAt) : undefined,
           dueDate: action.dueDate ? new Date(action.dueDate) : undefined,
-          status: action.status as StepStatus, // Cast to StepStatus (assuming Action status maps to StepStatus)
-          priority: action.priority as Priority | undefined, // Cast to Priority | undefined
+          status: action.status as StepStatus,
+          priority: action.priority as Priority | undefined,
         })));
 
       } catch (error) {
         console.error('Error fetching goal page data:', error);
-        // Optionally set an error state to display to the user
       } finally {
         setLoading(false);
       }
@@ -278,6 +294,7 @@ export default function GoalDetailPage() {
     fetchData();
   }, [params.id, params.goalId]);
 
+  // Fetch initiative members
   useEffect(() => {
     const fetchInitiativeMembers = async () => {
       try {
@@ -303,9 +320,8 @@ export default function GoalDetailPage() {
           name: membership.user.name || 'Unknown',
         })) || [];
 
-        console.log('Formatted members:', members); // Log the formatted members
         setInitiativeMembers(members);
-        setErrorMessage(null); // Clear any previous error messages
+        setErrorMessage(null);
       } catch (error) {
         console.error('Error fetching initiative members:', error);
         setErrorMessage('An unexpected error occurred. Please try again later.');
@@ -314,6 +330,29 @@ export default function GoalDetailPage() {
 
     fetchInitiativeMembers();
   }, [params.id]);
+
+  // Fetch suggested actions
+  useEffect(() => {
+    const fetchSuggestedActions = async () => {
+      const goalId = params.goalId as string;
+      if (!goalId) return;
+      
+      try {
+        const response = await fetch(`/api/goals/${goalId}/suggest-actions`);
+        if (response.ok) {
+          const data = await response.json();
+          setSuggestedActions(data);
+        } else {
+          setSuggestedActions([]);
+        }
+      } catch (error) {
+        console.error('Error fetching suggested actions:', error);
+        setSuggestedActions([]);
+      }
+    };
+
+    fetchSuggestedActions();
+  }, [params.goalId]);
 
   const handleAddAction = async () => {
     if (!newAction.title || !newAction.dueDate || !newAction.priority) {
@@ -329,7 +368,7 @@ export default function GoalDetailPage() {
           ...newAction,
           goalId: params.goalId,
           initiativeId: params.id,
-          assigneeId: newAction.assigneeId, // Include assigneeId in the payload
+          assigneeId: newAction.assigneeId,
         }),
       });
 
@@ -337,9 +376,7 @@ export default function GoalDetailPage() {
         const createdAction = await response.json();
         setActions((prevActions) => [...prevActions, createdAction]);
         setIsAddActionModalOpen(false);
-        // Reset new action form state
         setNewAction({ title: '', description: '', dueDate: '', priority: '', assigneeId: '' });
-        // Clear selected suggested action after creation
         setSelectedSuggestedAction(null);
       } else {
         console.error('Failed to add action');
@@ -352,59 +389,11 @@ export default function GoalDetailPage() {
   const handleSuggestedActionClick = (action: { title: string; description: string }) => {
     setSelectedSuggestedAction(action);
     setIsAddActionModalOpen(true);
-    // Also update the newAction state with the suggested action details
     setNewAction(prevNewAction => ({
       ...prevNewAction,
       title: action.title,
       description: action.description,
-      // dueDate and priority are not part of the suggested action data, so they remain as is or require user input
     }));
-  };
-
-  // Effect to fetch suggested actions when the goalId changes
-  useEffect(() => {
-    const fetchSuggestedActions = async () => {
-      const goalId = params.goalId as string;
-      if (!goalId) return;
-      console.log('Fetching suggested actions for goal:', goalId);
-      try {
-        const response = await fetch(`/api/goals/${goalId}/suggest-actions`);
-        if (!response.ok) {
-          console.error('Failed to fetch suggested actions:', response.statusText);
-          setSuggestedActions([]); // Clear suggestions on error
-          return;
-        }
-        const data = await response.json();
-        setSuggestedActions(data);
-      } catch (error) {
-        console.error('Error fetching suggested actions:', error);
-        setSuggestedActions([]); // Clear suggestions on error
-      }
-    };
-
-    fetchSuggestedActions();
-  }, [params.goalId, setSuggestedActions]); // Depend on params.goalId and setSuggestedActions
-
-  if (loading) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
-  }
-
-  // Added null checks for `goal` and its properties
-  if (!goal || !initiative) {
-    return <div className="flex items-center justify-center min-h-screen">Goal not found</div>;
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Completed':
-        return 'bg-green-500';
-      case 'In Progress':
-        return 'bg-blue-500';
-      case 'Blocked':
-        return 'bg-red-500';
-      default:
-        return 'bg-gray-500';
-    }
   };
 
   const handleDateSelect = (date: Date | undefined) => {
@@ -414,291 +403,381 @@ export default function GoalDetailPage() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="w-full min-w-0 overflow-hidden">
+        <AppSidebar 
+          widgets={['userControls', 'navigation', 'suggestions', 'location', 'resources', 'footer']}
+          context={{ type: 'goal', goalId: params.goalId as string }}
+          onCollapseChange={setSidebarCollapsed}
+        />
+        <div className={`transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'}`}>
+          <div className="flex items-center justify-center min-h-screen">
+            <div className="text-center">
+              <Target className="h-12 w-12 text-muted-foreground mx-auto mb-4 animate-pulse" />
+              <p className="text-lg font-semibold">Loading goal details...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!goal || !initiative) {
+    return (
+      <div className="w-full min-w-0 overflow-hidden">
+        <AppSidebar 
+          widgets={['userControls', 'navigation', 'suggestions', 'location', 'resources', 'footer']}
+          context={{ type: 'error' }}
+          onCollapseChange={setSidebarCollapsed}
+        />
+        <div className={`transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'}`}>
+          <div className="flex items-center justify-center min-h-screen">
+            <div className="text-center">
+              <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+              <p className="text-lg font-semibold">Goal not found</p>
+              <Button variant="secondary" className="mt-4" onClick={() => router.back()}>
+                Go Back
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'Completed':
+        return 'bg-green-500 text-white';
+      case 'InProgress':
+        return 'bg-blue-500 text-white';
+      case 'Blocked':
+        return 'bg-red-500 text-white';
+      default:
+        return 'bg-gray-500 text-white';
+    }
+  };
+
   const isMember = initiativeMembers.some(member => member.id === session?.user?.id);
+  const completedActions = actions.filter(a => a.status === 'Done').length;
+  const progressPercentage = actions.length > 0 ? Math.round((completedActions / actions.length) * 100) : 0;
 
   return (
-    <div>
-      {/* Initiative Header Image - Full width */}
-      <div className="relative h-64 w-full mb-[-2rem]"> {/* Adjust height for better visibility */}
-        {initiative.imageUrl && (
-          <>
-            <img
-              src={initiative.imageUrl}
-              alt={`${initiative.title} featured image`}
-              className="absolute inset-0 h-full w-full object-cover"
-            />
-            {/* Fade overlay */}
-            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/50 to-background"></div>
-          </>
-        )}
-        {/* Back Link - Positioned over the image */}
-        <div className="absolute bottom-4 left-0 right-0 container mx-auto px-4 z-10">
-          <Link
-            href={`/initiatives/${initiative.id}`}
-            className="inline-flex items-center text-white bg-black/50 backdrop-blur-sm px-3 py-1 rounded hover:bg-black/70 transition-colors text-sm shadow-md"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to {initiative.title}
-          </Link>
-        </div>
-      </div>
-
-      {/* Goal Header - Wider container */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <Card className="mb-8">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              {/* Updated component rendering with optional chaining */}
-              <CardTitle className="text-2xl mb-2">{goal?.title}</CardTitle>
-              <CardDescription className="text-lg">{goal?.description}</CardDescription>
-            </div>
-            <Badge variant="outline" className={`${getStatusColor(goal?.status)} text-white`}>
-              {goal?.status}
-            </Badge>
+    <div className="w-full min-w-0 overflow-hidden">
+      <AppSidebar 
+        widgets={['userControls', 'navigation', 'suggestions', 'location', 'resources', 'footer']}
+        context={{ type: 'goal', goalId: goal.id, initiativeId: initiative.id }}
+        onCollapseChange={setSidebarCollapsed}
+      />
+      
+      <div className={`transition-all duration-300 px-4 lg:px-6 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'}`}>
+        <div className="max-w-4xl mx-auto py-6">
+          {/* Breadcrumb Navigation */}
+          <div className="mb-6">
+            <Link
+              href={`/initiatives/${initiative.id}`}
+              className="inline-flex items-center text-sm text-muted-foreground hover:text-primary transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to {initiative.title}
+            </Link>
           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Updated Owner Display */}
-            {goal.owner && (
-              <Link href={`/profile/${goal.owner.id}`} className="flex items-center gap-2 group">
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={goal.owner.image ?? undefined} alt={goal.owner.name ?? undefined} />
-                  <AvatarFallback>{goal.owner.name?.charAt(0)}</AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="text-sm text-muted-foreground">Owner</p>
-                  <p className="font-medium group-hover:underline">{goal.owner.name}</p>
-                </div>
-              </Link>
-            )}
-            {goal?.dueDate && (
-              <div className="flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="text-sm text-muted-foreground">Due Date</p>
-                  {/* No .toDate() needed as it's already a Date object */}
-                  <p className="font-medium">{goal.dueDate.toLocaleDateString()}</p>
-                </div>
-              </div>
-            )}
-            {goal?.priority && (
-              <div className="flex items-center gap-2">
-                <Flag className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="text-sm text-muted-foreground">Priority</p>
-                  <p className="font-medium">{goal.priority}</p>
-                </div>
-              </div>
-            )}
-            {goal?.progress !== undefined && (
-              <div className="flex items-center gap-2">
-                <CheckCircle className="h-5 w-5 text-muted-foreground" />
+
+          {/* Goal Header Card */}
+          <Card className="mb-8">
+            <CardHeader>
+              <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <p className="text-sm text-muted-foreground">Progress</p>
-                  <Progress value={goal.progress} className="h-2" />
-                  <p className="text-sm font-medium mt-1">{goal.progress}%</p>
+                  <div className="flex items-center gap-3 mb-2">
+                    <Target className="h-6 w-6 text-primary" />
+                    <CardTitle className="text-2xl">{goal.title}</CardTitle>
+                  </div>
+                  {goal.description && (
+                    <CardDescription className="text-base mt-2">{goal.description}</CardDescription>
+                  )}
+                </div>
+                <Badge className={cn("ml-4 shrink-0", getStatusColor(goal.status))}>
+                  {goal.status}
+                </Badge>
+              </div>
+            </CardHeader>
+            
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {goal.owner && (
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage src={goal.owner.image ?? undefined} alt={goal.owner.name ?? undefined} />
+                      <AvatarFallback>{goal.owner.name?.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Goal Owner</p>
+                      <Link href={`/profile/${goal.owner.id}`} className="font-medium hover:underline">
+                        {goal.owner.name}
+                      </Link>
+                    </div>
+                  </div>
+                )}
+                
+                {goal.dueDate && (
+                  <div className="flex items-center gap-3">
+                    <Calendar className="h-5 w-5 text-muted-foreground" />
+                    <div>
+                      <p className="text-sm text-muted-foreground">Due Date</p>
+                      <p className="font-medium">{goal.dueDate.toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                )}
+                
+                {goal.priority && (
+                  <div className="flex items-center gap-3">
+                    <Flag className={cn("h-5 w-5", 
+                      goal.priority === 'High' ? 'text-red-500' : 
+                      goal.priority === 'Medium' ? 'text-yellow-500' : 'text-green-500'
+                    )} />
+                    <div>
+                      <p className="text-sm text-muted-foreground">Priority</p>
+                      <p className="font-medium">{goal.priority}</p>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="flex items-center gap-3">
+                  <CheckCircle2 className="h-5 w-5 text-muted-foreground" />
+                  <div className="flex-1">
+                    <p className="text-sm text-muted-foreground">Progress</p>
+                    <div className="flex items-center gap-2">
+                      <Progress value={progressPercentage} className="h-2 flex-1" />
+                      <span className="text-sm font-medium">{progressPercentage}%</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {completedActions} of {actions.length} actions complete
+                    </p>
+                  </div>
                 </div>
               </div>
-            )}
-          </div>
-        </CardContent>
-        </Card>
-      </div>
-
-      {/* Main Content - Narrower container for actions/cards */}
-      <div className="max-w-[730px] mx-auto px-4 sm:px-6 lg:px-8">
-        <Tabs defaultValue="actions" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="actions">Actions</TabsTrigger>
-          <TabsTrigger value="updates">Updates</TabsTrigger>
-          <TabsTrigger value="comments">Comments</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="actions" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold">Goal Actions</h2>
-            {isMember ? (
-              <Button onClick={() => setIsAddActionModalOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Action
-              </Button>
-            ) : (
-              <span className="text-xs text-muted-foreground">Join to add actions!</span>
-            )}
-          </div>
-          {/* Suggested Actions Section */}
-          <div className="mt-6 p-4 rounded-md bg-muted/50">
-            <h3 className="text-lg font-semibold mb-3">Recommended</h3>
-            {/* Placeholder for suggested actions */}
-            <div className="flex gap-2 overflow-x-auto pb-2 md:flex-wrap">
-              {suggestedActions.map((action, index) => (
-                <SuggestedActionTag
-                  key={index} // Using index as key here, consider a unique ID if available
-                  title={action.title}
-                  description={action.description}
-                  onClick={handleSuggestedActionClick}
-                />
-              ))}
-            </div>
-          </div>
-          <ActionList
-            actions={actions}
-            onActionStatusChange={(result) => {
-              // Update the specific action in the actions array
-              setActions(prev =>
-                prev.map(a => a.id === result.action.id ? { ...a, ...result.action } : a)
-              );
-              // Update the goal state
-              setGoal(result.goal);
-              // Update the initiative progress
-              setInitiative(prev => prev ? { ...prev, progress: result.initiativeProgress } : prev);
-            }}
-          />
-        </TabsContent>
-
-        <TabsContent value="updates">
-          <Card>
-            <CardHeader>
-              <CardTitle>Updates</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">No updates yet.</p>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        <TabsContent value="comments">
-          <Card>
-            <CardHeader>
-              <CardTitle>Comments</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">No comments yet.</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
+          {/* Main Content */}
+          <Tabs defaultValue="actions" className="space-y-6">
+            <TabsList>
+              <TabsTrigger value="actions">Actions</TabsTrigger>
+              <TabsTrigger value="updates">Updates</TabsTrigger>
+              <TabsTrigger value="comments">Comments</TabsTrigger>
+            </TabsList>
 
-        {/* Add Action Modal */}
-        <Dialog open={isAddActionModalOpen} onOpenChange={setIsAddActionModalOpen}>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Create New Action</DialogTitle>
-              <DialogDescription>
-                Define a new action for this goal. Click Add when you're done.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="title" className="text-right">
-                  Title
-                </Label>
-                <Input
-                  id="title"
-                  value={selectedSuggestedAction?.title || newAction.title}
-                  onChange={(e) => setNewAction({ ...newAction, title: e.target.value })}
-                  placeholder="E.g., Research potential venues"
-                  className="col-span-3"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="description" className="text-right">
-                  Description
-                </Label>
-                <Textarea
-                  id="description"
-                  value={selectedSuggestedAction?.description || newAction.description}
-                  onChange={(e) => setNewAction({ ...newAction, description: e.target.value })}
-                  placeholder="Provide more details about the action"
-                  className="col-span-3"
-                />
-              </div>
-              {/* Due Date Picker */}
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="dueDate" className="text-right">Due Date</Label>
-                <Popover open={dueDatePickerOpen} onOpenChange={setDueDatePickerOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant={"outline"}
-                      className={cn(
-                        "col-span-3 justify-start text-left font-normal",
-                        !selectedDate && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+            <TabsContent value="actions" className="space-y-6">
+              {/* Actions Header */}
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-xl font-semibold">Goal Actions</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Break down your goal into actionable steps
+                  </p>
+                </div>
+                {isMember ? (
+                  <Button onClick={() => setIsAddActionModalOpen(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Action
+                  </Button>
+                ) : (
+                  <div className="text-center">
+                    <p className="text-sm text-muted-foreground">Join the initiative to add actions</p>
+                    <Button variant="outline" size="sm" className="mt-2" asChild>
+                      <Link href={`/initiatives/${initiative.id}`}>
+                        <Users className="h-4 w-4 mr-1" />
+                        Join Initiative
+                      </Link>
                     </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={selectedDate}
-                      onSelect={handleDateSelect}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
+                  </div>
+                )}
               </div>
-              {/* Priority Select */}
-              <div className="grid grid-cols-4 items-center gap-4">
-                 <Label htmlFor="priority" className="text-right">Priority</Label>
-                 <Select
-                   value={newAction.priority}
-                   onValueChange={(value) => setNewAction({ ...newAction, priority: value })} // Send case-sensitive values directly
-                 >
-                   <SelectTrigger className="col-span-3">
-                     <SelectValue placeholder="Select Priority" />
-                   </SelectTrigger>
-                   <SelectContent>
-                     {/* Assuming Priority enum has values like High, Medium, Low */}
-                     <SelectItem value="High">High</SelectItem>
-                     <SelectItem value="Medium">Medium</SelectItem>
-                     <SelectItem value="Low">Low</SelectItem>
-                   </SelectContent>
-                 </Select>
-               </div>
-               {/* Assignee Select - New field for assigning actions */}
-              <div className="grid grid-cols-4 items-center gap-4">
-                 <Label htmlFor="assignee" className="text-right">Assignee</Label>
-                 <Select
-                   value={newAction.assigneeId}
-                   onValueChange={(value) => setNewAction({ ...newAction, assigneeId: value })}
-                 >
-                   <SelectTrigger className="col-span-3">
-                     <SelectValue placeholder="Select Assignee" />
-                   </SelectTrigger>
-                   <SelectContent>
-                     {initiativeMembers.map((member) => (
-                       <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>
-                     ))}
-                   </SelectContent>
-                 </Select>
-               </div>
-            </div>
-            <DialogFooter>
-              <Button variant="secondary" onClick={() => setIsAddActionModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleAddAction}>Add</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-        </Tabs>
-      </div>
 
-      {/* Error Message Display - Shown when errorMessage is set */}
-      {errorMessage && (
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="text-center">
-            <AlertCircle className="h-12 w-12 text-red-500 mx-auto" />
-            <p className="text-lg font-semibold mt-4">{errorMessage}</p>
-            <Button variant="secondary" className="mt-4" onClick={() => window.location.reload()}>
-              Retry
-            </Button>
-          </div>
+              {/* Suggested Actions */}
+              {suggestedActions.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">AI Suggestions</CardTitle>
+                    <CardDescription>
+                      Here are some recommended actions to help achieve this goal
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex gap-2 flex-wrap">
+                      {suggestedActions.map((action, index) => (
+                        <SuggestedActionTag
+                          key={index}
+                          title={action.title}
+                          description={action.description}
+                          onClick={handleSuggestedActionClick}
+                        />
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Actions List */}
+              <ActionList
+                actions={actions}
+                onActionStatusChange={(result) => {
+                  setActions(prev =>
+                    prev.map(a => a.id === result.action.id ? { ...a, ...result.action } : a)
+                  );
+                  setGoal(result.goal);
+                  setInitiative(prev => prev ? { ...prev, progress: result.initiativeProgress } : prev);
+                }}
+              />
+            </TabsContent>
+
+            <TabsContent value="updates">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Updates</CardTitle>
+                  <CardDescription>Progress updates and milestones for this goal</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground text-center py-8">No updates yet.</p>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="comments">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Comments</CardTitle>
+                  <CardDescription>Discussion and feedback about this goal</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground text-center py-8">No comments yet.</p>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+
+          {/* Add Action Modal */}
+          <Dialog open={isAddActionModalOpen} onOpenChange={setIsAddActionModalOpen}>
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle>Create New Action</DialogTitle>
+                <DialogDescription>
+                  Define a specific action to help achieve this goal.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="title">Title *</Label>
+                  <Input
+                    id="title"
+                    value={selectedSuggestedAction?.title || newAction.title}
+                    onChange={(e) => setNewAction({ ...newAction, title: e.target.value })}
+                    placeholder="E.g., Research potential venues"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="description">Description</Label>
+                  <Textarea
+                    id="description"
+                    value={selectedSuggestedAction?.description || newAction.description}
+                    onChange={(e) => setNewAction({ ...newAction, description: e.target.value })}
+                    placeholder="Provide more details about the action"
+                    rows={3}
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Due Date *</Label>
+                    <Popover open={dueDatePickerOpen} onOpenChange={setDueDatePickerOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !selectedDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <CalendarComponent
+                          mode="single"
+                          selected={selectedDate}
+                          onSelect={handleDateSelect}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label>Priority *</Label>
+                    <Select
+                      value={newAction.priority}
+                      onValueChange={(value) => setNewAction({ ...newAction, priority: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Priority" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="High">High</SelectItem>
+                        <SelectItem value="Medium">Medium</SelectItem>
+                        <SelectItem value="Low">Low</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Assignee</Label>
+                  <Select
+                    value={newAction.assigneeId}
+                    onValueChange={(value) => setNewAction({ ...newAction, assigneeId: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Assignee" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {initiativeMembers.map((member) => (
+                        <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              <DialogFooter>
+                <Button variant="secondary" onClick={() => setIsAddActionModalOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleAddAction}>Add Action</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Error Display */}
+          {errorMessage && (
+            <Card className="border-red-200 bg-red-50 mt-6">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="h-5 w-5 text-red-500" />
+                  <div>
+                    <p className="font-medium text-red-900">{errorMessage}</p>
+                    <Button variant="outline" size="sm" className="mt-2" onClick={() => window.location.reload()}>
+                      Retry
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

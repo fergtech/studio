@@ -22,6 +22,8 @@ interface CreateInitiativeArgs {
   status: InitiativeStatus;
   location?: string; // Optional location for MVP
   societyId?: string; // Optional: link initiative to a society
+  originatingIssueId?: string; // Optional: issue that this initiative addresses
+  originatingIdeaId?: string; // Optional: idea that this initiative implements
 }
 
 export async function createInitiative(args: CreateInitiativeArgs) {
@@ -105,6 +107,8 @@ export async function createInitiative(args: CreateInitiativeArgs) {
         description: args.description,
         imageUrl: args.imageUrl || null,
         roles: args.roles, // These are the skill/tag roles for the initiative itself
+        originatingIssueId: args.originatingIssueId,
+        originatingIdeaId: args.originatingIdeaId,
         status: args.status,
         location: args.location || null, // Add the missing location field
         societyId: args.societyId || null, // Link initiative to society if provided
@@ -534,6 +538,42 @@ export async function updateInitiativeAction({
     console.error("Error updating initiative:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
     return { error: `Failed to update initiative: ${errorMessage}` };
+  }
+}
+
+export async function updateUpdateContent(updateId: string, newContent: string): Promise<{ success: boolean; error?: string }> {
+  const session = await getServerSession(authOptions);
+
+  if (!session?.user?.id) {
+    return { success: false, error: "User not authenticated." };
+  }
+  const userId = session.user.id;
+
+  try {
+    const updateToEdit = await prisma.update.findUnique({
+      where: { id: updateId },
+      select: { userId: true, initiativeId: true },
+    });
+
+    if (!updateToEdit) {
+      return { success: false, error: "Update not found." };
+    }
+
+    if (updateToEdit.userId !== userId) {
+      return { success: false, error: "User not authorized to edit this update." };
+    }
+
+    await prisma.update.update({
+      where: { id: updateId },
+      data: { content: newContent },
+    });
+
+    revalidatePath(`/initiatives/${updateToEdit.initiativeId}`);
+
+    return { success: true };
+  } catch (error) {
+    console.error(`Error updating update ${updateId}:`, error);
+    return { success: false, error: "Failed to update content." };
   }
 }
 

@@ -88,7 +88,7 @@ export function LoginForm() {
             <FormItem>
               <FormLabel>Email</FormLabel>
               <FormControl>
-                <Input placeholder="you@example.com" {...field} type="email" disabled={isLoading} />
+                <Input placeholder="you@example.com" {...field} type="email" disabled={isLoading} suppressHydrationWarning />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -101,13 +101,13 @@ export function LoginForm() {
             <FormItem>
               <FormLabel>Password</FormLabel>
               <FormControl>
-                <Input placeholder="******" {...field} type="password" disabled={isLoading} />
+                <Input placeholder="******" {...field} type="password" disabled={isLoading} suppressHydrationWarning />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full" disabled={isLoading}>
+        <Button type="submit" className="w-full" disabled={isLoading} suppressHydrationWarning>
           {isLoading ? 'Logging in...' : 'Login'}
         </Button>
         <p className="text-center text-sm text-gray-600">

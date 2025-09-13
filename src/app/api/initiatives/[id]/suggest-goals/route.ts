@@ -32,7 +32,7 @@ async function generateSuggestedGoals(initiativeTitle: string, initiativeDescrip
   return suggestions.slice(0, 3);
 }
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const awaitedParams = await params;
   const initiativeId = awaitedParams.id;
 
@@ -57,7 +57,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
       return NextResponse.json({ error: 'Initiative not found' }, { status: 404 });
     }
 
-    // Use the placeholder or actual AI function
+    // Use the AI function to generate suggested goals
     const suggestedGoals = await generateSuggestedGoalsAction(
       initiative.title,
       initiative.description,

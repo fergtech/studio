@@ -81,14 +81,25 @@ export async function getOrCreateAiGuidance(initiativeId: string): Promise<{ suc
 
     let generatedGuidance = "";
     try {
+      console.log("Calling Gemini API for guidance generation...");
       const result = await model.generateContent(prompt);
       const response = await result.response;
       generatedGuidance = response.text();
-      console.log("Gemini API response received.");
+      console.log("Gemini API response received successfully.");
 
-    } catch (aiError) {
+    } catch (aiError: any) {
       console.error("Error calling Gemini API:", aiError);
-      return { success: false, error: "Failed to generate AI guidance." };
+      
+      // Handle specific API errors
+      if (aiError.message?.includes('503') || aiError.message?.includes('overloaded')) {
+        return { success: false, error: "AI service is currently overloaded. Please try again in a few minutes." };
+      } else if (aiError.message?.includes('429') || aiError.message?.includes('quota')) {
+        return { success: false, error: "AI service quota exceeded. Please try again later." };
+      } else if (aiError.message?.includes('401') || aiError.message?.includes('authentication')) {
+        return { success: false, error: "AI service authentication error. Please contact support." };
+      } else {
+        return { success: false, error: "Failed to generate AI guidance. Please try again later." };
+      }
     }
 
     // 4. Save generated guidance to initiative

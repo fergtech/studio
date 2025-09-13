@@ -59,23 +59,31 @@ export default function SuggestionsWidget() {
 
   // Socket logic temporarily disabled for Vercel deployment
 
-  // Socket logic temporarily disabled for Vercel deployment
+  // Use polling for online status instead of Socket.io
   useEffect(() => {
-    // TODO: Re-enable online status after implementing polling system
-    // const socket: Socket = io(SOCKET_URL, {
-    //   path: '/api/socketio',
-    //   transports: ['websocket', 'polling'],
-    // });
-    // socket.on('connect', () => {
-    //   // Optionally, join a room if needed
-    // });
-    // socket.on('onlineUsers', (ids: string[]) => {
-    //   setOnlineUserIds(ids);
-    // });
-    // return () => {
-    //   socket.disconnect();
-    // };
-    setOnlineUserIds([]); // Default to no online users when Socket.io is disabled
+    // Set up polling for online status
+    const pollOnlineUsers = async () => {
+      try {
+        const response = await fetch('/api/users/online');
+        if (response.ok) {
+          const data = await response.json();
+          setOnlineUserIds(data.onlineUserIds || []);
+        }
+      } catch (error) {
+        console.error('Error fetching online users:', error);
+        setOnlineUserIds([]); // Fallback to no online users
+      }
+    };
+
+    // Initial poll
+    pollOnlineUsers();
+
+    // Poll every 30 seconds for online status
+    const pollInterval = setInterval(pollOnlineUsers, 30000);
+
+    return () => {
+      clearInterval(pollInterval);
+    };
   }, []);
 
   // Merge online status into users

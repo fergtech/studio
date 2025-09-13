@@ -31,17 +31,25 @@ export function GlobalModals() {
     <>
       {/* Create Initiative Modal */}
       <Dialog open={createInitiativeModal.isOpen} onOpenChange={(isOpen) => !isOpen && closeCreateInitiativeModal()}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] max-w-[600px] max-h-[85vh] sm:max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create New Initiative</DialogTitle>
           </DialogHeader>
-          <CreateInitiativeForm setOpen={closeCreateInitiativeModal} onCreated={handleFeedItemCreated} />
+          <CreateInitiativeForm 
+            setOpen={closeCreateInitiativeModal} 
+            onCreated={handleFeedItemCreated}
+            initialTitle={createInitiativeModal.initialTitle}
+            initialDescription={createInitiativeModal.initialDescription}
+            initialImageUrl={createInitiativeModal.initialImageUrl}
+            originatingIssueId={createInitiativeModal.originatingIssueId}
+            originatingIdeaId={createInitiativeModal.originatingIdeaId}
+          />
         </DialogContent>
       </Dialog>
 
       {/* Create Issue Modal */}
       <Dialog open={createIssueModal.isOpen} onOpenChange={(isOpen) => !isOpen && closeCreateIssueModal()}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] max-w-[600px] max-h-[85vh] sm:max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create New Issue</DialogTitle>
           </DialogHeader>
@@ -51,7 +59,7 @@ export function GlobalModals() {
 
       {/* Create Idea Modal */}
       <Dialog open={createIdeaModal.isOpen} onOpenChange={(isOpen) => !isOpen && closeCreateIdeaModal()}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] max-w-[600px] max-h-[85vh] sm:max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create New Idea</DialogTitle>
           </DialogHeader>
@@ -61,7 +69,7 @@ export function GlobalModals() {
 
       {/* Create Society Modal */}
       <Dialog open={createSocietyModal.isOpen} onOpenChange={(isOpen) => !isOpen && closeCreateSocietyModal()}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] max-w-[600px] max-h-[85vh] sm:max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create New Society</DialogTitle>
           </DialogHeader>
@@ -71,7 +79,7 @@ export function GlobalModals() {
 
       {/* Create Debate Topic Modal */}
       <Dialog open={createDebateTopicModal.isOpen} onOpenChange={(isOpen) => !isOpen && closeCreateDebateTopicModal()}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] max-w-[600px] max-h-[85vh] sm:max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create New Debate Topic</DialogTitle>
           </DialogHeader>

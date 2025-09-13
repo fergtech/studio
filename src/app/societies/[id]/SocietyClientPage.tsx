@@ -7,13 +7,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Share2, UserPlus, Menu, X, Edit, Plus, Save, Loader2 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { SocietySidebar } from './SocietySidebar';
 import { EditSocietyDialog } from './EditSocietyDialog';
 import { useSession } from 'next-auth/react';
 import { CreateSocietyPostForm } from './CreateSocietyPostForm';
-import { SocietyPostComments } from './SocietyPostComments';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -24,9 +23,10 @@ import { LinkPreview } from '@/components/ui/link-preview';
 import { DocumentPreview } from '@/components/ui/document-preview';
 import { AppSidebar } from '@/components/AppSidebar';
 import { updateSocietyPostContent } from '@/app/actions/postActions';
-import { LazyPostsFeed } from '@/components/LazyPostsFeed';
 import { LazySocietyStats } from '@/components/LazySocietyStats';
-import { useLazyLoad } from '@/hooks/useLazyLoad';
+import SocietyPostReactions from '@/components/SocietyPostReactions';
+import { formatDistanceToNow } from 'date-fns';
+import { useScrollPosition } from '@/hooks/useScrollPosition';
 
 // Define Member type
 interface Member {
@@ -54,7 +54,7 @@ export function SocietyClientPage({ society: initialSociety, members, posts: ini
   const [posts, setPosts] = useState(initialPosts);
   const [initiatives, setInitiatives] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
-  const [feedFilter, setFeedFilter] = useState('ALL');
+  const [feedFilter, setFeedFilter] = useState<'ALL' | 'GENERAL' | 'ISSUE' | 'IDEA' | 'INITIATIVES'>('ALL');
   const [isJoining, setIsJoining] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
   const [currentMembers, setCurrentMembers] = useState(members);
@@ -62,6 +62,9 @@ export function SocietyClientPage({ society: initialSociety, members, posts: ini
   const router = useRouter();
   const [isCreateInitiativeOpen, setIsCreateInitiativeOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  
+  // Scroll position restoration for society feed
+  const { saveScrollPosition } = useScrollPosition({ key: `societyFeed_${society.id}` });
 
   // Handler for creating society initiative
   const handleCreateSocietyInitiative = () => {
@@ -79,27 +82,42 @@ export function SocietyClientPage({ society: initialSociety, members, posts: ini
   // Check if current user is a member
   const isMember = userId && currentMembers.some(m => m.id === userId);
 
-  // Lazy load initiatives only when needed
-  const fetchInitiatives = async () => {
-    const res = await fetch(`/api/societies/${society.id}/initiatives`);
-    if (!res.ok) {
-      throw new Error('Failed to fetch initiatives');
-    }
-    return res.json();
-  };
 
-  const { 
-    ref: initiativesRef, 
-    data: initiativesData, 
-    loading: initiativesLoading 
-  } = useLazyLoad(fetchInitiatives);
+  // State for loading
+  const [allContentLoading, setAllContentLoading] = useState(false);
+  const [initiativesLoading, setInitiativesLoading] = useState(false);
 
-  // Update initiatives state when lazy loaded data is available
+  // Fetch all content once on component mount
   useEffect(() => {
-    if (initiativesData) {
-      setInitiatives(initiativesData);
+    async function fetchAllContent() {
+      setAllContentLoading(true);
+      setInitiativesLoading(true);
+      try {
+        // Fetch all posts and initiatives in parallel
+        const [postsResponse, initiativesResponse] = await Promise.all([
+          fetch(`/api/societies/${society.id}/posts`),
+          fetch(`/api/societies/${society.id}/initiatives`)
+        ]);
+
+        if (postsResponse.ok) {
+          const postsData = await postsResponse.json();
+          setPosts(postsData.posts || []);
+        }
+
+        if (initiativesResponse.ok) {
+          const initiativesData = await initiativesResponse.json();
+          setInitiatives(initiativesData || []);
+        }
+      } catch (error) {
+        console.error('Failed to fetch society content:', error);
+      } finally {
+        setAllContentLoading(false);
+        setInitiativesLoading(false);
+      }
     }
-  }, [initiativesData]);
+
+    fetchAllContent();
+  }, [society.id]);
 
   // Fetch stats immediately for tab count
   useEffect(() => {
@@ -285,22 +303,53 @@ export function SocietyClientPage({ society: initialSociety, members, posts: ini
 
     return (
       <div className="relative mb-2">
-        <div className="border rounded p-4 bg-background min-h-[1px] relative">
-          <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-muted mr-2">{post.type}</span>
-              <span className="text-xs text-muted-foreground">{post.user?.name || 'Unknown'}</span>
-              <span className="text-xs text-muted-foreground">{new Date(post.createdAt).toLocaleString()}</span>
+        <div className="border rounded-lg p-4 bg-background min-h-[1px] relative">
+          {/* Post Header with Profile Picture */}
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-3">
+              {/* Profile Picture */}
+              <Avatar 
+                className="h-10 w-10 cursor-pointer hover:ring-2 hover:ring-primary/20 transition-all"
+                onClick={() => {
+                  saveScrollPosition();
+                  router.push(`/profile/${post.user?.id}`);
+                }}
+              >
+                <AvatarImage src={post.user?.image || ''} alt={post.user?.name || 'User'} />
+                <AvatarFallback className="bg-muted text-muted-foreground">
+                  {post.user?.name?.substring(0, 2).toUpperCase() || '??'}
+                </AvatarFallback>
+              </Avatar>
+              
+              {/* User Info and Time */}
+              <div className="flex flex-col">
+                <div className="flex items-center gap-2">
+                  <span 
+                    className="font-semibold text-sm hover:underline cursor-pointer"
+                    onClick={() => {
+                      saveScrollPosition();
+                      router.push(`/profile/${post.user?.id}`);
+                    }}
+                  >
+                    {post.user?.name || 'Unknown'}
+                  </span>
+                  <Badge variant="secondary" className="text-xs h-5 px-2">{post.type}</Badge>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
+                </span>
+              </div>
             </div>
+            
             {/* Edit button - only show for post creator */}
             {userId && post.user?.id === userId && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setEditMode(!editMode)}
-                className="h-6 w-6 p-0"
+                className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
               >
-                <Edit className="h-3 w-3" />
+                <Edit className="h-4 w-4" />
               </Button>
             )}
           </div>
@@ -440,52 +489,116 @@ export function SocietyClientPage({ society: initialSociety, members, posts: ini
               </div>
             </div>
           )}
-          <SocietyPostComments postId={post.id} userId={userId} societyId={society.id} isMember={isMember} />
+          
+          {/* Reaction buttons (like, comment, share) */}
+          <SocietyPostReactions 
+            postId={post.id} 
+            currentUserId={userId} 
+            societyId={society.id}
+            postType={post.type}
+            onCommentClick={() => {
+              // Save scroll position before navigating
+              saveScrollPosition();
+              // Navigate to post detail page with comment intent
+              router.push(`/posts/${post.id}?comments=true`);
+            }}
+          />
         </div>
       </div>
     );
   }
+
+  // Background options for initiatives without cover photos
+  const backgroundOptions = [
+    'linear-gradient(to right, #ff7e5f, #feb47b)', // Peach
+    'linear-gradient(to right, #6a11cb, #2575fc)', // Purple/Blue
+    'linear-gradient(to right, #00c6ff, #0072ff)', // Sky Blue
+    'linear-gradient(to right, #f7971e, #ffd200)', // Orange/Yellow
+    'linear-gradient(to right, #d38312, #a83279)', // Brown/Pink
+    '#333333', // Dark Grey
+  ];
+
+  // Function to get a deterministic background based on initiative ID
+  const getInitiativeBackground = (initiativeId: string) => {
+    let hash = 0;
+    for (let i = 0; i < initiativeId.length; i++) {
+      const char = initiativeId.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return backgroundOptions[Math.abs(hash) % backgroundOptions.length];
+  };
 
   // Initiative card for society feed
   function SocietyInitiativeCard({ initiative }: { initiative: any }) {
     const handleClick = () => {
+      saveScrollPosition();
       router.push(`/initiatives/${initiative.id}`);
     };
 
+    const backgroundStyle = initiative.imageUrl 
+      ? { backgroundImage: `url(${initiative.imageUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+      : { background: getInitiativeBackground(initiative.id) };
+
     return (
-      <div className="relative mb-2">
-        <div className="border rounded p-4 bg-background min-h-[1px] relative cursor-pointer hover:bg-muted/30 transition-colors" onClick={handleClick}>
-          <div className="flex items-center gap-2 mb-2">
-            <Badge variant="secondary" className="text-xs">Initiative</Badge>
-            <span className="text-xs text-muted-foreground">{initiative.creator?.name || 'Unknown'}</span>
-            <span className="text-xs text-muted-foreground ml-auto">{new Date(initiative.createdAt).toLocaleString()}</span>
+      <div className="w-full">
+        <div className="border rounded overflow-hidden bg-background min-h-[1px] relative cursor-pointer hover:shadow-md transition-all duration-300" onClick={handleClick}>
+          {/* Header with cover photo or gradient background */}
+          <div 
+            className="h-32 relative flex items-end justify-start p-4"
+            style={backgroundStyle}
+          >
+            {/* Overlay for better text readability */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+            
+            {/* Header content */}
+            <div className="relative z-10 w-full">
+              <div className="flex items-center gap-2 mb-1">
+                <Badge variant="secondary" className="text-xs bg-white/90 text-black border-0">Initiative</Badge>
+                <span className="text-xs text-white/80 ml-auto">{new Date(initiative.createdAt).toLocaleString()}</span>
+              </div>
+              <h3 className="font-semibold text-white text-lg leading-tight line-clamp-2">{initiative.title}</h3>
+            </div>
           </div>
-          <h3 className="font-semibold mb-1">{initiative.title}</h3>
-          <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{initiative.description}</p>
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            <span>{initiative._count?.memberships || 0} members</span>
-            <span>{initiative._count?.updates || 0} updates</span>
-            <Badge variant="outline" className="text-xs">{initiative.status}</Badge>
+
+          {/* Content section */}
+          <div className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-xs text-muted-foreground">{initiative.creator?.name || 'Unknown'}</span>
+              <Badge variant="outline" className="text-xs ml-auto">{initiative.status}</Badge>
+            </div>
+            <p className="text-sm text-muted-foreground mb-3 line-clamp-3">{initiative.description}</p>
+            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+              <span>{initiative._count?.memberships || 0} members</span>
+              <span>{initiative._count?.updates || 0} updates</span>
+            </div>
           </div>
         </div>
       </div>
     );
   }
 
-  // Filter content by type
-  const getFilteredContent = () => {
-    if (feedFilter === 'INITIATIVES') {
-      return { type: 'initiatives', data: initiatives };
-    }
-    
-    const filteredPosts = feedFilter === 'ALL'
-      ? posts
-      : posts.filter((post: any) => post.type === feedFilter);
-    
-    return { type: 'posts', data: filteredPosts };
-  };
+  // Simple filtering like home feed
+  const filteredPostsForDisplay = posts.filter((post: any) => {
+    if (feedFilter === 'ALL') return true;
+    if (feedFilter === 'GENERAL') return post.type === 'GENERAL';
+    if (feedFilter === 'ISSUE') return post.type === 'ISSUE';
+    if (feedFilter === 'IDEA') return post.type === 'IDEA';
+    return false;
+  });
 
-  const filteredContent = getFilteredContent();
+  // Handler for post updates
+  const handlePostUpdate = async () => {
+    try {
+      const res = await fetch(`/api/societies/${society.id}/posts`);
+      if (res.ok) {
+        const data = await res.json();
+        setPosts(data.posts || []);
+      }
+    } catch (error) {
+      console.error('Error refreshing posts:', error);
+    }
+  };
 
   const toggleSidebar = () => setIsSidebarOpen((v) => !v);
 
@@ -635,7 +748,21 @@ export function SocietyClientPage({ society: initialSociety, members, posts: ini
               societyId={society.id}
               userId={userId}
               isMember={isMember}
-              onPostCreated={post => setPosts([post, ...posts])}
+              onPostCreated={async (post) => {
+                // Add new post to the top of the list
+                setPosts([post, ...posts]);
+                
+                // Also refresh stats to update tab counts
+                try {
+                  const res = await fetch(`/api/societies/${society.id}/stats`);
+                  if (res.ok) {
+                    const data = await res.json();
+                    setStats(data);
+                  }
+                } catch (error) {
+                  console.error('Error refreshing stats:', error);
+                }
+              }}
             />
             
             {/* Create Initiative Button for Members */}
@@ -662,54 +789,72 @@ export function SocietyClientPage({ society: initialSociety, members, posts: ini
               </CardHeader>
               <CardContent>
                 <div className="flex gap-2 mb-4 overflow-x-auto scrollbar-hide pb-1">
-                  <Button size="sm" variant={feedFilter === 'ALL' ? 'secondary' : 'ghost'} onClick={() => setFeedFilter('ALL')} className="flex-shrink-0">All</Button>
-                  <Button size="sm" variant={feedFilter === 'GENERAL' ? 'secondary' : 'ghost'} onClick={() => setFeedFilter('GENERAL')} className="flex-shrink-0">General</Button>
-                  <Button size="sm" variant={feedFilter === 'ISSUE' ? 'secondary' : 'ghost'} onClick={() => setFeedFilter('ISSUE')} className="flex-shrink-0">Issues</Button>
-                  <Button size="sm" variant={feedFilter === 'IDEA' ? 'secondary' : 'ghost'} onClick={() => setFeedFilter('IDEA')} className="flex-shrink-0">Ideas</Button>
+                  <Button size="sm" variant={feedFilter === 'ALL' ? 'secondary' : 'ghost'} onClick={() => setFeedFilter('ALL')} className="flex-shrink-0">
+                    All ({posts.length + initiatives.length})
+                  </Button>
+                  <Button size="sm" variant={feedFilter === 'GENERAL' ? 'secondary' : 'ghost'} onClick={() => setFeedFilter('GENERAL')} className="flex-shrink-0">
+                    General ({posts.filter(p => p.type === 'GENERAL').length})
+                  </Button>
+                  <Button size="sm" variant={feedFilter === 'ISSUE' ? 'secondary' : 'ghost'} onClick={() => setFeedFilter('ISSUE')} className="flex-shrink-0">
+                    Issues ({posts.filter(p => p.type === 'ISSUE').length})
+                  </Button>
+                  <Button size="sm" variant={feedFilter === 'IDEA' ? 'secondary' : 'ghost'} onClick={() => setFeedFilter('IDEA')} className="flex-shrink-0">
+                    Ideas ({posts.filter(p => p.type === 'IDEA').length})
+                  </Button>
                   <Button size="sm" variant={feedFilter === 'INITIATIVES' ? 'secondary' : 'ghost'} onClick={() => setFeedFilter('INITIATIVES')} className="flex-shrink-0">
-                    Initiatives ({stats?.initiatives ?? 0})
+                    Initiatives ({initiatives.length})
                   </Button>
                 </div>
                 
-                {/* Always mount initiatives ref for lazy loading, but only show when selected */}
-                <div ref={initiativesRef} style={{ display: feedFilter === 'INITIATIVES' ? 'block' : 'none' }}>
+                {/* Initiatives content */}
+                <div style={{ display: feedFilter === 'INITIATIVES' ? 'block' : 'none' }}>
                   {initiativesLoading ? (
                     <div className="text-center text-muted-foreground">Loading initiatives...</div>
                   ) : initiatives.length === 0 ? (
                     <div className="text-center text-muted-foreground">No initiatives yet.</div>
                   ) : (
-                    <div className="flex flex-col gap-2">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-2 gap-4 max-w-[1200px]">
                       {initiatives.map((initiative: any) => (
-                        <SocietyInitiativeCard key={initiative.id} initiative={initiative} />
+                        <div key={initiative.id} className="max-w-[550px] w-full">
+                          <SocietyInitiativeCard initiative={initiative} />
+                        </div>
                       ))}
                     </div>
                   )}
                 </div>
 
                 {/* Posts content */}
-                {feedFilter !== 'INITIATIVES' && (
-                  <LazyPostsFeed
-                    societyId={society.id}
-                    initialPosts={[]}
-                    feedFilter={feedFilter}
-                    onPostUpdate={() => {
-                      // Refresh post creation form if needed
-                      window.location.reload();
-                    }}
-                  />
-                )}
+                <div style={{ display: feedFilter !== 'INITIATIVES' ? 'block' : 'none' }}>
+                  {allContentLoading ? (
+                    <div className="space-y-4">
+                      {[1, 2, 3].map((i) => (
+                        <div key={i} className="animate-pulse">
+                          <div className="bg-muted h-32 rounded-lg"></div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : filteredPostsForDisplay.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      {feedFilter === 'ALL' && "No posts yet. Be the first to share something!"}
+                      {feedFilter === 'GENERAL' && "No general posts yet."}
+                      {feedFilter === 'ISSUE' && "No issues yet."}
+                      {feedFilter === 'IDEA' && "No ideas yet."}
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {filteredPostsForDisplay.map((post: any) => (
+                        <SocietyPostCard 
+                          key={post.id} 
+                          post={post} 
+                          onPostUpdate={handlePostUpdate} 
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
             
-            {/* Society Stats Section - Lazy Loaded */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Society Statistics</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <LazySocietyStats societyId={society.id} stats={stats} />
-              </CardContent>
-            </Card>
         </div>
         </div>
       </div>

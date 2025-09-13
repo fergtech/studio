@@ -1,0 +1,54 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { id } = await params;
+    const { title, description } = await request.json();
+
+    if (!title?.trim() || !description?.trim()) {
+      return NextResponse.json({ error: 'Title and description are required' }, { status: 400 });
+    }
+
+    // Check if idea exists and user is the creator
+    const existingIdea = await prisma.idea.findUnique({
+      where: { id },
+      select: { creatorId: true },
+    });
+
+    if (!existingIdea) {
+      return NextResponse.json({ error: 'Idea not found' }, { status: 404 });
+    }
+
+    if (existingIdea.creatorId !== session.user.id) {
+      return NextResponse.json({ error: 'Unauthorized: You can only edit your own ideas' }, { status: 403 });
+    }
+
+    // Update the idea
+    const updatedIdea = await prisma.idea.update({
+      where: { id },
+      data: {
+        title: title.trim(),
+        description: description.trim(),
+      },
+    });
+
+    return NextResponse.json({ success: true, idea: updatedIdea });
+  } catch (error) {
+    console.error('Error updating idea:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}

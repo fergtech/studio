@@ -86,22 +86,25 @@ export function CreateSocietyForm({ setOpen, onCreated }: CreateSocietyFormProps
         placeholder="Society Name"
         required
         disabled={isSubmitting}
+        className="min-h-[44px]"
       />
       <Textarea
         value={description}
         onChange={e => setDescription(e.target.value)}
         placeholder="Description (optional)"
         disabled={isSubmitting}
+        className="min-h-[80px] sm:min-h-[60px]"
       />
       <Input
         value={image}
         onChange={e => setImage(e.target.value)}
         placeholder="Image URL (optional)"
         disabled={isSubmitting}
+        className="min-h-[44px]"
       />
-      <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={isSubmitting}>Cancel</Button>
-        <Button type="submit" disabled={isSubmitting}>Create Society</Button>
+      <div className="flex flex-col sm:flex-row justify-end gap-2">
+        <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={isSubmitting} className="min-h-[44px]">Cancel</Button>
+        <Button type="submit" disabled={isSubmitting} className="min-h-[44px]">Create Society</Button>
       </div>
     </form>
   );

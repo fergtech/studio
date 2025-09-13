@@ -272,7 +272,7 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
         />
         
         {/* Main Profile Content - with dynamic left margin based on sidebar state */}
-        <div className={`transition-all duration-300 px-4 lg:px-6 ${
+        <div className={`transition-all duration-300 px-4 lg:px-6 pt-20 lg:pt-6 ${
           sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'
         }`}>
           {/* Community Profile Header */}

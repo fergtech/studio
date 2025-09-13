@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -23,7 +23,7 @@ export async function POST(
       );
     }
 
-    const topicId = params.id;
+    const { id: topicId } = await params;
 
     // Check if debate topic exists
     const debateTopic = await prisma.debateTopic.findUnique({
@@ -92,14 +92,14 @@ export async function POST(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { searchParams } = new URL(request.url);
     const side = searchParams.get('side'); // 'PRO', 'CON', or null for both
     const parentId = searchParams.get('parentId'); // For getting replies
 
-    const topicId = params.id;
+    const { id: topicId } = await params;
 
     const whereCondition: any = {
       topicId,

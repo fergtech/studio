@@ -45,6 +45,8 @@ export function SocietySidebar({ society, members, isMobile, isOpen, onToggle }:
 
   // Fetch quick stats
   const [stats, setStats] = useState<SocietyStats | null>(null);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  
   useEffect(() => {
     fetch(`/api/societies/${society.id}/stats`).then(res => res.json()).then(setStats);
   }, [society.id]);
@@ -102,7 +104,29 @@ export function SocietySidebar({ society, members, isMobile, isOpen, onToggle }:
           <CardTitle>About</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="whitespace-pre-line">{society.description}</div>
+          {society.description ? (
+            <div className="space-y-2">
+              <div 
+                className={`whitespace-pre-line transition-all duration-300 ${
+                  isDescriptionExpanded ? '' : 'line-clamp-4'
+                }`}
+              >
+                {society.description}
+              </div>
+              {society.description.length > 200 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+                  className="h-auto p-0 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  {isDescriptionExpanded ? 'Show less' : 'Show more'}
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="text-sm text-muted-foreground italic">No description available</div>
+          )}
         </CardContent>
       </Card>
       {/* Members Card */}

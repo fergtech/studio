@@ -22,6 +22,7 @@ interface CreateIssueData {
   tags: string[];
   location?: string | null;
   mediaUrl?: string | null;
+  societyId?: string | null;
 }
 
 interface CreateIssueResult {
@@ -36,6 +37,7 @@ interface UpdateIssueData {
   tags?: string[];
   location?: string | null;
   mediaUrl?: string | null;
+  societyId?: string | null;
 }
 
 interface UpdateIssueArgs {
@@ -45,6 +47,7 @@ interface UpdateIssueArgs {
   tags?: string[];
   location?: string;
   mediaUrl?: string;
+  societyId?: string | null;
 }
 
 interface GetIssueByIdResult {
@@ -62,18 +65,25 @@ export async function createIssue(data: CreateIssueData): Promise<CreateIssueRes
 
   try {
     const result = await prisma.$transaction(async (tx: any) => {
-      const newIssue = await tx.issue.create({
-        data: {
-          title: data.title,
-          description: data.description,
-          tags: data.tags || [],
-          location: data.location,
-          creator: {
-            connect: {
-              id: session.user.id,
-            },
+      const createData: any = {
+        title: data.title,
+        description: data.description,
+        tags: data.tags || [],
+        location: data.location,
+        creator: {
+          connect: {
+            id: session.user.id,
           },
         },
+      };
+
+      // Only add societyId if it's provided and not null
+      if (data.societyId) {
+        createData.societyId = data.societyId;
+      }
+
+      const newIssue = await tx.issue.create({
+        data: createData,
       });
 
       if (data.mediaUrl) {
@@ -134,6 +144,7 @@ export async function updateIssue({
   tags,
   location,
   mediaUrl,
+  societyId,
 }: UpdateIssueArgs) {
   const session = await getServerSession(authOptions);
 
@@ -159,7 +170,8 @@ export async function updateIssue({
     if (title) updateData.title = title;
     if (description) updateData.description = description;
     if (tags) updateData.tags = tags;
-    if (location) updateData.location = location;
+    if (location !== undefined) updateData.location = location;
+    if (societyId !== undefined) updateData.societyId = societyId;
 
     const updatedIssue = await prisma.issue.update({
       where: { id: issueId },

@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { formatDistanceToNow } from 'date-fns';
-import { ThumbsUp, MessageSquare, Share2, MoreHorizontal, Trash2 } from 'lucide-react';
+import { ThumbsUp, MessageSquare, Share2, MoreHorizontal, Trash2, Edit } from 'lucide-react';
 import type { Update as GlobalUpdateType } from "@/lib/types";
 import {
   DropdownMenu,
@@ -14,7 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useSession } from 'next-auth/react';
-import { deleteUpdateAction } from '@/app/actions/initiativeActions';
+import { deleteUpdateAction, updateUpdateContent } from '@/app/actions/initiativeActions';
 import { useToast } from "@/components/ui/use-toast";
 import { useRouter } from 'next/navigation';
 
@@ -32,6 +33,10 @@ export function ActivityFeed({ updates: initialUpdates, onLoadMore, hasMore, isM
   const router = useRouter();
 
   const [activityUpdates, setActivityUpdates] = useState<GlobalUpdateType[]>(initialUpdates);
+  
+  // Edit state for updates
+  const [editingUpdateId, setEditingUpdateId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState<string>('');
 
   // Debug logging - remove these once working
   useEffect(() => {
@@ -59,6 +64,44 @@ export function ActivityFeed({ updates: initialUpdates, onLoadMore, hasMore, isM
       toast({
         title: "Error",
         description: result.error || "Failed to delete update.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Edit handlers
+  const handleEditUpdate = (update: GlobalUpdateType) => {
+    setEditingUpdateId(update.id);
+    setEditContent(update.content);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingUpdateId(null);
+    setEditContent('');
+  };
+
+  const handleSaveEdit = async (updateId: string) => {
+    if (!editContent.trim()) return;
+    
+    const result = await updateUpdateContent(updateId, editContent);
+    if (result.success) {
+      toast({
+        title: "Success",
+        description: "Update edited successfully.",
+      });
+      // Update the content locally
+      setActivityUpdates(prev => 
+        prev.map(update => 
+          update.id === updateId 
+            ? { ...update, content: editContent }
+            : update
+        )
+      );
+      handleCancelEdit();
+    } else {
+      toast({
+        title: "Error",
+        description: result.error || "Failed to edit update.",
         variant: "destructive",
       });
     }
@@ -123,13 +166,22 @@ export function ActivityFeed({ updates: initialUpdates, onLoadMore, hasMore, isM
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         {canDelete && (
-                          <DropdownMenuItem
-                            onClick={() => handleDeleteUpdate(update.id)}
-                            className="text-red-600 hover:!text-red-600 hover:!bg-red-50 dark:hover:!bg-red-700/20 dark:text-red-500 dark:hover:!text-red-500"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                          </DropdownMenuItem>
+                          <>
+                            <DropdownMenuItem
+                              onClick={() => handleEditUpdate(update)}
+                              className="text-blue-600 hover:!text-blue-600 hover:!bg-blue-50 dark:hover:!bg-blue-700/20 dark:text-blue-500 dark:hover:!text-blue-500"
+                            >
+                              <Edit className="mr-2 h-4 w-4" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleDeleteUpdate(update.id)}
+                              className="text-red-600 hover:!text-red-600 hover:!bg-red-50 dark:hover:!bg-red-700/20 dark:text-red-500 dark:hover:!text-red-500"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </>
                         )}
                         <DropdownMenuItem disabled> 
                           Report (coming soon) 
@@ -137,7 +189,34 @@ export function ActivityFeed({ updates: initialUpdates, onLoadMore, hasMore, isM
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
-                  <p className="mt-2 text-sm whitespace-pre-wrap">{update.content}</p>
+                  {editingUpdateId === update.id ? (
+                    <div className="mt-2 space-y-2">
+                      <Textarea
+                        value={editContent}
+                        onChange={(e) => setEditContent(e.target.value)}
+                        className="min-h-[100px] resize-none text-sm"
+                        placeholder="Edit your update..."
+                      />
+                      <div className="flex gap-2">
+                        <Button 
+                          size="sm"
+                          onClick={() => handleSaveEdit(update.id)}
+                          disabled={!editContent.trim() || editContent === update.content}
+                        >
+                          Save
+                        </Button>
+                        <Button 
+                          size="sm"
+                          variant="outline"
+                          onClick={handleCancelEdit}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-sm whitespace-pre-wrap">{update.content}</p>
+                  )}
                   {displayImage && (
                     <div className="mt-3 relative aspect-video w-full max-w-2xl rounded-lg overflow-hidden">
                       <img

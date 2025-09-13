@@ -69,13 +69,33 @@ function ExplorePageInner() {
   const [results, setResults] = useState<SearchResults>({ users: [], initiatives: [], posts: [], societies: [] });
   const [hasSearched, setHasSearched] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isLoadingFeatured, setIsLoadingFeatured] = useState(true);
+
+  // Load featured content on initial page load
+  const loadFeaturedContent = async () => {
+    setIsLoadingFeatured(true);
+    try {
+      const response = await fetch('/api/explore/featured');
+      if (response.ok) {
+        const data = await response.json();
+        setResults(data);
+      } else {
+        console.error('Failed to load featured content');
+      }
+    } catch (error) {
+      console.error('Error loading featured content:', error);
+    } finally {
+      setIsLoadingFeatured(false);
+    }
+  };
 
   // Handle search
   const handleSearch = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!searchQuery.trim()) {
-      setResults({ users: [], initiatives: [], posts: [], societies: [] });
+      // If search is cleared, load featured content again
       setHasSearched(false);
+      loadFeaturedContent();
       return;
     }
     setIsLoading(true);
@@ -91,12 +111,16 @@ function ExplorePageInner() {
     setIsLoading(false);
   };
 
-  // Optionally, auto-search if query param is present
+  // Load featured content on mount, and handle search params
   useEffect(() => {
     const q = searchParams.get('q');
     if (q) {
       setSearchQuery(q);
+      setHasSearched(true);
       setTimeout(() => handleSearch(), 0);
+    } else {
+      // Load featured content on initial load
+      loadFeaturedContent();
     }
     // eslint-disable-next-line
   }, []);
@@ -124,8 +148,8 @@ function ExplorePageInner() {
 
   // Initiative card (profile style)
   const InitiativeCard = (initiative: SearchInitiative) => (
-    <Link key={initiative.id} href={`/initiatives/${initiative.id}`} passHref className="block min-w-[300px] h-[260px] cursor-pointer">
-      <div className="relative flex-shrink-0 cursor-pointer hover:shadow-lg transition-shadow overflow-hidden group h-full rounded-lg">
+    <Link key={initiative.id} href={`/initiatives/${initiative.id}`} passHref className="block h-[260px] cursor-pointer">
+      <div className="relative cursor-pointer hover:shadow-lg transition-shadow overflow-hidden group h-full rounded-lg">
         {/* Background Image and Overlay */}
         {initiative.imageUrl ? (
           <div
@@ -170,8 +194,8 @@ function ExplorePageInner() {
 
   // Society card
   const SocietyCard = (society: SearchSociety) => (
-    <Link key={society.id} href={`/societies/${society.id}`} passHref className="block min-w-[300px] h-[180px] cursor-pointer">
-      <div className="relative flex-shrink-0 cursor-pointer hover:shadow-lg transition-shadow overflow-hidden group h-full rounded-lg">
+    <Link key={society.id} href={`/societies/${society.id}`} passHref className="block h-[180px] cursor-pointer">
+      <div className="relative cursor-pointer hover:shadow-lg transition-shadow overflow-hidden group h-full rounded-lg">
         {society.imageUrl ? (
           <div className="absolute inset-0 bg-cover bg-center transition-transform duration-300 group-hover:scale-105" style={{ backgroundImage: `url(${society.imageUrl})` }}>
             <div className="absolute inset-0 bg-black/60" />
@@ -196,7 +220,7 @@ function ExplorePageInner() {
         context={{ type: 'explore' }}
         onCollapseChange={setSidebarCollapsed}
       />
-      <div className={`transition-all duration-300 px-4 lg:px-6 ${
+      <div className={`transition-all duration-300 px-4 lg:px-6 pt-20 lg:pt-6 ${
         sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'
       }`}>
         <div className="max-w-5xl mx-auto py-10">
@@ -219,59 +243,108 @@ function ExplorePageInner() {
         />
         <Button type="submit" className="rounded-l-none">Search</Button>
       </form>
+      
+      {/* Loading states */}
       {isLoading && <div className="text-center text-muted-foreground">Searching...</div>}
-      {hasSearched && !isLoading && (
+      {isLoadingFeatured && !hasSearched && <div className="text-center text-muted-foreground">Loading featured content...</div>}
+      
+      {/* Show content when not loading */}
+      {!isLoading && !isLoadingFeatured && (
         <>
+          {/* Dynamic header based on whether user searched or viewing featured content */}
+          <div className="mb-6 text-center">
+            {hasSearched ? (
+              <h2 className="text-2xl font-semibold">Search Results for "{searchQuery}"</h2>
+            ) : (
+              <div>
+                <h2 className="text-2xl font-semibold mb-2">Featured Content</h2>
+                <p className="text-muted-foreground">Discover trending users, initiatives, societies, and posts</p>
+              </div>
+            )}
+          </div>
+
           {/* Users group */}
           <div className="mb-8">
-            <h2 className="text-xl font-semibold mb-3">Users</h2>
+            <h2 className="text-xl font-semibold mb-3">{hasSearched ? 'Users' : 'Featured Users'}</h2>
             {results.users.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {results.users.map((user: any) => <UserCard key={user.id} {...user} />)}
+              <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide min-w-0">
+                {results.users.map((user: any) => (
+                  <div key={user.id} className="flex-shrink-0 w-64">
+                    <UserCard {...user} />
+                  </div>
+                ))}
               </div>
             ) : (
-              <div className="text-center text-muted-foreground">No users found</div>
+              <div className="text-center text-muted-foreground">
+                {hasSearched ? 'No users found' : 'No featured users available'}
+              </div>
             )}
           </div>
+          
           {/* Societies group */}
           <div className="mb-8">
-            <h2 className="text-xl font-semibold mb-3">Societies</h2>
+            <h2 className="text-xl font-semibold mb-3">{hasSearched ? 'Societies' : 'Featured Societies'}</h2>
             {results.societies.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {results.societies.map((society: SearchSociety) => <SocietyCard key={society.id} {...society} />)}
+              <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide min-w-0">
+                {results.societies.map((society: SearchSociety) => (
+                  <div key={society.id} className="flex-shrink-0 w-80">
+                    <SocietyCard {...society} />
+                  </div>
+                ))}
               </div>
             ) : (
-              <div className="text-center text-muted-foreground">No societies found</div>
+              <div className="text-center text-muted-foreground">
+                {hasSearched ? 'No societies found' : 'No featured societies available'}
+              </div>
             )}
           </div>
+          
           {/* Initiatives group */}
           <div className="mb-8">
-            <h2 className="text-xl font-semibold mb-3">Initiatives</h2>
+            <h2 className="text-xl font-semibold mb-3">{hasSearched ? 'Initiatives' : 'Featured Initiatives'}</h2>
             {results.initiatives.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {results.initiatives.map((initiative: SearchInitiative) => <InitiativeCard key={initiative.id} {...initiative} />)}
+              <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide min-w-0">
+                {results.initiatives.map((initiative: SearchInitiative) => (
+                  <div key={initiative.id} className="flex-shrink-0 w-80">
+                    <InitiativeCard {...initiative} />
+                  </div>
+                ))}
               </div>
             ) : (
-              <div className="text-center text-muted-foreground">No initiatives found</div>
+              <div className="text-center text-muted-foreground">
+                {hasSearched ? 'No initiatives found' : 'No featured initiatives available'}
+              </div>
             )}
           </div>
+          
           {/* Posts group (mixed) */}
           <div className="mb-8">
-            <h2 className="text-xl font-semibold mb-3">Posts</h2>
+            <h2 className="text-xl font-semibold mb-3">{hasSearched ? 'Posts' : 'Featured Posts'}</h2>
             {results.posts.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {results.posts.map((post: SearchPost) => <PostCard key={post.id} {...post} />)}
+              <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide min-w-0">
+                {results.posts.map((post: SearchPost) => (
+                  <div key={post.id} className="flex-shrink-0 w-72">
+                    <PostCard {...post} />
+                  </div>
+                ))}
               </div>
             ) : (
-              <div className="text-center text-muted-foreground">No posts found</div>
+              <div className="text-center text-muted-foreground">
+                {hasSearched ? 'No posts found' : 'No featured posts available'}
+              </div>
             )}
           </div>
-          {/* If all empty */}
+          
+          {/* If all sections are empty */}
           {results.users.length === 0 && results.societies.length === 0 && results.initiatives.length === 0 && results.posts.length === 0 && (
             <div className="flex flex-col items-center justify-center mt-12">
               <span className="text-5xl mb-4">🔍</span>
-              <div className="text-xl font-semibold mb-2">No results found</div>
-              <div className="text-muted-foreground">Try searching with a different term</div>
+              <div className="text-xl font-semibold mb-2">
+                {hasSearched ? 'No results found' : 'No content available'}
+              </div>
+              <div className="text-muted-foreground">
+                {hasSearched ? 'Try searching with a different term' : 'Check back later for featured content'}
+              </div>
             </div>
           )}
         </>

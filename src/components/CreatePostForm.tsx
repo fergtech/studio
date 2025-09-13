@@ -4,12 +4,15 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Paperclip, Send, Palette, AlertCircle } from 'lucide-react';
+import { Paperclip, Send, Palette, AlertCircle, MessageCircle, AlertTriangle, Lightbulb, ChevronDown } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { createGeneralPost } from '@/app/actions/postActions'; // Import the server action
-import { useToast } from '@/hooks/use-toast'; // Assuming you have a toast hook
+import { createGeneralPost } from '@/app/actions/postActions';
+import { createIssue } from '@/app/actions/issueActions';
+import { createIdea } from '@/app/actions/ideaActions';
+import { useToast } from '@/hooks/use-toast';
 import imageCompression from 'browser-image-compression';
 
 // Define some background options
@@ -30,21 +33,76 @@ const mockUserAvatars: Record<string, string | undefined> = {
   "user7": "https://i.pravatar.cc/40?u=user7",
 };
 
-export default function CreatePostForm({ onPostCreated }: { onPostCreated: () => void }) {
+type PostType = 'general' | 'issue' | 'idea';
+
+interface PostTypeConfig {
+  label: string;
+  icon: React.ReactNode;
+  placeholder: string;
+  titlePlaceholder: string;
+  buttonText: string;
+  background: string;
+}
+
+const postTypeConfigs: Record<PostType, PostTypeConfig> = {
+  general: {
+    label: 'General',
+    icon: <MessageCircle className="h-4 w-4" />,
+    placeholder: "What's happening?",
+    titlePlaceholder: "What's on your mind?",
+    buttonText: 'Post',
+    background: backgroundOptions[1] // Purple/Blue gradient
+  },
+  issue: {
+    label: 'Issue',
+    icon: <AlertTriangle className="h-4 w-4" />,
+    placeholder: "Describe the problem you've noticed...",
+    titlePlaceholder: "What's the issue?",
+    buttonText: 'Report Issue',
+    background: 'linear-gradient(to right, #ff6b6b, #ee5a24)' // Red gradient
+  },
+  idea: {
+    label: 'Idea',
+    icon: <Lightbulb className="h-4 w-4" />,
+    placeholder: "Share your solution or innovative idea...",
+    titlePlaceholder: "What's your idea?",
+    buttonText: 'Share Idea',
+    background: 'linear-gradient(to right, #4ecdc4, #44a08d)' // Teal gradient
+  }
+};
+
+interface CreatePostFormProps {
+  onPostCreated: () => void;
+  societyId?: string | null;
+  context?: 'general' | 'society' | 'initiative';
+}
+
+export default function CreatePostForm({ onPostCreated, societyId, context = 'general' }: CreatePostFormProps) {
   const { data: session, status } = useSession();
   const { toast } = useToast();
   
   // Debug logging
   console.log('CreatePostForm - Session status:', status);
   console.log('CreatePostForm - Session data:', session);
+  const [postType, setPostType] = useState<PostType>('general');
+  const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState<File | null>(null);
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
-  const [selectedBackground, setSelectedBackground] = useState<string>(backgroundOptions[1]);
+  const [selectedBackground, setSelectedBackground] = useState<string>(postTypeConfigs.general.background);
+  const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const currentUser = session?.user;
+  const currentConfig = postTypeConfigs[postType];
+
+  // Update background when post type changes
+  useEffect(() => {
+    if (!selectedMedia) {
+      setSelectedBackground(currentConfig.background);
+    }
+  }, [postType, currentConfig.background, selectedMedia]);
 
   // Show loading state while session is loading
   if (status === "loading") {
@@ -199,7 +257,12 @@ export default function CreatePostForm({ onPostCreated }: { onPostCreated: () =>
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!content.trim() || isSubmitting) return;
+    
+    // Validation based on post type
+    if (postType === 'general' && !content.trim()) return;
+    if ((postType === 'issue' || postType === 'idea') && (!title.trim() || !content.trim())) return;
+    
+    if (isSubmitting) return;
     if (!currentUser?.id) {
       toast({
         title: "Error",
@@ -253,43 +316,67 @@ export default function CreatePostForm({ onPostCreated }: { onPostCreated: () =>
         }
       }
 
-      // Now create the post with uploaded URLs
-      const formData = new FormData();
-      formData.append('content', content);
+      // Call appropriate creation function based on post type
+      let result: any;
+      
+      if (postType === 'general') {
+        // Create general post with existing logic
+        const formData = new FormData();
+        formData.append('content', content);
 
-      if (uploadedMediaUrls.length > 0) {
-        // Add uploaded media URLs and types
-        uploadedMediaUrls.forEach((url, index) => {
-          formData.append('mediaUrls', url);
-          formData.append('mediaTypes', uploadedMediaTypes[index]);
-        });
-      } else if (selectedBackground) {
-        // Only send formBackground if no media is selected
-        formData.append('formBackground', selectedBackground);
+        if (uploadedMediaUrls.length > 0) {
+          // Add uploaded media URLs and types
+          uploadedMediaUrls.forEach((url, index) => {
+            formData.append('mediaUrls', url);
+            formData.append('mediaTypes', uploadedMediaTypes[index]);
+          });
+        } else if (selectedBackground) {
+          // Only send formBackground if no media is selected
+          formData.append('formBackground', selectedBackground);
+        }
+
+        result = await createGeneralPost(formData);
+      } else {
+        // Create issue or idea
+        const createData = {
+          title: title.trim(),
+          description: content.trim(),
+          tags: [], // Could be enhanced with tag input later
+          location: null,
+          mediaUrl: uploadedMediaUrls.length > 0 ? uploadedMediaUrls[0] : null,
+          societyId: societyId || null,
+        };
+        
+        console.log(`Creating ${postType} with data:`, createData);
+        console.log('Title length:', title.trim().length);
+        console.log('Description length:', content.trim().length);
+        
+        if (postType === 'issue') {
+          result = await createIssue(createData);
+        } else {
+          result = await createIdea(createData);
+        }
       }
 
-      // linkedInitiativeId is not currently part of this form's state or props to send
-      // If it were, it would be: formData.append('linkedInitiativeId', linkedInitiativeIdValue);
-
-      const result = await createGeneralPost(formData);
-
-      if (result.success && result.post) {
+      if (result.success && (result.post || result.issue || result.idea)) {
+        // Reset form
+        setTitle('');
         setContent('');
         setSelectedMedia(null);
         setMediaPreview(null);
-        setSelectedBackground(backgroundOptions[1]);
+        setSelectedBackground(currentConfig.background);
         if (fileInputRef.current) {
             fileInputRef.current.value = "";
         }
         toast({
           title: "Success!",
-          description: "Your post has been created.",
+          description: `Your ${postType} has been created.`,
         });
         onPostCreated(); // Callback to refresh the feed or show success
       } else {
-        console.error("Failed to create post:", result.error);
+        console.error(`Failed to create ${postType}:`, result.error);
         toast({
-          title: "Error Creating Post",
+          title: `Error Creating ${currentConfig.label}`,
           description: result.error || "An unknown error occurred.",
           variant: "destructive",
         });
@@ -376,6 +463,7 @@ export default function CreatePostForm({ onPostCreated }: { onPostCreated: () =>
 
       <CardContent className="p-4">
         <form onSubmit={handleSubmit}>
+
           <div className="flex items-start space-x-3">
             <Avatar className="h-10 w-10 mt-1">
               <AvatarImage 
@@ -384,16 +472,27 @@ export default function CreatePostForm({ onPostCreated }: { onPostCreated: () =>
               />
               <AvatarFallback>{fallback}</AvatarFallback>
             </Avatar>
-            <Textarea
-              placeholder="What's happening?"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              className="flex-1 resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent min-h-[60px] placeholder:text-muted-foreground/70"
-              rows={2} // Start with 2 rows, can expand
-            />
+            <div className="flex-1 space-y-3">
+              {/* Title field for Issues and Ideas */}
+              {(postType === 'issue' || postType === 'idea') && (
+                <Input
+                  placeholder={currentConfig.titlePlaceholder}
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent text-lg font-medium placeholder:text-muted-foreground/70"
+                />
+              )}
+              <Textarea
+                placeholder={currentConfig.placeholder}
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                className="resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent min-h-[80px] sm:min-h-[60px] placeholder:text-muted-foreground/70"
+                rows={3}
+              />
+            </div>
           </div>
           <div className="flex justify-between items-center mt-3 pt-3 border-t border-border/50">
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
               {/* Hidden File Input */}
               <input
                 type="file"
@@ -403,7 +502,7 @@ export default function CreatePostForm({ onPostCreated }: { onPostCreated: () =>
                 className="hidden"
               />
               {/* Attachment Button */}
-              <Button variant="ghost" size="icon" type="button" onClick={triggerFileInput} className="text-muted-foreground hover:text-primary">
+              <Button variant="ghost" size="icon" type="button" onClick={triggerFileInput} className="text-muted-foreground hover:text-primary min-h-[44px] min-w-[44px]">
                 <Paperclip className="h-5 w-5" />
                 <span className="sr-only">Attach media</span>
               </Button>
@@ -412,7 +511,7 @@ export default function CreatePostForm({ onPostCreated }: { onPostCreated: () =>
               {!selectedMedia && (
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="ghost" size="icon" type="button" className="text-muted-foreground hover:text-primary">
+                    <Button variant="ghost" size="icon" type="button" className="text-muted-foreground hover:text-primary min-h-[44px] min-w-[44px]">
                       <Palette className="h-5 w-5" />
                       <span className="sr-only">Choose background</span>
                     </Button>
@@ -423,7 +522,7 @@ export default function CreatePostForm({ onPostCreated }: { onPostCreated: () =>
                         <button
                           key={bg}
                           type="button"
-                          className={`w-8 h-8 rounded border ${selectedBackground === bg ? 'ring-2 ring-primary ring-offset-2' : ''}`}
+                          className={`min-w-[44px] min-h-[44px] rounded border ${selectedBackground === bg ? 'ring-2 ring-primary ring-offset-2' : ''}`}
                           style={{ background: bg }}
                           onClick={() => setSelectedBackground(bg)}
                         />
@@ -432,10 +531,57 @@ export default function CreatePostForm({ onPostCreated }: { onPostCreated: () =>
                   </PopoverContent>
                 </Popover>
               )}
+              
+              {/* Post Type Pill Selector */}
+              <Popover open={isTypeDropdownOpen} onOpenChange={setIsTypeDropdownOpen}>
+                <PopoverTrigger asChild>
+                  <Button 
+                    variant="secondary" 
+                    size="sm" 
+                    type="button" 
+                    className="flex items-center gap-1.5 px-3 py-1.5 h-8 bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 rounded-full"
+                  >
+                    {currentConfig.icon}
+                    <span className="text-sm font-medium">{currentConfig.label}</span>
+                    <ChevronDown className="h-3 w-3" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-48 p-2" align="start">
+                  <div className="space-y-1">
+                    {Object.entries(postTypeConfigs).map(([type, config]) => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => {
+                          setPostType(type as PostType);
+                          setIsTypeDropdownOpen(false);
+                        }}
+                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors text-left ${
+                          postType === type 
+                            ? 'bg-primary/10 text-primary' 
+                            : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                        }`}
+                      >
+                        {config.icon}
+                        {config.label}
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
 
-            <Button type="submit" disabled={!content.trim() || isSubmitting} size="sm">
-              {isSubmitting ? 'Posting...' : <>Post <Send className="ml-1 h-4 w-4" /></>}
+            <Button 
+              type="submit" 
+              disabled={
+                isSubmitting || 
+                (postType === 'general' && !content.trim()) ||
+                ((postType === 'issue' || postType === 'idea') && (!title.trim() || !content.trim()))
+              } 
+              size="sm" 
+              className="min-h-[44px] px-4"
+            >
+              {isSubmitting ? `${currentConfig.buttonText}ing...` : <>{currentConfig.buttonText} <Send className="ml-1 h-4 w-4" /></>}
             </Button>
           </div>
         </form>

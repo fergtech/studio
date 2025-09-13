@@ -112,12 +112,27 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const body = await req.json();
-    const { type, content, userId, imageUrl, linkUrl, linkMetadata, links, documents } = body;
-    if (!type || !content || !userId) {
-      return NextResponse.json({ error: 'type, content, and userId are required' }, { status: 400 });
+    const { type, content, title, description, userId, imageUrl, linkUrl, linkMetadata, links, documents } = body;
+    
+    // Validate required fields based on post type
+    if (!type || !userId) {
+      return NextResponse.json({ error: 'type and userId are required' }, { status: 400 });
+    }
+    
+    // For issues and ideas, require title and description
+    if ((type === 'ISSUE' || type === 'IDEA')) {
+      if (!title || !description) {
+        return NextResponse.json({ error: 'title and description are required for issues and ideas' }, { status: 400 });
+      }
+    } else {
+      // For general posts, require content
+      if (!content) {
+        return NextResponse.json({ error: 'content is required for general posts' }, { status: 400 });
+      }
     }
 
     // Check if user is a member of the society
@@ -125,7 +140,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       where: {
         userId_societyId: {
           userId,
-          societyId: params.id
+          societyId: id
         }
       }
     });
@@ -163,16 +178,28 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       }
     }
 
+    // Prepare data based on post type
+    const postData: any = {
+      type,
+      societyId: id,
+      userId,
+      imageUrl: imageUrl || undefined,
+      linkUrl: linkUrl || undefined,
+      linkPreviewId,
+    };
+
+    // Set content based on post type
+    if (type === 'ISSUE' || type === 'IDEA') {
+      // For issues and ideas, combine title and description into content
+      // Format: "Title\n\nDescription" so it can be parsed back if needed
+      postData.content = `${title}\n\n${description}`;
+    } else {
+      // For general posts, use the content field
+      postData.content = content;
+    }
+
     const post = await prisma.societyPost.create({
-      data: {
-        type,
-        content,
-        societyId: params.id,
-        userId,
-        imageUrl: imageUrl || undefined,
-        linkUrl: linkUrl || undefined,
-        linkPreviewId,
-      },
+      data: postData,
       include: { 
         user: true,
         linkPreview: true,

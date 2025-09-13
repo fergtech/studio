@@ -258,6 +258,7 @@ export default async function PostPage({ params }: { params: Promise<{ id: strin
         currentUserId={currentUserId}
         postType="society"
         society={society || undefined}
+        societyPostType={postData.type}
         linkPreview={postData.linkPreview ? {
           ...postData.linkPreview,
           title: postData.linkPreview.title || undefined,

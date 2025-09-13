@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,112 +13,34 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { formatDistanceToNow } from 'date-fns';
 import { useRouter } from 'next/navigation';
-import { useToast } from '@/components/ui/use-toast';
-// import { io, Socket } from 'socket.io-client'; // Temporarily disabled for Vercel deployment
+import { useNotifications } from '@/hooks/useNotifications';
 import { useSession } from 'next-auth/react';
 
-interface Notification {
-  id: string;
-  type: string;
-  title: string;
-  message: string;
-  data: any;
-  read: boolean;
-  createdAt: string;
-}
-
 export default function NotificationBell() {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
-  // const [socket, setSocket] = useState<Socket | null>(null); // Temporarily disabled
   const router = useRouter();
-  const { toast } = useToast();
   const { data: session } = useSession();
+  
+  const {
+    notifications,
+    unreadCount,
+    isConnected,
+    isPolling,
+    markAsRead,
+    markAllAsRead,
+    fetchNotifications
+  } = useNotifications();
 
-  // Socket connection temporarily disabled for Vercel deployment
-  useEffect(() => {
-    // Only initialize if we have a session
-    if (!session?.user?.id || typeof window === 'undefined') {
-      return;
-    }
-
-    // TODO: Re-enable real-time notifications after implementing polling system
-    // const socketUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'http://localhost:9003';
-    // const socketInstance = io(socketUrl, {
-    //   path: '/api/socketio',
-    //   transports: ['websocket', 'polling']
-    // });
-
-    // socketInstance.on('connect', () => {
-    //   console.log('NotificationBell: Socket connected');
-    // });
-
-    // // Join user's notification room
-    // socketInstance.emit('joinUserRoom', session?.user?.id);
-
-    // socketInstance.on('newNotification', (notification: Notification) => {
-    //   console.log('NotificationBell: Received new notification:', notification);
-    //   setNotifications(prev => [notification, ...prev]);
-    //   setUnreadCount(prev => prev + 1);
-    //   
-    //   // Show toast notification
-    //   toast({
-    //     title: notification.title,
-    //     description: notification.message,
-    //   });
-    // });
-
-    // setSocket(socketInstance);
-
-    // return () => {
-    //   socketInstance.disconnect();
-    // };
-  }, [toast, session?.user?.id]);
-
-  // Fetch notifications on component mount only if session is available
-  useEffect(() => {
-    // Only fetch notifications if we have a session and we're on the client side
-    if (session?.user?.id && typeof window !== 'undefined') {
-      fetchNotifications();
-    }
-  }, [session?.user?.id]);
-
-  const fetchNotifications = async () => {
-    try {
-      const response = await fetch('/api/notifications?limit=10');
-      if (response.ok) {
-        const data = await response.json();
-        setNotifications(data);
-        setUnreadCount(data.filter((n: Notification) => !n.read).length);
-      }
-    } catch (error) {
-      console.error('Error fetching notifications:', error);
-    }
-  };
-
-  const markAsRead = async (notificationId: string) => {
-    try {
-      const response = await fetch('/api/notifications', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ notificationId, read: true }),
-      });
-
-      if (response.ok) {
-        setNotifications(prev =>
-          prev.map(n =>
-            n.id === notificationId ? { ...n, read: true } : n
-          )
-        );
-        setUnreadCount(prev => Math.max(0, prev - 1));
-      }
-    } catch (error) {
-      console.error('Error marking notification as read:', error);
-    }
-  };
+  // Add type definition for notification
+  interface Notification {
+    id: string;
+    type: string;
+    title: string;
+    message: string;
+    data: any;
+    read: boolean;
+    createdAt: string;
+  }
 
   const handleNotificationClick = (notification: Notification) => {
     markAsRead(notification.id);
@@ -151,12 +73,25 @@ export default function NotificationBell() {
               {unreadCount > 9 ? '9+' : unreadCount}
             </Badge>
           )}
+          {/* Show connection status indicator */}
+          {isPolling && !isConnected && (
+            <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-yellow-500 rounded-full" 
+                 title="Using polling fallback" />
+          )}
         </Button>
       </DropdownMenuTrigger>
       
       <DropdownMenuContent align="end" className="w-80">
-        <div className="p-2">
+        <div className="p-2 flex items-center justify-between">
           <h3 className="font-semibold text-sm">Notifications</h3>
+          <div className="flex items-center gap-1">
+            {isConnected && (
+              <div className="w-2 h-2 bg-green-500 rounded-full" title="Real-time connected" />
+            )}
+            {isPolling && !isConnected && (
+              <div className="w-2 h-2 bg-yellow-500 rounded-full" title="Polling mode" />
+            )}
+          </div>
         </div>
         <DropdownMenuSeparator />
         
@@ -199,12 +134,7 @@ export default function NotificationBell() {
                 variant="ghost" 
                 size="sm" 
                 className="w-full text-xs"
-                onClick={() => {
-                  // Mark all as read
-                  notifications.forEach(n => {
-                    if (!n.read) markAsRead(n.id);
-                  });
-                }}
+                onClick={markAllAsRead}
               >
                 Mark all as read
               </Button>

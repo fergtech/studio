@@ -39,7 +39,7 @@ export default function SocietiesPage() {
           context={{ type: 'societies' }}
           onCollapseChange={setSidebarCollapsed}
         />
-        <div className={`transition-all duration-300 px-4 lg:px-6 ${
+        <div className={`transition-all duration-300 px-4 lg:px-6 pt-20 lg:pt-6 ${
           sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'
         }`}>
           <div className="max-w-4xl mx-auto py-10">
@@ -57,7 +57,7 @@ export default function SocietiesPage() {
         context={{ type: 'societies' }}
         onCollapseChange={setSidebarCollapsed}
       />
-      <div className={`transition-all duration-300 px-4 lg:px-6 ${
+      <div className={`transition-all duration-300 px-4 lg:px-6 pt-20 lg:pt-6 ${
         sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'
       }`}>
         <div className="max-w-4xl mx-auto py-10">

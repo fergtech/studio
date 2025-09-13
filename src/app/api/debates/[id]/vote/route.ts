@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -23,7 +23,7 @@ export async function POST(
       );
     }
 
-    const topicId = params.id;
+    const { id: topicId } = await params;
 
     // Check if debate topic exists
     const debateTopic = await prisma.debateTopic.findUnique({
@@ -89,7 +89,7 @@ export async function POST(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -97,7 +97,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const topicId = params.id;
+    const { id: topicId } = await params;
 
     // Remove user's vote
     await prisma.debateVote.deleteMany({

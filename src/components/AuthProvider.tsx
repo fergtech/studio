@@ -2,6 +2,7 @@
 
 import { ReactNode, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import { useHeartbeat } from '@/hooks/useHeartbeat';
 // import { io, Socket } from 'socket.io-client'; // Temporarily disabled for Vercel deployment
 
 interface AuthProviderProps {
@@ -10,6 +11,9 @@ interface AuthProviderProps {
 
 export default function AuthProvider({ children }: AuthProviderProps) {
   const { data: session } = useSession();
+  
+  // Initialize heartbeat system for online status tracking
+  useHeartbeat();
 
   useEffect(() => {
     // Socket connection temporarily disabled for Vercel deployment

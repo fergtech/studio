@@ -1,15 +1,44 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import Image from 'next/image';
 import { useRef } from "react";
-import { Image as ImageIcon, Video, File as FileIcon, Link as LinkIcon, Smile, Mic } from 'lucide-react';
+import { Image as ImageIcon, Video, File as FileIcon, Link as LinkIcon, Smile, Mic, ChevronDown, MessageCircle, AlertTriangle, Lightbulb } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { AudioPlayer } from '@/components/ui/audio-player';
 import { LinkPreview, LinkPreviewLoading, LinkPreviewError } from '@/components/ui/link-preview';
 import { DocumentPreview } from '@/components/ui/document-preview';
 import { Input } from '@/components/ui/input';
+
+interface PostTypeConfig {
+  label: string;
+  icon: React.ReactNode;
+  placeholder: string;
+  buttonText: string;
+}
+
+const postTypeConfigs: Record<string, PostTypeConfig> = {
+  GENERAL: {
+    label: 'General',
+    icon: <MessageCircle className="h-4 w-4" />,
+    placeholder: "Share an update about the society...",
+    buttonText: 'Post'
+  },
+  ISSUE: {
+    label: 'Issue',
+    icon: <AlertTriangle className="h-4 w-4" />,
+    placeholder: "What issue do you want to report for this society?",
+    buttonText: 'Report Issue'
+  },
+  IDEA: {
+    label: 'Idea',
+    icon: <Lightbulb className="h-4 w-4" />,
+    placeholder: "What innovative idea do you want to share with this society?",
+    buttonText: 'Share Idea'
+  }
+};
 
 interface CreateSocietyPostFormProps {
   societyId: string;
@@ -20,9 +49,13 @@ interface CreateSocietyPostFormProps {
 
 export function CreateSocietyPostForm({ societyId, userId, isMember, onPostCreated }: CreateSocietyPostFormProps) {
   const [type, setType] = useState("GENERAL");
+  const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false);
+  
+  const currentConfig = postTypeConfigs[type];
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [selectedVideo, setSelectedVideo] = useState<File | null>(null);
@@ -52,12 +85,37 @@ export function CreateSocietyPostForm({ societyId, userId, isMember, onPostCreat
     error: string | null;
   }>>([]);
   const [showLinkInput, setShowLinkInput] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const MAX_LINKS = 5;
   const MAX_DOCUMENTS = 5;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
   const documentInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
+
+  // Common emojis for the picker
+  const emojiCategories = {
+    "Faces": ["😀", "😃", "😄", "😁", "😆", "😅", "😂", "🤣", "😊", "😇", "🙂", "🙃", "😉", "😌", "😍", "🥰", "😘", "😗", "😙", "😚", "😋", "😛", "😝", "😜", "🤪", "🤨", "🧐", "🤓", "😎", "🤩", "🥳"],
+    "Gestures": ["👍", "👎", "👌", "✌️", "🤞", "🤟", "🤘", "🤙", "👈", "👉", "👆", "🖕", "👇", "☝️", "👋", "🤚", "🖐️", "✋", "🖖", "👏", "🙌", "🤲", "🤝", "🙏"],
+    "Hearts": ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔", "❣️", "💕", "💞", "💓", "💗", "💖", "💘", "💝"],
+    "Objects": ["🎉", "🎊", "🎈", "🎁", "🏆", "🥇", "🥈", "🥉", "⚽", "🏀", "🏈", "⚾", "🎾", "🏐", "🏉", "🎱", "🔥", "💯", "✨", "⭐", "🌟", "💫"]
+  };
+
+  // Close emoji picker when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    }
+
+    if (showEmojiPicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showEmojiPicker]);
 
   // Only allow members to create posts
   if (!userId || !isMember) {
@@ -80,14 +138,11 @@ export function CreateSocietyPostForm({ societyId, userId, isMember, onPostCreat
     const file = event.target.files?.[0];
     if (file) {
       setSelectedFile(file);
-      // Clear other media selections if image is selected
+      // Clear other image/video/audio (only one media file allowed, but links/docs can coexist)
       setSelectedVideo(null);
       setVideoPreview(null);
       setSelectedAudio(null);
       setAudioPreview(null);
-      setLinks([]);
-      setDocuments([]);
-      setShowLinkInput(false);
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result as string);
@@ -103,14 +158,11 @@ export function CreateSocietyPostForm({ societyId, userId, isMember, onPostCreat
     const file = event.target.files?.[0];
     if (file) {
       setSelectedVideo(file);
-      // Clear other media selections if video is selected
+      // Clear other image/video/audio (only one media file allowed, but links/docs can coexist)
       setSelectedFile(null);
       setImagePreview(null);
       setSelectedAudio(null);
       setAudioPreview(null);
-      setLinks([]);
-      setDocuments([]);
-      setShowLinkInput(false);
       const reader = new FileReader();
       reader.onloadend = () => {
         setVideoPreview(reader.result as string);
@@ -126,13 +178,11 @@ export function CreateSocietyPostForm({ societyId, userId, isMember, onPostCreat
     const file = event.target.files?.[0];
     if (file) {
       setSelectedAudio(file);
-      // Clear other media selections if audio is selected
+      // Clear other image/video/audio (only one media file allowed, but links/docs can coexist)
       setSelectedFile(null);
       setImagePreview(null);
       setSelectedVideo(null);
       setVideoPreview(null);
-      setLinks([]);
-      setShowLinkInput(false);
       const reader = new FileReader();
       reader.onloadend = () => {
         setAudioPreview(reader.result as string);
@@ -147,13 +197,7 @@ export function CreateSocietyPostForm({ societyId, userId, isMember, onPostCreat
   const handleLinkButtonClick = () => {
     if (links.length >= MAX_LINKS) return;
     
-    // Clear other media when link is selected
-    setSelectedFile(null);
-    setImagePreview(null);
-    setSelectedVideo(null);
-    setVideoPreview(null);
-    setSelectedAudio(null);
-    setAudioPreview(null);
+    // No need to clear other media - links can coexist with images/videos/audio
     setShowLinkInput(true);
   };
 
@@ -228,15 +272,7 @@ export function CreateSocietyPostForm({ societyId, userId, isMember, onPostCreat
         return; // Duplicate document
       }
       
-      // Clear other media selections if document is selected
-      setSelectedFile(null);
-      setImagePreview(null);
-      setSelectedVideo(null);
-      setVideoPreview(null);
-      setSelectedAudio(null);
-      setAudioPreview(null);
-      setLinks([]);
-      setShowLinkInput(false);
+      // Documents can coexist with other media types
       
       const documentId = Math.random().toString(36).substr(2, 9);
       const extension = '.' + file.name.split('.').pop()?.toLowerCase();
@@ -308,6 +344,25 @@ export function CreateSocietyPostForm({ societyId, userId, isMember, onPostCreat
     setDocuments(prev => prev.filter(doc => doc.id !== documentId));
   };
 
+  const handleEmojiSelect = (emoji: string) => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const newContent = content.slice(0, start) + emoji + content.slice(end);
+      setContent(newContent);
+      
+      // Set cursor position after the emoji
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + emoji.length, start + emoji.length);
+      }, 0);
+    } else {
+      setContent(prev => prev + emoji);
+    }
+    setShowEmojiPicker(false);
+  };
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!content.trim()) return;
@@ -335,7 +390,14 @@ export function CreateSocietyPostForm({ societyId, userId, isMember, onPostCreat
         }
       }
       // Prepare post data including link metadata
-      const postData: any = { type, content, userId, imageUrl };
+      const postData: any = { type, userId, imageUrl };
+
+      if (type === 'ISSUE' || type === 'IDEA') {
+        postData.title = title;
+        postData.description = content;
+      } else {
+        postData.content = content;
+      }
       
       // Include links data if present
       const validLinks = links.filter(link => link.metadata && !link.error);
@@ -365,6 +427,7 @@ export function CreateSocietyPostForm({ societyId, userId, isMember, onPostCreat
       if (!res.ok) throw new Error("Failed to create post");
       const post = await res.json();
       setContent("");
+      setTitle("");
       setType("GENERAL");
       setSelectedFile(null);
       setImagePreview(null);
@@ -386,21 +449,57 @@ export function CreateSocietyPostForm({ societyId, userId, isMember, onPostCreat
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3 bg-card border border-border rounded-xl p-4 shadow-sm">
-      <div className="flex gap-2 mb-2">
-        <Button type="button" size="sm" variant={type === "GENERAL" ? "default" : "outline"} onClick={() => setType("GENERAL")}>General Post</Button>
-        <Button type="button" size="sm" variant={type === "ISSUE" ? "default" : "outline"} onClick={() => setType("ISSUE")}>Issue</Button>
-        <Button type="button" size="sm" variant={type === "IDEA" ? "default" : "outline"} onClick={() => setType("IDEA")}>Idea</Button>
-      </div>
+      {(type === 'ISSUE' || type === 'IDEA') && (
+        <Input
+          value={title}
+          onChange={e => setTitle(e.target.value)}
+          placeholder="Title"
+          className="mb-2 bg-background border-none focus:ring-0 text-lg font-semibold"
+          disabled={loading}
+        />
+      )}
       <Textarea
+        ref={textareaRef}
         value={content}
         onChange={e => setContent(e.target.value)}
-        placeholder={`Share an update about the society...`}
+        placeholder={currentConfig.placeholder}
         className="min-h-[80px] bg-background border-none focus:ring-0 text-base"
         disabled={loading}
       />
-      <div className="flex items-center gap-2 mb-2">
-        <Smile className="w-5 h-5 text-muted-foreground" />
-        <span className="text-sm text-muted-foreground">Add emoji</span>
+      {/* Emoji Picker */}
+      <div className="relative" ref={emojiPickerRef}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+          className="flex items-center gap-2 h-8 px-2"
+        >
+          <Smile className="w-4 h-4" />
+          <span className="text-sm">Add emoji</span>
+        </Button>
+        
+        {showEmojiPicker && (
+          <div className="absolute left-0 top-full mt-1 z-10 bg-background border border-border rounded-lg shadow-lg p-3 w-80 max-h-60 overflow-y-auto">
+            {Object.entries(emojiCategories).map(([category, emojis]) => (
+              <div key={category} className="mb-3">
+                <div className="text-xs font-semibold text-muted-foreground mb-1">{category}</div>
+                <div className="grid grid-cols-8 gap-1">
+                  {emojis.map((emoji) => (
+                    <button
+                      key={emoji}
+                      type="button"
+                      onClick={() => handleEmojiSelect(emoji)}
+                      className="w-8 h-8 flex items-center justify-center text-lg hover:bg-muted rounded transition-colors"
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
       <div className="flex flex-wrap gap-2 items-center mb-2">
         <Button
@@ -688,9 +787,51 @@ export function CreateSocietyPostForm({ societyId, userId, isMember, onPostCreat
         multiple
         className="hidden"
       />
-      <div className="flex justify-end">
-        <Button type="submit" className="px-6 py-2 text-base" disabled={loading || !content.trim()}>{loading ? "Posting..." : "Post"}</Button>
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-2">
+          {/* Post Type Pill Selector */}
+          <Popover open={isTypeDropdownOpen} onOpenChange={setIsTypeDropdownOpen}>
+            <PopoverTrigger asChild>
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                type="button" 
+                className="flex items-center gap-1.5 px-3 py-1.5 h-8 bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 rounded-full"
+              >
+                {currentConfig.icon}
+                <span className="text-sm font-medium">{currentConfig.label}</span>
+                <ChevronDown className="h-3 w-3" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-48 p-2" align="start">
+              <div className="space-y-1">
+                {Object.entries(postTypeConfigs).map(([typeKey, config]) => (
+                  <button
+                    key={typeKey}
+                    type="button"
+                    onClick={() => {
+                      setType(typeKey);
+                      setIsTypeDropdownOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors text-left ${
+                      type === typeKey 
+                        ? 'bg-primary/10 text-primary' 
+                        : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                    }`}
+                  >
+                    {config.icon}
+                    {config.label}
+                  </button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
+        
+        <Button type="submit" className="px-6 py-2 text-base" disabled={loading || !content.trim() || ((type === 'ISSUE' || type === 'IDEA') && !title.trim())}>
+          {loading ? "Posting..." : currentConfig.buttonText}
+        </Button>
       </div>
     </form>
   );
-} 
+}

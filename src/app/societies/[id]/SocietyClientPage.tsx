@@ -603,30 +603,57 @@ export function SocietyClientPage({ society: initialSociety, members, posts: ini
   const toggleSidebar = () => setIsSidebarOpen((v) => !v);
 
   async function handleSaveEditSociety(data: { name: string; description: string; imageFile?: File | null; clearImage?: boolean }) {
-    let newImageUrl: string | null | undefined = undefined;
-    if (data.clearImage) {
-      newImageUrl = null;
-    } else if (data.imageFile) {
-      const formData = new FormData();
-      formData.append('file', data.imageFile);
-      formData.append('filePath', 'societies/banners');
-      const response = await fetch('/api/upload', { method: 'POST', body: formData });
-      if (!response.ok) throw new Error('Image upload failed');
-      const result = await response.json();
-      newImageUrl = result.imageUrl;
+    try {
+      let newImageUrl: string | null | undefined = undefined;
+      
+      if (data.clearImage) {
+        newImageUrl = null;
+      } else if (data.imageFile) {
+        const formData = new FormData();
+        formData.append('file', data.imageFile);
+        formData.append('filePath', 'societies/banners');
+        
+        const response = await fetch('/api/upload', { method: 'POST', body: formData });
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || 'Image upload failed');
+        }
+        
+        const result = await response.json();
+        newImageUrl = result.url || result.imageUrl;
+      }
+      
+      const patchRes = await fetch(`/api/societies/${society.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: data.name,
+          description: data.description,
+          image: newImageUrl === null ? null : newImageUrl ?? society.image,
+        }),
+      });
+      
+      if (!patchRes.ok) {
+        const errorData = await patchRes.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to update society');
+      }
+      
+      const updated = await patchRes.json();
+      setSociety(updated);
+      
+      toast({
+        title: "Society Updated!",
+        description: "Your changes have been saved successfully.",
+      });
+    } catch (error: any) {
+      console.error('Error updating society:', error);
+      toast({
+        title: "Update Failed",
+        description: error.message || "An error occurred while updating the society.",
+        variant: "destructive",
+      });
+      throw error; // Re-throw so dialog knows save failed
     }
-    const patchRes = await fetch(`/api/societies/${society.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: data.name,
-        description: data.description,
-        image: newImageUrl === null ? null : newImageUrl ?? society.image,
-      }),
-    });
-    if (!patchRes.ok) throw new Error('Failed to update society');
-    const updated = await patchRes.json();
-    setSociety(updated);
   }
 
   return (

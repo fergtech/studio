@@ -18,6 +18,8 @@ import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import Link from 'next/link';
+import { AlertCircle, User, CheckCircle, Loader2 } from 'lucide-react';
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const formSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
@@ -30,6 +32,10 @@ export function LoginForm() {
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get('callbackUrl') || '/'; // Redirect back or to home
   const [isLoading, setIsLoading] = useState(false);
+  const [showError, setShowError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [showSignupSuggestion, setShowSignupSuggestion] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -41,38 +47,54 @@ export function LoginForm() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
-    console.log('Login Form Submit:', values);
+    setShowError(false);
+    setShowSignupSuggestion(false);
+    
     try {
       const result = await signIn('credentials', {
-        redirect: false, // Handle redirect manually
+        redirect: false,
         email: values.email,
         password: values.password,
-        // callbackUrl: callbackUrl // Can specify callbackUrl here too
       });
 
-      console.log('signIn result:', result);
-
       if (result?.error) {
-        throw new Error(result.error === 'CredentialsSignin' ? 'Invalid email or password' : result.error);
+        // Handle authentication errors gracefully
+        const isCredentialsError = result.error === 'CredentialsSignin';
+        
+        if (isCredentialsError) {
+          setErrorMessage("The email or password you entered is incorrect.");
+          setShowSignupSuggestion(true);
+        } else {
+          setErrorMessage("Something went wrong. Please try again.");
+        }
+        
+        setShowError(true);
       } else if (result?.ok) {
+        // Clear any previous errors and show success state
+        setShowError(false);
+        setShowSignupSuggestion(false);
+        setIsRedirecting(true);
+        
+        // Show immediate feedback
         toast({
-          title: "Login Successful",
-          description: "Welcome back!",
+          title: "Welcome back!",
+          description: "Taking you to your feed...",
         });
-        router.push(callbackUrl); // Redirect on success
-        router.refresh(); // Refresh server components
+        
+        // Small delay to show the success state, then redirect
+        setTimeout(() => {
+          router.push(callbackUrl);
+          router.refresh();
+        }, 1500);
       } else {
-        // Handle unexpected cases where there's no error but also not ok
-        throw new Error('Login failed. Please try again.');
+        setErrorMessage("Login failed. Please try again.");
+        setShowError(true);
       }
 
     } catch (error: any) {
       console.error('Login Error:', error);
-      toast({
-        title: "Login Failed",
-        description: error.message || "An unexpected error occurred.",
-        variant: "destructive",
-      });
+      setErrorMessage("An unexpected error occurred. Please try again.");
+      setShowError(true);
     } finally {
       setIsLoading(false);
     }
@@ -88,7 +110,7 @@ export function LoginForm() {
             <FormItem>
               <FormLabel>Email</FormLabel>
               <FormControl>
-                <Input placeholder="you@example.com" {...field} type="email" disabled={isLoading} suppressHydrationWarning />
+                <Input placeholder="you@example.com" {...field} type="email" disabled={isLoading || isRedirecting} suppressHydrationWarning />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -101,14 +123,50 @@ export function LoginForm() {
             <FormItem>
               <FormLabel>Password</FormLabel>
               <FormControl>
-                <Input placeholder="******" {...field} type="password" disabled={isLoading} suppressHydrationWarning />
+                <Input placeholder="******" {...field} type="password" disabled={isLoading || isRedirecting} suppressHydrationWarning />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full" disabled={isLoading} suppressHydrationWarning>
-          {isLoading ? 'Logging in...' : 'Login'}
+        
+        {/* Modern error handling with user-friendly messaging */}
+        {showError && (
+          <Alert variant="destructive" className="mt-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              {errorMessage}
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        {/* Helpful suggestion for account creation - similar to Instagram/TikTok */}
+        {showSignupSuggestion && (
+          <Alert className="mt-4 border-blue-200 bg-blue-50">
+            <User className="h-4 w-4 text-blue-600" />
+            <AlertDescription className="text-blue-800">
+              Don't have an account?{" "}
+              <Link href="/register" className="font-medium text-blue-600 hover:text-blue-500 underline">
+                Sign up for Society+
+              </Link>
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        {/* Success state with loading indicator */}
+        {isRedirecting && (
+          <Alert className="mt-4 border-green-200 bg-green-50">
+            <CheckCircle className="h-4 w-4 text-green-600" />
+            <AlertDescription className="text-green-800 flex items-center gap-2">
+              <span>Login successful!</span>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Taking you to your feed...</span>
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        <Button type="submit" className="w-full" disabled={isLoading || isRedirecting} suppressHydrationWarning>
+          {isLoading ? 'Logging in...' : isRedirecting ? 'Redirecting...' : 'Login'}
         </Button>
         <p className="text-center text-sm text-gray-600">
             Don't have an account?{" "}

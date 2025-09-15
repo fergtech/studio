@@ -18,6 +18,8 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import Link from 'next/link';
 import { signIn } from 'next-auth/react';
+import { AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const formSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
@@ -33,6 +35,9 @@ export function RegisterForm() {
   const { toast } = useToast();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [showError, setShowError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -46,6 +51,8 @@ export function RegisterForm() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
+    setShowError(false);
+    
     try {
       const response = await fetch('/api/auth/register', {
         method: 'POST',
@@ -57,36 +64,55 @@ export function RegisterForm() {
         }),
       });
       const data = await response.json();
+      
       if (!response.ok) {
-        throw new Error(data.message || 'Registration failed');
+        if (response.status === 409) {
+          setErrorMessage("An account with this email already exists. Try logging in instead.");
+        } else {
+          setErrorMessage(data.message || 'Registration failed. Please try again.');
+        }
+        setShowError(true);
+        return;
       }
+
+      // Success - show loading state and auto sign-in
+      setIsRedirecting(true);
+      setIsLoading(false);
+      
       // Auto sign-in after registration (with small delay for database consistency)
-      await new Promise(resolve => setTimeout(resolve, 100)); // 100ms delay
+      await new Promise(resolve => setTimeout(resolve, 100));
       const signInResult = await signIn('credentials', {
         redirect: false,
         email: values.email,
         password: values.password,
       });
+      
       if (signInResult?.error) {
-        throw new Error(signInResult.error);
+        setErrorMessage("Account created but sign-in failed. Please try logging in manually.");
+        setShowError(true);
+        setIsRedirecting(false);
+        return;
       }
-      if (typeof window !== 'undefined' && window.localStorage) {
-        localStorage.setItem('showWelcomeToast', 'true');
-      }
+
+      // Show success feedback
       toast({
-        title: "Welcome to society+! 🎉",
-        description: "Your account has been created and you are now signed in.",
+        title: "Welcome to Society+! 🎉",
+        description: "Taking you to your feed...",
       });
-      router.push('/');
+      
+      // Brief delay to show success state
+      setTimeout(() => {
+        router.push('/');
+      }, 1500);
+      
     } catch (error: any) {
       console.error('Registration Error:', error);
-      toast({
-        title: "Registration Failed",
-        description: error.message || "An unexpected error occurred.",
-        variant: "destructive",
-      });
+      setErrorMessage("An unexpected error occurred. Please try again.");
+      setShowError(true);
     } finally {
-      setIsLoading(false);
+      if (!isRedirecting) {
+        setIsLoading(false);
+      }
     }
   }
 
@@ -100,7 +126,7 @@ export function RegisterForm() {
             <FormItem>
               <FormLabel>Email</FormLabel>
               <FormControl>
-                <Input placeholder="you@example.com" {...field} type="email" disabled={isLoading} />
+                <Input placeholder="you@example.com" {...field} type="email" disabled={isLoading || isRedirecting} suppressHydrationWarning />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -113,7 +139,7 @@ export function RegisterForm() {
             <FormItem>
               <FormLabel>Full Name <span className="text-xs text-gray-400">(optional)</span></FormLabel>
               <FormControl>
-                <Input placeholder="Your full name" {...field} type="text" disabled={isLoading} />
+                <Input placeholder="Your full name" {...field} type="text" disabled={isLoading || isRedirecting} suppressHydrationWarning />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -126,7 +152,7 @@ export function RegisterForm() {
             <FormItem>
               <FormLabel>Password</FormLabel>
               <FormControl>
-                <Input placeholder="******" {...field} type="password" disabled={isLoading} />
+                <Input placeholder="******" {...field} type="password" disabled={isLoading || isRedirecting} suppressHydrationWarning />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -139,14 +165,44 @@ export function RegisterForm() {
             <FormItem>
               <FormLabel>Confirm Password</FormLabel>
               <FormControl>
-                <Input placeholder="******" {...field} type="password" disabled={isLoading} />
+                <Input placeholder="******" {...field} type="password" disabled={isLoading || isRedirecting} suppressHydrationWarning />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full" disabled={isLoading}>
-          {isLoading ? 'Registering...' : 'Register'}
+        
+        {/* Modern error handling */}
+        {showError && (
+          <Alert variant="destructive" className="mt-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              {errorMessage}
+              {errorMessage.includes("already exists") && (
+                <div className="mt-2">
+                  <Link href="/login" className="font-medium underline hover:no-underline">
+                    Go to login page →
+                  </Link>
+                </div>
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        {/* Success state with loading indicator */}
+        {isRedirecting && (
+          <Alert className="mt-4 border-green-200 bg-green-50">
+            <CheckCircle className="h-4 w-4 text-green-600" />
+            <AlertDescription className="text-green-800 flex items-center gap-2">
+              <span>Account created successfully!</span>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Taking you to Society+...</span>
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        <Button type="submit" className="w-full" disabled={isLoading || isRedirecting} suppressHydrationWarning>
+          {isLoading ? 'Creating account...' : isRedirecting ? 'Redirecting...' : 'Join Society+'}
         </Button>
         <p className="text-center text-sm text-gray-600">
           Already have an account?{' '}

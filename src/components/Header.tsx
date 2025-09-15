@@ -121,7 +121,7 @@ export function Header() {
           </Link>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="default" size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90">
+              <Button variant="default" size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90" suppressHydrationWarning={true}>
                 <PlusCircle className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -140,7 +140,7 @@ export function Header() {
               <NotificationBell />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-8 w-8 rounded-full overflow-hidden">
+                  <Button variant="ghost" className="relative h-8 w-8 rounded-full overflow-hidden" suppressHydrationWarning={true}>
                     {(currentUser?.image ?? session.user.image) ? (
                       <AzureAvatar 
                         src={currentUser?.image ?? session.user.image ?? ''} 

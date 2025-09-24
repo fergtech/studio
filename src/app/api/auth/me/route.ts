@@ -15,29 +15,45 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        username: true,
-        bio: true,
-        skills: true,
-        interests: true,
-        primaryIntent: true,
-        image: true,
-        dateCreated: true,
-        location: true,
-        city: true,
-        latitude: true,
-        longitude: true,
-        showLocation: true,
-        enableLocalNews: true,
-        newsRadius: true,
-        newsTypes: true,
-      }
-    });
+    // Start with safe fields that exist in production
+    const baseSelect = {
+      id: true,
+      email: true,
+      name: true,
+      username: true,
+      bio: true,
+      skills: true,
+      interests: true,
+      primaryIntent: true,
+      image: true,
+      dateCreated: true,
+      location: true,
+      city: true,
+      showLocation: true,
+    };
+
+    // Try to include new fields, but don't fail if they don't exist
+    let user;
+    try {
+      user = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: {
+          ...baseSelect,
+          latitude: true,
+          longitude: true,
+          enableLocalNews: true,
+          newsRadius: true,
+          newsTypes: true,
+        }
+      });
+    } catch (error) {
+      console.log('⚠️ New fields not available yet, using base fields:', error.message);
+      // Fallback to safe fields only
+      user = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: baseSelect
+      });
+    }
 
     if (!user) {
       return NextResponse.json(

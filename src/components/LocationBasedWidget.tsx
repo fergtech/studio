@@ -61,8 +61,8 @@ export default function LocationBasedWidget() {
         console.log('🗺️ LocationBasedWidget userData:', {
           location: userData.location,
           city: userData.city,
-          latitude: userData.latitude,
-          longitude: userData.longitude,
+          latitude: userData.latitude || 'not available',
+          longitude: userData.longitude || 'not available',
           id: userData.id
         });
 

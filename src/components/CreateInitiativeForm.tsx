@@ -242,6 +242,7 @@ export function CreateInitiativeForm({
         const formData = new FormData();
         formData.append('file', file);
         formData.append('filePath', 'initiatives/images');
+        formData.append('imageType', 'initiative');
 
         const response = await fetch('/api/upload', {
           method: 'POST',

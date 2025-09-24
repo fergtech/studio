@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -219,10 +220,12 @@ export function ActivityFeed({ updates: initialUpdates, onLoadMore, hasMore, isM
                   )}
                   {displayImage && (
                     <div className="mt-3 relative aspect-video w-full max-w-2xl rounded-lg overflow-hidden">
-                      <img
+                      <Image
                         src={displayImage}
                         alt="Update attachment"
-                        className="object-cover w-full h-full"
+                        fill
+                        className="object-cover"
+                        loading="lazy"
                       />
                     </div>
                   )}

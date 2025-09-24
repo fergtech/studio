@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
+import Image from 'next/image';
 import { formatDistanceToNow } from 'date-fns';
 import { ArrowLeft, ThumbsUp, ThumbsDown, MessageCircle, Users, Loader2, X, Edit, Save } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -13,7 +14,7 @@ import { cn } from '@/lib/utils';
 import { VideoPlayer } from '@/components/ui/video-player';
 import { AudioPlayer } from '@/components/ui/audio-player';
 import { updateDebateTopicContent } from '@/app/actions/debateActions';
-import AppSidebar from '@/components/AppSidebar';
+import AppSidebar, { getDefaultCollapsedState } from '@/components/AppSidebar';
 
 // Helper function to detect video files
 const isVideoFile = (url: string) => {
@@ -96,7 +97,7 @@ export default function DebateDetailClient({
   const [allProArguments, setAllProArguments] = useState<DebateArgument[]>(initialProArguments);
   const [allConArguments, setAllConArguments] = useState<DebateArgument[]>(initialConArguments);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState<'PRO' | 'CON' | null>(null);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => getDefaultCollapsedState({ type: 'debate' }));
   
   // Edit functionality state
   const [editMode, setEditMode] = useState(false);
@@ -657,11 +658,14 @@ export default function DebateDetailClient({
                   </div>
                 )}
                 {isImage && (
-                  <div className="mb-4">
-                    <img 
-                      src={debateTopic.imageUrl} 
+                  <div className="mb-4 relative">
+                    <Image 
+                      src={debateTopic.imageUrl!} 
                       alt="Debate topic" 
+                      width={600}
+                      height={256}
                       className="w-full max-h-64 object-cover rounded-lg border"
+                      priority
                     />
                   </div>
                 )}
@@ -1080,11 +1084,14 @@ export default function DebateDetailClient({
                 </div>
               )}
               {isImage && (
-                <div className="mb-6">
-                  <img 
-                    src={debateTopic.imageUrl} 
+                <div className="mb-6 relative">
+                  <Image 
+                    src={debateTopic.imageUrl!} 
                     alt="Debate topic" 
+                    width={800}
+                    height={384}
                     className="w-full max-h-96 object-cover rounded-lg border"
+                    priority
                   />
                 </div>
               )}

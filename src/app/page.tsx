@@ -1,5 +1,6 @@
 import { getServerSession } from "next-auth/next"; // Import getServerSession
 import { authOptions } from "@/lib/auth"; // Import authOptions
+import Image from 'next/image';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,9 +16,11 @@ function LandingPage() {
           <div className="text-center space-y-8">
             {/* Logo and branding */}
             <div className="flex items-center justify-center gap-3 mb-6">
-              <img 
+              <Image 
                 src="/apple-touch-icon.png" 
                 alt="Society+ logo" 
+                width={48}
+                height={48}
                 className="h-12 w-12 rounded-full ring-2 ring-primary/20" 
               />
               <h1 className="text-5xl md:text-7xl font-bold flex items-center gap-2">

@@ -3,13 +3,14 @@
 import React, { useState, useEffect } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, PlusCircle, AlertTriangle, Edit, Save, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '@/components/ui/textarea';
-import AppSidebar from '@/components/AppSidebar';
+import AppSidebar, { getDefaultCollapsedState } from '@/components/AppSidebar';
 import CommentPanel from '@/components/CommentPanel';
 import IssueReactions from '@/components/IssueReactions';
 import { useModal } from '@/context/ModalContext';
@@ -53,7 +54,7 @@ interface IssueClientProps {
 }
 
 export default function IssueClient({ issue, currentUserId, initiallyChampioned }: IssueClientProps) {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => getDefaultCollapsedState({ type: 'issue' }));
   const [championCount, setChampionCount] = useState(issue.championCount);
   const [isChampioned, setIsChampioned] = useState(initiallyChampioned);
   const [isChampioning, setIsChampioning] = useState(false);
@@ -240,11 +241,14 @@ export default function IssueClient({ issue, currentUserId, initiallyChampioned 
 
               {/* Media */}
               {hasMedia && isImage && (
-                <div className="rounded-lg overflow-hidden">
-                  <img 
+                <div className="rounded-lg overflow-hidden relative">
+                  <Image 
                     src={issue.media[0].url} 
                     alt="Issue image"
+                    width={600}
+                    height={384}
                     className="w-full h-auto max-h-96 object-cover"
+                    priority
                   />
                 </div>
               )}

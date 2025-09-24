@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { IssueCard } from '@/components/IssueCard';
 import { Issue } from '@/lib/types';
-import AppSidebar from '@/components/AppSidebar';
+import AppSidebar, { getDefaultCollapsedState } from '@/components/AppSidebar';
 import { AlertTriangle, Filter, Plus } from 'lucide-react';
 import Link from 'next/link';
 
@@ -20,7 +20,7 @@ export default function IssuesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('recent');
   const [isLoading, setIsLoading] = useState(true);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => getDefaultCollapsedState({ type: 'issue' }));
 
   useEffect(() => {
     fetchIssues();

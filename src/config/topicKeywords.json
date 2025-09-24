@@ -1,0 +1,298 @@
+{
+  "iconCategories": {
+    "Home": {
+      "primary": ["housing", "home", "residential", "apartment", "house", "rent", "mortgage", "property", "neighborhood", "zoning"],
+      "secondary": ["affordable", "homeless", "development", "real estate", "tenant", "landlord", "eviction", "gentrification"],
+      "context": ["housing policy", "affordable housing", "residential development", "housing crisis", "homeownership"]
+    },
+    "Car": {
+      "primary": ["car", "vehicle", "automotive", "parking", "traffic", "driving", "highway", "road"],
+      "secondary": ["commute", "congestion", "speed limit", "intersection", "garage", "street", "automobile"],
+      "context": ["traffic management", "parking policy", "road safety", "vehicle registration"]
+    },
+    "Bus": {
+      "primary": ["bus", "transit", "transportation", "public transport", "metro", "subway", "train"],
+      "secondary": ["commute", "route", "schedule", "fare", "station", "accessibility", "mobility"],
+      "context": ["public transportation", "transit system", "bus rapid transit", "mass transit"]
+    },
+    "Plane": {
+      "primary": ["airport", "aviation", "flight", "airline", "plane", "aircraft"],
+      "secondary": ["terminal", "runway", "noise", "travel", "tourism", "cargo"],
+      "context": ["airport development", "aviation policy", "flight path", "air travel"]
+    },
+    "Bike": {
+      "primary": ["bike", "bicycle", "cycling", "bike lane", "bike path", "cyclist"],
+      "secondary": ["pedal", "helmet", "safety", "recreation", "exercise", "commute"],
+      "context": ["bike infrastructure", "cycling safety", "bike sharing", "bicycle policy"]
+    },
+    "Train": {
+      "primary": ["train", "rail", "railroad", "railway", "locomotive", "freight"],
+      "secondary": ["station", "track", "crossing", "commuter", "cargo", "amtrak"],
+      "context": ["rail transportation", "train station", "railway development", "freight rail"]
+    },
+    "Leaf": {
+      "primary": ["environment", "green", "eco", "sustainable", "climate", "conservation", "nature"],
+      "secondary": ["pollution", "carbon", "renewable", "clean", "organic", "biodiversity"],
+      "context": ["environmental protection", "climate change", "sustainability", "green energy"]
+    },
+    "TreePine": {
+      "primary": ["forest", "tree", "woodland", "park", "green space", "conservation"],
+      "secondary": ["canopy", "wildlife", "habitat", "preservation", "ecosystem", "outdoor"],
+      "context": ["forest management", "tree preservation", "urban forestry", "parks and recreation"]
+    },
+    "Recycle": {
+      "primary": ["recycle", "waste", "garbage", "trash", "disposal", "landfill", "composting"],
+      "secondary": ["reduce", "reuse", "sustainability", "bin", "collection", "sorting"],
+      "context": ["waste management", "recycling program", "waste reduction", "composting initiative"]
+    },
+    "Sun": {
+      "primary": ["solar", "energy", "renewable", "power", "electricity", "grid"],
+      "secondary": ["panel", "clean", "sustainable", "utility", "generation", "efficiency"],
+      "context": ["solar energy", "renewable power", "clean energy", "energy policy"]
+    },
+    "CloudRain": {
+      "primary": ["water", "rain", "storm", "flood", "drainage", "weather", "climate"],
+      "secondary": ["precipitation", "runoff", "infrastructure", "emergency", "disaster"],
+      "context": ["stormwater management", "flood control", "weather emergency", "water infrastructure"]
+    },
+    "GraduationCap": {
+      "primary": ["education", "school", "student", "teacher", "learning", "academic", "university"],
+      "secondary": ["curriculum", "graduation", "diploma", "college", "classroom", "tuition"],
+      "context": ["education policy", "school funding", "educational reform", "student achievement"]
+    },
+    "BookOpen": {
+      "primary": ["library", "book", "reading", "literacy", "publication", "research"],
+      "secondary": ["information", "study", "knowledge", "archive", "digital", "access"],
+      "context": ["library services", "literacy program", "educational resources", "public library"]
+    },
+    "School": {
+      "primary": ["school", "elementary", "high school", "middle school", "campus", "district"],
+      "secondary": ["building", "facility", "enrollment", "capacity", "renovation", "construction"],
+      "context": ["school district", "educational facility", "school construction", "campus development"]
+    },
+    "Users": {
+      "primary": ["community", "residents", "population", "demographics", "people", "citizens"],
+      "secondary": ["neighbors", "families", "seniors", "youth", "diversity", "inclusion"],
+      "context": ["community engagement", "resident services", "population growth", "demographic change"]
+    },
+    "Heart": {
+      "primary": ["health", "wellness", "medical", "healthcare", "fitness", "mental health"],
+      "secondary": ["wellbeing", "therapy", "counseling", "prevention", "treatment", "care"],
+      "context": ["public health", "healthcare access", "wellness program", "mental health services"]
+    },
+    "Hospital": {
+      "primary": ["hospital", "medical center", "emergency", "clinic", "healthcare facility"],
+      "secondary": ["patient", "treatment", "surgery", "emergency room", "ICU", "medical"],
+      "context": ["hospital services", "emergency care", "medical facility", "healthcare infrastructure"]
+    },
+    "Stethoscope": {
+      "primary": ["doctor", "physician", "medical", "diagnosis", "treatment", "patient care"],
+      "secondary": ["checkup", "examination", "health screening", "primary care", "specialist"],
+      "context": ["medical services", "healthcare provider", "primary care", "medical examination"]
+    },
+    "Pill": {
+      "primary": ["pharmacy", "medication", "prescription", "drug", "medicine", "pharmaceutical"],
+      "secondary": ["dosage", "treatment", "therapy", "supplement", "vaccine", "immunization"],
+      "context": ["pharmaceutical services", "medication access", "prescription program", "pharmacy services"]
+    },
+    "Building": {
+      "primary": ["building", "construction", "development", "architecture", "infrastructure", "commercial"],
+      "secondary": ["renovation", "permit", "zoning", "planning", "design", "structure"],
+      "context": ["building permits", "construction project", "infrastructure development", "commercial development"]
+    },
+    "Store": {
+      "primary": ["business", "retail", "shop", "store", "commerce", "market", "shopping"],
+      "secondary": ["entrepreneur", "small business", "downtown", "economic", "vendor", "merchant"],
+      "context": ["small business", "retail development", "commercial district", "economic development"]
+    },
+    "DollarSign": {
+      "primary": ["budget", "finance", "tax", "revenue", "funding", "economy", "money"],
+      "secondary": ["fiscal", "expenditure", "investment", "cost", "financial", "economic"],
+      "context": ["municipal budget", "tax policy", "economic development", "public funding"]
+    },
+    "TrendingUp": {
+      "primary": ["growth", "development", "progress", "improvement", "expansion", "increase"],
+      "secondary": ["advancement", "enhancement", "upgrade", "modernization", "prosperity"],
+      "context": ["economic growth", "development project", "community improvement", "progress report"]
+    },
+    "Hammer": {
+      "primary": ["construction", "building", "repair", "maintenance", "renovation", "infrastructure"],
+      "secondary": ["contractor", "work", "project", "improvement", "upgrade", "fix"],
+      "context": ["construction project", "infrastructure repair", "building maintenance", "public works"]
+    },
+    "Wrench": {
+      "primary": ["maintenance", "repair", "fix", "service", "utility", "mechanical"],
+      "secondary": ["plumbing", "electrical", "HVAC", "equipment", "infrastructure", "technical"],
+      "context": ["utility maintenance", "infrastructure repair", "public works", "facility maintenance"]
+    },
+    "Briefcase": {
+      "primary": ["business", "professional", "work", "employment", "job", "career", "office"],
+      "secondary": ["workforce", "employer", "economic", "industry", "corporate", "professional"],
+      "context": ["economic development", "job creation", "workforce development", "business district"]
+    },
+    "Factory": {
+      "primary": ["industrial", "manufacturing", "factory", "production", "facility", "plant"],
+      "secondary": ["warehouse", "distribution", "logistics", "heavy industry", "processing"],
+      "context": ["industrial development", "manufacturing zone", "industrial policy", "factory development"]
+    },
+    "Shield": {
+      "primary": ["safety", "security", "protection", "emergency", "police", "fire", "public safety"],
+      "secondary": ["prevention", "enforcement", "patrol", "response", "crime", "disaster"],
+      "context": ["public safety", "emergency services", "crime prevention", "safety program"]
+    },
+    "Scale": {
+      "primary": ["justice", "legal", "law", "court", "judicial", "regulation", "compliance"],
+      "secondary": ["attorney", "litigation", "rights", "ordinance", "enforcement", "policy"],
+      "context": ["legal services", "judicial system", "law enforcement", "regulatory compliance"]
+    },
+    "Vote": {
+      "primary": ["election", "voting", "ballot", "democracy", "civic", "political", "campaign"],
+      "secondary": ["candidate", "referendum", "poll", "voter", "registration", "participation"],
+      "context": ["election process", "voter registration", "civic engagement", "democratic participation"]
+    },
+    "Flag": {
+      "primary": ["government", "municipal", "city", "county", "state", "federal", "public"],
+      "secondary": ["administration", "official", "policy", "governance", "civic", "authority"],
+      "context": ["government services", "municipal policy", "public administration", "civic affairs"]
+    },
+    "Music": {
+      "primary": ["music", "concert", "performance", "arts", "entertainment", "cultural"],
+      "secondary": ["venue", "festival", "theater", "band", "orchestra", "event"],
+      "context": ["arts and culture", "cultural events", "entertainment venue", "music program"]
+    },
+    "Camera": {
+      "primary": ["media", "photography", "journalism", "news", "documentation", "visual"],
+      "secondary": ["press", "reporter", "broadcast", "communication", "information", "coverage"],
+      "context": ["media coverage", "public information", "communication", "documentation"]
+    },
+    "Palette": {
+      "primary": ["art", "creative", "design", "aesthetic", "visual", "artistic", "culture"],
+      "secondary": ["gallery", "exhibition", "mural", "public art", "creativity", "beautification"],
+      "context": ["public art", "cultural program", "arts district", "creative community"]
+    },
+    "Theater": {
+      "primary": ["theater", "performance", "drama", "entertainment", "venue", "cultural"],
+      "secondary": ["stage", "production", "show", "performing arts", "auditorium", "community"],
+      "context": ["performing arts", "cultural venue", "community theater", "entertainment district"]
+    },
+    "Coffee": {
+      "primary": ["restaurant", "food", "dining", "cafe", "hospitality", "culinary"],
+      "secondary": ["beverage", "local", "gathering", "social", "meeting", "community"],
+      "context": ["local business", "food service", "community gathering", "hospitality industry"]
+    },
+    "Utensils": {
+      "primary": ["food", "nutrition", "meal", "dining", "restaurant", "culinary", "hunger"],
+      "secondary": ["assistance", "program", "senior", "children", "support", "community"],
+      "context": ["food assistance", "nutrition program", "meal service", "food security"]
+    },
+    "ShoppingCart": {
+      "primary": ["retail", "shopping", "consumer", "market", "grocery", "commerce"],
+      "secondary": ["store", "business", "economic", "downtown", "district", "commercial"],
+      "context": ["retail district", "shopping center", "commercial development", "consumer services"]
+    },
+    "Gift": {
+      "primary": ["donation", "charity", "nonprofit", "volunteer", "community service", "giving"],
+      "secondary": ["support", "assistance", "help", "contribution", "funding", "grant"],
+      "context": ["community support", "charitable organization", "volunteer program", "donation drive"]
+    },
+    "Smartphone": {
+      "primary": ["technology", "digital", "communication", "mobile", "internet", "connectivity"],
+      "secondary": ["app", "service", "online", "electronic", "innovation", "access"],
+      "context": ["digital services", "technology infrastructure", "digital divide", "connectivity"]
+    },
+    "Wifi": {
+      "primary": ["internet", "broadband", "connectivity", "network", "digital", "access"],
+      "secondary": ["wireless", "fiber", "infrastructure", "service", "provider", "speed"],
+      "context": ["internet access", "digital infrastructure", "broadband expansion", "connectivity program"]
+    },
+    "Monitor": {
+      "primary": ["computer", "digital", "technology", "data", "information", "system"],
+      "secondary": ["electronic", "software", "platform", "interface", "database", "portal"],
+      "context": ["digital services", "information system", "technology platform", "data management"]
+    },
+    "Code": {
+      "primary": ["software", "programming", "technology", "development", "digital", "innovation"],
+      "secondary": ["app", "platform", "system", "technical", "IT", "computer"],
+      "context": ["software development", "technology innovation", "digital platform", "tech industry"]
+    },
+    "MapPin": {
+      "primary": ["location", "place", "address", "geography", "mapping", "navigation"],
+      "secondary": ["area", "region", "district", "zone", "boundary", "territory"],
+      "context": ["geographic area", "location services", "mapping", "spatial planning"]
+    },
+    "Globe": {
+      "primary": ["global", "international", "worldwide", "universal", "comprehensive"],
+      "secondary": ["network", "connection", "communication", "outreach", "partnership"],
+      "context": ["international relations", "global initiative", "worldwide program", "comprehensive approach"]
+    },
+    "Mountain": {
+      "primary": ["outdoor", "recreation", "nature", "hiking", "trail", "wilderness"],
+      "secondary": ["adventure", "tourism", "scenic", "natural", "conservation", "environment"],
+      "context": ["outdoor recreation", "nature preserve", "recreational trail", "natural area"]
+    },
+    "Trees": {
+      "primary": ["park", "recreation", "outdoor", "green space", "natural", "landscape"],
+      "secondary": ["playground", "trail", "picnic", "sports", "family", "community"],
+      "context": ["parks and recreation", "green space", "recreational facility", "outdoor program"]
+    },
+    "Baby": {
+      "primary": ["children", "youth", "family", "childcare", "education", "development"],
+      "secondary": ["daycare", "preschool", "parenting", "support", "services", "program"],
+      "context": ["child services", "family support", "youth program", "childcare services"]
+    },
+    "Users2": {
+      "primary": ["group", "organization", "association", "committee", "team", "collective"],
+      "secondary": ["meeting", "collaboration", "partnership", "coalition", "network"],
+      "context": ["community organization", "civic group", "partnership", "collaborative effort"]
+    },
+    "UserPlus": {
+      "primary": ["membership", "recruitment", "enrollment", "registration", "participation"],
+      "secondary": ["join", "volunteer", "engagement", "involvement", "outreach", "growth"],
+      "context": ["community engagement", "volunteer recruitment", "membership drive", "participation program"]
+    },
+    "Crown": {
+      "primary": ["leadership", "authority", "government", "official", "administration", "executive"],
+      "secondary": ["mayor", "council", "commissioner", "director", "management", "governance"],
+      "context": ["government leadership", "public administration", "executive office", "municipal authority"]
+    },
+    "Zap": {
+      "primary": ["energy", "power", "electricity", "utility", "electric", "grid"],
+      "secondary": ["voltage", "electrical", "transmission", "distribution", "outage", "service"],
+      "context": ["electric utility", "power grid", "energy infrastructure", "electrical service"]
+    },
+    "Lightbulb": {
+      "primary": ["idea", "innovation", "creative", "solution", "proposal", "initiative"],
+      "secondary": ["plan", "concept", "suggestion", "improvement", "strategy", "vision"],
+      "context": ["innovative solution", "new initiative", "creative proposal", "improvement plan"]
+    },
+    "Settings": {
+      "primary": ["administration", "management", "operation", "system", "process", "procedure"],
+      "secondary": ["configuration", "setup", "maintenance", "control", "regulation", "oversight"],
+      "context": ["administrative process", "system management", "operational procedure", "regulatory oversight"]
+    },
+    "Target": {
+      "primary": ["goal", "objective", "target", "achievement", "success", "outcome"],
+      "secondary": ["milestone", "result", "performance", "measure", "progress", "accomplishment"],
+      "context": ["strategic goal", "performance target", "achievement milestone", "success measure"]
+    },
+    "Hash": {
+      "primary": ["general", "miscellaneous", "other", "various", "multiple", "diverse"],
+      "secondary": ["topic", "issue", "matter", "subject", "concern", "item"],
+      "context": ["general topic", "miscellaneous issue", "various matters", "other concerns"]
+    }
+  },
+  "stopWords": [
+    "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for", "of", "with", "by", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had", "do", "does", "did", "will", "would", "could", "should", "may", "might", "can", "shall", "must", "need", "want", "like", "make", "get", "go", "come", "take", "give", "put", "see", "know", "think", "say", "tell", "ask", "work", "seem", "feel", "try", "leave", "call"
+  ],
+  "stemExceptions": {
+    "housing": "house",
+    "zoning": "zone",
+    "planning": "plan",
+    "funding": "fund",
+    "parking": "park",
+    "building": "build",
+    "cycling": "cycle",
+    "voting": "vote",
+    "policing": "police"
+  }
+}

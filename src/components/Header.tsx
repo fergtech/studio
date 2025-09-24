@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Box, Home, PlusCircle, RocketIcon, MegaphoneIcon, PlusIcon, Menu, Users, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -101,7 +102,7 @@ export function Header() {
       <div className="flex h-14 items-center justify-between w-full px-4 sm:px-6 lg:px-8">
         <div className="flex items-center">
           <Link href="/" className="flex items-center space-x-2">
-            <img src="/apple-touch-icon.png" alt="Society+ logo" className="h-6 w-6 rounded-full" />
+            <Image src="/apple-touch-icon.png" alt="Society+ logo" width={24} height={24} className="h-6 w-6 rounded-full" priority />
             <span className="font-bold">society+</span>
           </Link>
         </div>

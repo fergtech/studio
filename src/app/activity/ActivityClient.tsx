@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import AppSidebar from '@/components/AppSidebar';
+import AppSidebar, { getDefaultCollapsedState } from '@/components/AppSidebar';
 import ActivityFeed from '@/components/ActivityFeed';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Activity, TrendingUp } from 'lucide-react';
@@ -11,7 +11,7 @@ interface ActivityClientProps {
 }
 
 export default function ActivityClient({ userId }: ActivityClientProps) {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => getDefaultCollapsedState({ type: 'activity' }));
 
   return (
     <div className="w-full min-w-0 overflow-hidden">

@@ -3,14 +3,14 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import AppSidebar from '@/components/AppSidebar';
+import AppSidebar, { getDefaultCollapsedState } from '@/components/AppSidebar';
 
 export const dynamic = 'force-dynamic';
 
 export default function SocietiesPage() {
   const [societies, setSocieties] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => getDefaultCollapsedState({ type: 'societies' }));
 
   useEffect(() => {
     const fetchSocieties = async () => {

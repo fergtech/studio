@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import AppSidebar from '@/components/AppSidebar';
+import AppSidebar, { getDefaultCollapsedState } from '@/components/AppSidebar';
 
 interface SearchUser {
   id: string;
@@ -68,7 +68,7 @@ function ExplorePageInner() {
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState<SearchResults>({ users: [], initiatives: [], posts: [], societies: [] });
   const [hasSearched, setHasSearched] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => getDefaultCollapsedState({ type: 'explore' }));
   const [isLoadingFeatured, setIsLoadingFeatured] = useState(true);
 
   // Load featured content on initial page load

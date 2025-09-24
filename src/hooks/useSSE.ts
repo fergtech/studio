@@ -184,16 +184,74 @@ export function useSSE(options: SSEOptions) {
     onDisconnect?.();
   }, [stopPolling, onDisconnect]);
 
-  // Handle page visibility changes (mobile background/foreground)
+  // Smart polling based on user activity and visibility
   useEffect(() => {
+    let lastActivity = Date.now();
+    
+    // Track user activity for intelligent polling
+    const trackActivity = () => {
+      lastActivity = Date.now();
+    };
+    
+    const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+    activityEvents.forEach(event => {
+      document.addEventListener(event, trackActivity, { passive: true });
+    });
+
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        // Page is hidden, can reduce polling frequency or pause SSE
+        // Page is hidden - implement smart background polling
         if (state.isPolling && pollingIntervalRef.current) {
           clearInterval(pollingIntervalRef.current);
-          // Reduce polling frequency when in background
-          pollingIntervalRef.current = setInterval(async () => {
+          
+          // Background polling with progressive slow-down
+          let backgroundInterval = pollingInterval * 2; // Start with 2x interval
+          
+          const backgroundPoll = async () => {
             if (!pollingUrl) return;
+            
+            try {
+              const response = await fetch(pollingUrl);
+              if (response.ok) {
+                const data = await response.json();
+                onMessage?.(data);
+              }
+              
+              // Gradually increase interval (max 5 minutes)
+              backgroundInterval = Math.min(backgroundInterval * 1.2, 5 * 60 * 1000);
+            } catch (error) {
+              console.error('Background polling error:', error);
+            }
+            
+            // Schedule next poll with updated interval
+            pollingIntervalRef.current = setTimeout(backgroundPoll, backgroundInterval);
+          };
+          
+          // Start background polling
+          pollingIntervalRef.current = setTimeout(backgroundPoll, backgroundInterval);
+        }
+      } else {
+        // Page is visible - restore smart polling
+        const timeSinceActivity = Date.now() - lastActivity;
+        
+        if (!state.isConnected && !isManuallyClosedRef.current) {
+          connect();
+        } else if (state.isPolling) {
+          stopPolling();
+          
+          // Determine polling frequency based on recent activity
+          let smartInterval = pollingInterval;
+          if (timeSinceActivity > 2 * 60 * 1000) { // No activity for 2+ minutes
+            smartInterval = pollingInterval * 2; // Slower polling
+          } else if (timeSinceActivity < 30 * 1000) { // Active in last 30 seconds
+            smartInterval = Math.max(pollingInterval * 0.7, 10000); // Faster polling, min 10s
+          }
+          
+          console.log(`Smart polling interval: ${smartInterval}ms (activity: ${timeSinceActivity}ms ago)`);
+          
+          // Start polling with smart interval
+          const smartPoll = async () => {
+            if (!pollingUrl || !session?.user?.id) return;
             try {
               const response = await fetch(pollingUrl);
               if (response.ok) {
@@ -201,24 +259,26 @@ export function useSSE(options: SSEOptions) {
                 onMessage?.(data);
               }
             } catch (error) {
-              console.error('Background polling error:', error);
+              console.error('Smart polling error:', error);
             }
-          }, pollingInterval * 2); // Double the interval in background
-        }
-      } else {
-        // Page is visible, restore normal behavior
-        if (!state.isConnected && !isManuallyClosedRef.current) {
-          connect();
-        } else if (state.isPolling) {
-          stopPolling();
-          startPolling(); // Restore normal polling frequency
+          };
+          
+          setState(prev => ({ ...prev, isPolling: true }));
+          smartPoll(); // Call immediately without await
+          pollingIntervalRef.current = setInterval(smartPoll, smartInterval);
         }
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [state.isConnected, state.isPolling, connect, startPolling, stopPolling, pollingUrl, pollingInterval, onMessage]);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      activityEvents.forEach(event => {
+        document.removeEventListener(event, trackActivity);
+      });
+    };
+  }, [state.isConnected, state.isPolling, connect, startPolling, stopPolling, pollingUrl, pollingInterval, onMessage, session?.user?.id]);
 
   // Initial connection
   useEffect(() => {

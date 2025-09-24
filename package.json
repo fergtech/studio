@@ -10,10 +10,13 @@
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
     "build": "prisma migrate deploy && prisma generate && next build",
     "vercel-build": "prisma migrate deploy && prisma generate && next build",
+    "db:deploy": "prisma migrate deploy",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "db:migrate": "node -r esbuild-register src/lib/db/migrate.ts"
+    "db:migrate": "node -r esbuild-register src/lib/db/migrate.ts",
+    "backfill-topics": "tsx src/scripts/backfillTopics.ts",
+    "create-test-posts": "tsx src/scripts/createTestPosts.ts"
   },
   "dependencies": {
     "@azure/core-http": "^3.0.5",

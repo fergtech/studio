@@ -3,6 +3,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import Image from 'next/image';
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -141,6 +142,7 @@ export function EditInitiativeForm({ setOpen, initiative }: EditInitiativeFormPr
       const formData = new FormData();
       formData.append("file", selectedImage);
       formData.append("filePath", "initiatives/images");
+      formData.append("imageType", "initiative");
 
       try {
         const response = await fetch("/api/upload", {
@@ -244,8 +246,7 @@ export function EditInitiativeForm({ setOpen, initiative }: EditInitiativeFormPr
 
         {imagePreview && (
           <div className="w-full h-48 relative rounded-md overflow-hidden bg-muted flex items-center justify-center">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={imagePreview} alt="Image Preview" className="object-cover w-full h-full" />
+            <Image src={imagePreview} alt="Image Preview" fill className="object-cover" />
             <div className="absolute inset-0 bg-black/20"></div>
           </div>
         )}

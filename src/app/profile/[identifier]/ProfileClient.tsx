@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import AppSidebar from '@/components/AppSidebar';
+import AppSidebar, { getDefaultCollapsedState } from '@/components/AppSidebar';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -32,7 +32,7 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
   const [isFollowing, setIsFollowing] = useState(user.isFollowing);
   const [followersCount, setFollowersCount] = useState(user.followersCount ?? 0);
   const [isFollowLoading, setIsFollowLoading] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => getDefaultCollapsedState({ type: 'profile' }));
   const { toast } = useToast();
   const [showFollowersModal, setShowFollowersModal] = useState(false);
   const [showFollowingModal, setShowFollowingModal] = useState(false);
@@ -335,7 +335,25 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
                   <div className="flex items-center gap-4 mt-3 text-sm text-gray-500 dark:text-gray-400">
                     <div className="flex items-center gap-1">
                       <MapPinIcon className="w-4 h-4" />
-                      {user.showLocation && user.city ? user.city : 'Location not set'}
+                      {(() => {
+                        if (user.showLocation) {
+                          // Try to parse structured location first
+                          if (user.location) {
+                            try {
+                              const parsedLocation = JSON.parse(user.location);
+                              return parsedLocation.displayName || 'Location set';
+                            } catch {
+                              // Fall back to user.location as string if JSON parse fails
+                              return user.location;
+                            }
+                          }
+                          // Fall back to city field
+                          if (user.city) {
+                            return user.city;
+                          }
+                        }
+                        return 'Location not set';
+                      })()}
                     </div>
                     <div className="flex items-center gap-1">
                       <CalendarDays className="w-4 h-4" />

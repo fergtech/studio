@@ -7,13 +7,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Paperclip, Send, Palette, AlertCircle, MessageCircle, AlertTriangle, Lightbulb, ChevronDown } from 'lucide-react';
+import { Paperclip, Send, Palette, AlertCircle, MessageCircle, AlertTriangle, Lightbulb, ChevronDown, Globe, MapPin, Users } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { createGeneralPost } from '@/app/actions/postActions';
 import { createIssue } from '@/app/actions/issueActions';
 import { createIdea } from '@/app/actions/ideaActions';
 import { useToast } from '@/hooks/use-toast';
 import imageCompression from 'browser-image-compression';
+import { ResolvedLocation } from '@/services/location';
 
 // Define some background options
 const backgroundOptions = [
@@ -34,6 +35,15 @@ const mockUserAvatars: Record<string, string | undefined> = {
 };
 
 type PostType = 'general' | 'issue' | 'idea';
+
+type LocationScope = 'user' | 'global' | 'custom';
+
+interface LocationOption {
+  scope: LocationScope;
+  label: string;
+  description: string;
+  icon: React.ReactNode;
+}
 
 interface PostTypeConfig {
   label: string;
@@ -72,18 +82,80 @@ const postTypeConfigs: Record<PostType, PostTypeConfig> = {
 };
 
 interface CreatePostFormProps {
-  onPostCreated: () => void;
+  onPostCreated?: () => void;
+  onSuccess?: () => void;
   societyId?: string | null;
   context?: 'general' | 'society' | 'initiative';
+  battleContext?: {
+    battleId: string;
+    battleTitle?: string;
+  };
 }
 
-export default function CreatePostForm({ onPostCreated, societyId, context = 'general' }: CreatePostFormProps) {
+export default function CreatePostForm({ onPostCreated, onSuccess, societyId, context = 'general', battleContext }: CreatePostFormProps) {
   const { data: session, status } = useSession();
   const { toast } = useToast();
   
-  // Debug logging
-  console.log('CreatePostForm - Session status:', status);
-  console.log('CreatePostForm - Session data:', session);
+  // Location configuration
+  const locationOptions: LocationOption[] = [
+    {
+      scope: 'user',
+      label: 'My Location',
+      description: 'Share to your area',
+      icon: <MapPin className="h-4 w-4" />
+    },
+    {
+      scope: 'global',
+      label: 'Everywhere',
+      description: 'Share globally',
+      icon: <Globe className="h-4 w-4" />
+    },
+    {
+      scope: 'custom',
+      label: 'Other Location',
+      description: 'Pick different area',
+      icon: <Users className="h-4 w-4" />
+    }
+  ];
+  
+  // State for user location data
+  const [userLocation, setUserLocation] = useState<ResolvedLocation | null>(null);
+  
+  // Fetch user's location data
+  useEffect(() => {
+    const fetchUserLocation = async () => {
+      if (session?.user?.id) {
+        try {
+          const response = await fetch('/api/auth/me');
+          if (response.ok) {
+            const userData = await response.json();
+            if (userData.location) {
+              const parsedLocation: ResolvedLocation = JSON.parse(userData.location);
+              setUserLocation(parsedLocation);
+            }
+          }
+        } catch (error) {
+          console.error('Failed to fetch user location:', error);
+        }
+      }
+    };
+    
+    fetchUserLocation();
+  }, [session?.user?.id]);
+  
+  // Get effective location for post creation
+  const getEffectiveLocation = (): string | null => {
+    switch (selectedLocation) {
+      case 'user':
+        return userLocation ? JSON.stringify(userLocation) : null;
+      case 'custom':
+        return customLocation ? JSON.stringify(customLocation) : null;
+      case 'global':
+      default:
+        return null;
+    }
+  };
+  
   const [postType, setPostType] = useState<PostType>('general');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -92,7 +164,15 @@ export default function CreatePostForm({ onPostCreated, societyId, context = 'ge
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
   const [selectedBackground, setSelectedBackground] = useState<string>(postTypeConfigs.general.background);
   const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false);
+  const [isLocationDropdownOpen, setIsLocationDropdownOpen] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState<LocationScope>('user');
+  const [customLocation, setCustomLocation] = useState<ResolvedLocation | null>(null);
+  const [topics, setTopics] = useState<string[]>([]);
+  const [topicInput, setTopicInput] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Get current location option
+  const currentLocationOption = locationOptions.find(opt => opt.scope === selectedLocation) || locationOptions[0];
 
   const currentUser = session?.user;
   const currentConfig = postTypeConfigs[postType];
@@ -143,7 +223,9 @@ export default function CreatePostForm({ onPostCreated, societyId, context = 'ge
           maxSizeMB: maxSizeInMB,
           maxWidthOrHeight: 1920,
           useWebWorker: true,
-          fileType: file.type,
+          fileType: 'image/webp', // Force WebP for better compression
+          quality: 0.85, // High quality with better compression
+          initialQuality: 0.85,
         };
         return await imageCompression(file, options);
       } else if (file.type.startsWith('video/')) {
@@ -178,7 +260,7 @@ export default function CreatePostForm({ onPostCreated, societyId, context = 'ge
       video.onseeked = () => {
         if (ctx) {
           ctx.drawImage(video, 0, 0);
-          const thumbnail = canvas.toDataURL('image/jpeg', 0.8);
+          const thumbnail = canvas.toDataURL('image/webp', 0.85);
           resolve(thumbnail);
         } else {
           reject(new Error('Could not get canvas context'));
@@ -255,6 +337,25 @@ export default function CreatePostForm({ onPostCreated, societyId, context = 'ge
     fileInputRef.current?.click();
   };
 
+  const handleTopicInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',' || e.key === ' ') {
+      e.preventDefault();
+      addTopic();
+    }
+  };
+
+  const addTopic = () => {
+    const topic = topicInput.trim().toLowerCase().replace(/^#/, ''); // Remove # prefix if exists
+    if (topic && !topics.includes(topic) && topics.length < 5) { // Limit to 5 topics
+      setTopics([...topics, topic]);
+      setTopicInput('');
+    }
+  };
+
+  const removeTopic = (topicToRemove: string) => {
+    setTopics(topics.filter(topic => topic !== topicToRemove));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -324,6 +425,19 @@ export default function CreatePostForm({ onPostCreated, societyId, context = 'ge
         const formData = new FormData();
         formData.append('content', content);
 
+        // Add topics to form data
+        topics.forEach(topic => {
+          formData.append('topics', topic);
+        });
+
+        // Add battle context if provided
+        if (battleContext) {
+          formData.append('relatedBattleId', battleContext.battleId);
+          if (battleContext.battleTitle) {
+            formData.append('battleTitle', battleContext.battleTitle);
+          }
+        }
+
         if (uploadedMediaUrls.length > 0) {
           // Add uploaded media URLs and types
           uploadedMediaUrls.forEach((url, index) => {
@@ -342,7 +456,7 @@ export default function CreatePostForm({ onPostCreated, societyId, context = 'ge
           title: title.trim(),
           description: content.trim(),
           tags: [], // Could be enhanced with tag input later
-          location: null,
+          location: getEffectiveLocation(),
           mediaUrl: uploadedMediaUrls.length > 0 ? uploadedMediaUrls[0] : null,
           societyId: societyId || null,
         };
@@ -362,6 +476,8 @@ export default function CreatePostForm({ onPostCreated, societyId, context = 'ge
         // Reset form
         setTitle('');
         setContent('');
+        setTopics([]);
+        setTopicInput('');
         setSelectedMedia(null);
         setMediaPreview(null);
         setSelectedBackground(currentConfig.background);
@@ -372,7 +488,9 @@ export default function CreatePostForm({ onPostCreated, societyId, context = 'ge
           title: "Success!",
           description: `Your ${postType} has been created.`,
         });
-        onPostCreated(); // Callback to refresh the feed or show success
+        // Call the appropriate callback
+        onPostCreated?.(); // Legacy callback for existing uses
+        onSuccess?.(); // New callback for modal/battle context
       } else {
         console.error(`Failed to create ${postType}:`, result.error);
         toast({
@@ -473,6 +591,20 @@ export default function CreatePostForm({ onPostCreated, societyId, context = 'ge
               <AvatarFallback>{fallback}</AvatarFallback>
             </Avatar>
             <div className="flex-1 space-y-3">
+              {/* Battle Context Indicator */}
+              {battleContext && (
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-3">
+                  <div className="flex items-center gap-2 text-orange-700">
+                    <span className="text-lg">🔥</span>
+                    <span className="font-medium text-sm">Adding your take to a Hot Take Battle</span>
+                  </div>
+                  {battleContext.battleTitle && (
+                    <p className="text-orange-600 text-sm mt-1">
+                      Responding to: <span className="font-medium">{battleContext.battleTitle}</span>
+                    </p>
+                  )}
+                </div>
+              )}
               {/* Title field for Issues and Ideas */}
               {(postType === 'issue' || postType === 'idea') && (
                 <Input
@@ -483,12 +615,50 @@ export default function CreatePostForm({ onPostCreated, societyId, context = 'ge
                 />
               )}
               <Textarea
-                placeholder={currentConfig.placeholder}
+                placeholder={battleContext ? "Share your unique perspective on this Hot Take Battle..." : currentConfig.placeholder}
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 className="resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent min-h-[80px] sm:min-h-[60px] placeholder:text-muted-foreground/70"
                 rows={3}
               />
+
+              {/* Topics Input */}
+              <div className="space-y-2">
+                {/* Display selected topics */}
+                {topics.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {topics.map((topic) => (
+                      <span
+                        key={topic}
+                        className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 text-primary rounded-full text-xs font-medium"
+                      >
+                        #{topic}
+                        <button
+                          type="button"
+                          onClick={() => removeTopic(topic)}
+                          className="hover:text-primary/70 ml-1"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Topic input field */}
+                <Input
+                  placeholder="Add topics (housing, climate, education...)"
+                  value={topicInput}
+                  onChange={(e) => setTopicInput(e.target.value)}
+                  onKeyDown={handleTopicInputKeyDown}
+                  onBlur={addTopic}
+                  className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent text-sm placeholder:text-muted-foreground/60"
+                  disabled={topics.length >= 5}
+                />
+                {topics.length >= 5 && (
+                  <p className="text-xs text-muted-foreground/60">Maximum 5 topics</p>
+                )}
+              </div>
             </div>
           </div>
           <div className="flex justify-between items-center mt-3 pt-3 border-t border-border/50">
@@ -569,6 +739,60 @@ export default function CreatePostForm({ onPostCreated, societyId, context = 'ge
                   </div>
                 </PopoverContent>
               </Popover>
+
+              {/* Location Selector */}
+              <Popover open={isLocationDropdownOpen} onOpenChange={setIsLocationDropdownOpen}>
+                <PopoverTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    type="button" 
+                    className="text-muted-foreground hover:text-primary min-h-[44px] min-w-[44px] relative"
+                    title={`Sharing to: ${currentLocationOption.label}`}
+                  >
+                    {currentLocationOption.icon}
+                    {selectedLocation === 'user' && !userLocation && (
+                      <div className="absolute -top-1 -right-1 w-3 h-3 bg-orange-500 rounded-full flex items-center justify-center">
+                        <AlertCircle className="h-2 w-2 text-white" />
+                      </div>
+                    )}
+                    <span className="sr-only">Choose location</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-3" align="center">
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-sm mb-3">Share Location</h4>
+                    {locationOptions.map((option) => (
+                      <button
+                        key={option.scope}
+                        type="button"
+                        onClick={() => {
+                          setSelectedLocation(option.scope);
+                          setIsLocationDropdownOpen(false);
+                        }}
+                        disabled={option.scope === 'user' && !userLocation}
+                        className={`w-full flex items-start gap-3 px-3 py-2 rounded-md text-sm transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed ${
+                          selectedLocation === option.scope 
+                            ? 'bg-primary/10 text-primary border border-primary/20' 
+                            : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                        }`}
+                      >
+                        <div className="mt-0.5">{option.icon}</div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium">{option.label}</div>
+                          <div className="text-xs opacity-70">{option.description}</div>
+                          {option.scope === 'user' && userLocation && (
+                            <div className="text-xs mt-1 opacity-60">{userLocation.displayName}</div>
+                          )}
+                          {option.scope === 'user' && !userLocation && (
+                            <div className="text-xs mt-1 text-orange-600">Set location in profile</div>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
 
             <Button 
@@ -581,7 +805,10 @@ export default function CreatePostForm({ onPostCreated, societyId, context = 'ge
               size="sm" 
               className="min-h-[44px] px-4"
             >
-              {isSubmitting ? `${currentConfig.buttonText}ing...` : <>{currentConfig.buttonText} <Send className="ml-1 h-4 w-4" /></>}
+              {isSubmitting ?
+                (battleContext ? "Adding Take..." : `${currentConfig.buttonText}ing...`) :
+                <>{battleContext ? "🔥 Add Your Take" : currentConfig.buttonText} <Send className="ml-1 h-4 w-4" /></>
+              }
             </Button>
           </div>
         </form>

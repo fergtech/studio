@@ -1,5 +1,6 @@
 import { RegisterForm } from "@/components/auth/RegisterForm";
 import Link from 'next/link';
+import Image from 'next/image';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,9 +11,11 @@ export default function RegisterPage() {
         {/* Brand Header */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-3 mb-6 group">
-            <img 
+            <Image 
               src="/apple-touch-icon.png" 
               alt="Society+ logo" 
+              width={40}
+              height={40}
               className="h-10 w-10 rounded-full ring-2 ring-primary/20 group-hover:ring-primary/40 transition-all" 
             />
             <div className="flex items-center gap-2">

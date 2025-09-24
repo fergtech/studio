@@ -20,49 +20,67 @@ export function useNotifications() {
   const { toast } = useToast();
 
   const handleSSEMessage = useCallback((data: any) => {
-    if (data.type === 'notifications' && data.data) {
+    console.log('SSE message received:', data.type);
+    
+    if (data.type === 'new_notifications' && data.data) {
       const newNotifications = data.data as Notification[];
       
-      // Add new notifications to state
-      setNotifications(prev => {
-        const existingIds = new Set(prev.map(n => n.id));
-        const uniqueNew = newNotifications.filter(n => !existingIds.has(n.id));
-        
-        // Show toast for new notifications
-        uniqueNew.forEach(notification => {
-          toast({
-            title: notification.title,
-            description: notification.message,
+      // Only process if we have new notifications
+      if (newNotifications.length > 0) {
+        // Add new notifications to state
+        setNotifications(prev => {
+          const existingIds = new Set(prev.map(n => n.id));
+          const uniqueNew = newNotifications.filter(n => !existingIds.has(n.id));
+          
+          // Show toast for truly new notifications
+          uniqueNew.forEach(notification => {
+            toast({
+              title: notification.title,
+              description: notification.message,
+            });
           });
+          
+          if (uniqueNew.length > 0) {
+            return [
+              ...uniqueNew,
+              ...prev
+            ].slice(0, 50); // Keep only latest 50 notifications
+          }
+          return prev; // No changes if no new notifications
         });
-        
-        return [
-          ...uniqueNew,
-          ...prev
-        ].slice(0, 50); // Keep only latest 50 notifications
-      });
 
-      // Update unread count
-      setUnreadCount(prev => prev + newNotifications.length);
+        // Update unread count only for truly new notifications
+        const existingIds = new Set(notifications.map(n => n.id));
+        const trulyNew = newNotifications.filter(n => !existingIds.has(n.id));
+        if (trulyNew.length > 0) {
+          setUnreadCount(prev => prev + trulyNew.length);
+        }
+      }
+    } else if (data.type === 'connected') {
+      console.log('SSE connected for notifications');
+    } else if (data.type === 'heartbeat') {
+      // Heartbeat - no action needed
+    } else if (data.type === 'error') {
+      console.error('SSE error:', data.message);
     }
-  }, [toast]);
+  }, [toast, notifications]);
 
-  // Temporarily disable SSE to prevent infinite loops
-  // const { isConnected, isPolling, error } = useSSE({
-  //   url: '/api/sse/notifications',
-  //   onMessage: handleSSEMessage,
-  //   enablePollingFallback: true,
-  //   pollingUrl: '/api/notifications?limit=10',
-  //   pollingInterval: 15000,
-  //   onError: (error) => {
-  //     console.error('Notifications SSE error:', error);
-  //   }
-  // });
-
-  // Use simple polling for now
-  const [isConnected, setIsConnected] = useState(false);
-  const [isPolling, setIsPolling] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Re-enable SSE with fixed endpoint and proper deduplication
+  const { isConnected, isPolling, error } = useSSE({
+    url: '/api/sse/notifications',
+    onMessage: handleSSEMessage,
+    enablePollingFallback: true,
+    pollingUrl: '/api/notifications?limit=10',
+    pollingInterval: 45000, // Increased to 45s to avoid conflicts with SSE
+    maxReconnectAttempts: 3,
+    reconnectDelay: 5000,
+    onConnect: () => {
+      console.log('Notifications SSE connected');
+    },
+    onError: (error) => {
+      console.error('Notifications SSE error:', error);
+    }
+  });
 
   // Fetch initial notifications
   const fetchNotifications = useCallback(async () => {

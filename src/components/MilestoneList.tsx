@@ -1,11 +1,16 @@
 import React from 'react';
+import dynamic from 'next/dynamic';
 import { Milestone } from '@/lib/types';
 import { MilestoneCard } from './MilestoneCard';
-import { Timestamp } from 'firebase/firestore'; // Import Timestamp
+
+const FirebaseTimestamp = dynamic(() => import('firebase/firestore').then(mod => ({ default: mod.Timestamp })), {
+  ssr: false,
+  loading: () => null
+});
 
 interface MilestoneListProps {
   // Ensure createdAt is expected as Timestamp or string based on conversion
-  milestones: (Omit<Milestone, 'createdAt' | 'dueDate'> & { createdAt: string | Timestamp, dueDate?: string | Timestamp })[]; 
+  milestones: (Omit<Milestone, 'createdAt' | 'dueDate'> & { createdAt: string | any, dueDate?: string | any })[]; 
 }
 
 export function MilestoneList({ milestones }: MilestoneListProps) {
@@ -19,9 +24,9 @@ export function MilestoneList({ milestones }: MilestoneListProps) {
       return a.order - b.order;
     }
     // Fallback sort by date if order is missing
-    // Use .toDate() if createdAt is a Timestamp, otherwise parse string
-    const dateA = a.createdAt instanceof Timestamp ? a.createdAt.toDate() : new Date(a.createdAt);
-    const dateB = b.createdAt instanceof Timestamp ? b.createdAt.toDate() : new Date(b.createdAt);
+    // Use .toDate() if createdAt is a Firebase Timestamp, otherwise parse string
+    const dateA = (a.createdAt as any)?.toDate ? (a.createdAt as any).toDate() : new Date(a.createdAt as string);
+    const dateB = (b.createdAt as any)?.toDate ? (b.createdAt as any).toDate() : new Date(b.createdAt as string);
     return dateA.getTime() - dateB.getTime();
   });
 

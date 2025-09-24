@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -206,11 +207,12 @@ export function CreateSocietyForm({ setOpen, onCreated }: CreateSocietyFormProps
         
         {/* Image Preview */}
         {imagePreview && (
-          <div className="relative">
-            <img 
+          <div className="relative h-32 w-full">
+            <Image 
               src={imagePreview} 
               alt="Preview" 
-              className="w-full h-32 object-cover rounded-lg border"
+              fill
+              className="object-cover rounded-lg border"
             />
             <Button
               type="button"

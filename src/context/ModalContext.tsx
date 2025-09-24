@@ -31,6 +31,10 @@ interface ModalContextType {
   createDebateTopicModal: { isOpen: boolean };
   openCreateDebateTopicModal: () => void;
   closeCreateDebateTopicModal: () => void;
+  // New for Battle Response
+  createBattleResponseModal: { isOpen: boolean; battleId: string | null; battleTitle?: string };
+  openCreateBattleResponseModal: (battleId: string, battleTitle?: string) => void;
+  closeCreateBattleResponseModal: () => void;
 }
 
 const ModalContext = createContext<ModalContextType | undefined>(undefined);
@@ -46,6 +50,10 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => {
   const [createIdeaModal, setCreateIdeaModal] = useState<{ isOpen: boolean }>({ isOpen: false });
   const [createSocietyModal, setCreateSocietyModal] = useState<{ isOpen: boolean }>({ isOpen: false });
   const [createDebateTopicModal, setCreateDebateTopicModal] = useState<{ isOpen: boolean }>({ isOpen: false });
+  const [createBattleResponseModal, setCreateBattleResponseModal] = useState<{ isOpen: boolean; battleId: string | null; battleTitle?: string }>({
+    isOpen: false,
+    battleId: null
+  });
 
   const openCreateInitiativeModal = (title?: string, description?: string, imageUrl?: string, originatingIssueId?: string, originatingIdeaId?: string) => {
     setCreateInitiativeModal({
@@ -101,6 +109,21 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => {
     setCreateDebateTopicModal({ isOpen: false });
   };
 
+  const openCreateBattleResponseModal = (battleId: string, battleTitle?: string) => {
+    setCreateBattleResponseModal({
+      isOpen: true,
+      battleId,
+      battleTitle
+    });
+  };
+
+  const closeCreateBattleResponseModal = () => {
+    setCreateBattleResponseModal({
+      isOpen: false,
+      battleId: null
+    });
+  };
+
   return (
     <ModalContext.Provider value={{
       createInitiativeModal,
@@ -118,6 +141,9 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => {
       createDebateTopicModal,
       openCreateDebateTopicModal,
       closeCreateDebateTopicModal,
+      createBattleResponseModal,
+      openCreateBattleResponseModal,
+      closeCreateBattleResponseModal,
     }}>
       {children}
     </ModalContext.Provider>

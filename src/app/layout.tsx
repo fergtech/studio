@@ -8,6 +8,7 @@ import AuthProvider from "@/components/AuthProvider"; // Import the AuthProvider
 import { ModalProvider } from "@/context/ModalContext"; // Import ModalProvider
 import { ThemeProvider } from "next-themes";
 import { SessionProvider } from "next-auth/react";
+import QueryProvider from "@/providers/QueryProvider";
 
 // Force dynamic rendering to prevent static generation issues
 export const dynamic = 'force-dynamic';
@@ -28,16 +29,18 @@ export default function RootLayout({
       <body className="antialiased min-h-screen flex flex-col bg-background text-foreground overflow-x-hidden"> 
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
           <SessionProvider refetchInterval={0} refetchOnWindowFocus={false} refetchWhenOffline={false}>
-            <AuthProvider>
-              <ModalProvider>
-                <ConditionalHeader />
-                <main className="flex-grow py-8 overflow-x-hidden"> {/* Removed container constraint for full width */}
-                  {children}
-                </main>
-                <GlobalModals /> {/* Global modal dialogs */}
-                <Toaster /> {/* Keep Toaster */}
-              </ModalProvider>
-            </AuthProvider>
+            <QueryProvider>
+              <AuthProvider>
+                <ModalProvider>
+                  <ConditionalHeader />
+                  <main className="flex-grow overflow-x-hidden"> {/* Removed py-8 padding for pages with AppSidebar */}
+                    {children}
+                  </main>
+                  <GlobalModals /> {/* Global modal dialogs */}
+                  <Toaster /> {/* Keep Toaster */}
+                </ModalProvider>
+              </AuthProvider>
+            </QueryProvider>
           </SessionProvider>
         </ThemeProvider>
       </body>

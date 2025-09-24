@@ -1,6 +1,7 @@
 "use client";
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import PostReactions from '@/components/PostReactions';
 import CommentPanel from '@/components/CommentPanel';
@@ -14,7 +15,7 @@ import { VideoPlayer } from '@/components/ui/video-player';
 import { AudioPlayer } from '@/components/ui/audio-player';
 import { LinkPreview } from '@/components/ui/link-preview';
 import { DocumentPreview } from '@/components/ui/document-preview';
-import AppSidebar from '@/components/AppSidebar';
+import AppSidebar, { getDefaultCollapsedState } from '@/components/AppSidebar';
 import { updateGeneralPostContent, updateSocietyPostContent } from '@/app/actions/postActions';
 
 // Helper function to detect video files
@@ -107,7 +108,7 @@ export default function PostDetailClient({
   links,
   documents,
 }: PostDetailClientProps) {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => getDefaultCollapsedState({ type: 'post' }));
   const [commentPanelOpen, setCommentPanelOpen] = useState(false);
   const [commentCount, setCommentCount] = useState(0);
   const searchParams = useSearchParams();
@@ -244,7 +245,7 @@ export default function PostDetailClient({
       <div className={commentPanelOpen ? 'blur-sm pointer-events-none' : ''}>
         <AppSidebar 
           widgets={['userControls', 'navigation', 'suggestions', 'location', 'resources', 'footer']}
-          context={{ type: 'home' }}
+          context={{ type: 'post' }}
           onCollapseChange={setSidebarCollapsed}
         />
       </div>
@@ -338,11 +339,14 @@ export default function PostDetailClient({
                 </div>
               )}
               {imageUrl && (
-                <div className="bg-muted">
-                  <img 
+                <div className="bg-muted relative w-full" style={{ maxHeight: '70vh' }}>
+                  <Image 
                     src={imageUrl} 
                     alt="Post media" 
+                    width={800}
+                    height={600}
                     className="w-full h-auto max-h-[70vh] object-contain mx-auto"
+                    priority
                   />
                 </div>
               )}

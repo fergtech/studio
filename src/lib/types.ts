@@ -220,11 +220,12 @@ export interface ProfileFeedItem {
 export interface GeneralPost {
   id: string;
   creatorId: string;
-  creatorName: string; 
-  creatorAvatar?: string; 
+  creatorName: string;
+  creatorAvatar?: string;
   content: string;
+  topics?: string[]; // Add topics array
   media?: MediaItem[];
-  background?: string; 
+  background?: string;
   timestamp: Date;
   linkedInitiativeId?: string;
   linkUrl?: string; // Deprecated - kept for backward compatibility

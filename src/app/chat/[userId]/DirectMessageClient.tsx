@@ -10,7 +10,7 @@ import { ArrowLeft, Send, User2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useToast } from '@/components/ui/use-toast';
 // import { io, Socket } from 'socket.io-client'; // Temporarily disabled for Vercel deployment
-import AppSidebar from '@/components/AppSidebar';
+import AppSidebar, { getDefaultCollapsedState } from '@/components/AppSidebar';
 
 interface DirectMessageClientProps {
   otherUser: {
@@ -32,7 +32,7 @@ export default function DirectMessageClient({
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   // const [socket, setSocket] = useState<Socket | null>(null); // Temporarily disabled
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => getDefaultCollapsedState({ type: 'chat' }));
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const { toast } = useToast();

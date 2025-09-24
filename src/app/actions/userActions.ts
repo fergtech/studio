@@ -17,7 +17,11 @@ const UpdateProfileSchema = z.object({
   gender: z.enum(['male', 'female', 'other', 'prefer_not_to_say']).optional(),
   websites: z.array(z.string().url()).max(2, 'Maximum 2 websites allowed').optional(),
   city: z.string().max(100).nullable().optional(),
+  location: z.string().nullable().optional(),
   showLocation: z.boolean().optional(),
+  enableLocalNews: z.boolean().optional(),
+  newsRadius: z.number().min(1).max(500).nullable().optional(),
+  newsTypes: z.array(z.string()).optional(),
 });
 
 export interface UpdateUserProfileActionState {
@@ -82,11 +86,33 @@ export async function updateUserProfileAction(
   // Extract new fields from formData
   let city = formData.get('city') as string | null | undefined;
   if (city === undefined || city === '') city = null;
+  let location = formData.get('location') as string | null | undefined;
+  if (location === undefined || location === '') location = null;
   let showLocationRaw = formData.get('showLocation');
   let showLocation: boolean | undefined = undefined;
   if (showLocationRaw !== undefined && showLocationRaw !== null) {
     showLocation = showLocationRaw === 'true' || showLocationRaw === 'on';
   }
+
+  // Extract news preference fields
+  let enableLocalNewsRaw = formData.get('enableLocalNews');
+  let enableLocalNews: boolean | undefined = undefined;
+  if (enableLocalNewsRaw !== undefined && enableLocalNewsRaw !== null) {
+    enableLocalNews = enableLocalNewsRaw === 'true' || enableLocalNewsRaw === 'on';
+  }
+
+  let newsRadiusRaw = formData.get('newsRadius') as string | null | undefined;
+  let newsRadius: number | null | undefined = undefined;
+  if (newsRadiusRaw && newsRadiusRaw !== '') {
+    const parsed = parseInt(newsRadiusRaw, 10);
+    newsRadius = isNaN(parsed) ? undefined : parsed;
+  } else if (newsRadiusRaw === '') {
+    newsRadius = null;
+  }
+
+  let newsTypes = formData.getAll('newsTypes') as string[];
+  newsTypes = newsTypes.filter(type => type.trim() !== '');
+  const finalNewsTypes = newsTypes.length > 0 ? newsTypes : undefined;
 
   const rawData: {
     name?: string;
@@ -97,7 +123,11 @@ export async function updateUserProfileAction(
     gender?: string;
     websites?: string[];
     city?: string | null;
+    location?: string | null;
     showLocation?: boolean;
+    enableLocalNews?: boolean;
+    newsRadius?: number | null;
+    newsTypes?: string[];
   } = {
     // Only include fields in rawData if they have a value (or are explicitly meant to be processed by Zod)
     // This helps Zod correctly interpret optional fields.
@@ -111,7 +141,11 @@ export async function updateUserProfileAction(
   if (imageUrl !== undefined) rawData.imageUrl = imageUrl;
   if (bannerImageUrl !== undefined) rawData.bannerImageUrl = bannerImageUrl;
   if (city !== undefined) rawData.city = city;
+  if (location !== undefined) rawData.location = location;
   if (showLocation !== undefined) rawData.showLocation = showLocation;
+  if (enableLocalNews !== undefined) rawData.enableLocalNews = enableLocalNews;
+  if (newsRadius !== undefined) rawData.newsRadius = newsRadius;
+  if (finalNewsTypes !== undefined) rawData.newsTypes = finalNewsTypes;
 
   const validatedFields = UpdateProfileSchema.safeParse(rawData);
 
@@ -123,7 +157,7 @@ export async function updateUserProfileAction(
     };
   }
 
-  const { name: validatedName, bio: validatedBio, imageUrl: validatedImageUrl, bannerImageUrl: validatedBannerImageUrl, username: validatedUsername, gender: validatedGender, websites: validatedWebsites, city: validatedCity, showLocation: validatedShowLocation } = validatedFields.data;
+  const { name: validatedName, bio: validatedBio, imageUrl: validatedImageUrl, bannerImageUrl: validatedBannerImageUrl, username: validatedUsername, gender: validatedGender, websites: validatedWebsites, city: validatedCity, location: validatedLocation, showLocation: validatedShowLocation, enableLocalNews: validatedEnableLocalNews, newsRadius: validatedNewsRadius, newsTypes: validatedNewsTypes } = validatedFields.data;
 
   try {
     // Prepare data for Prisma update. 
@@ -145,7 +179,11 @@ export async function updateUserProfileAction(
                          // If `validatedWebsites` is undefined, we don't add it to dataToUpdate, so Prisma won't touch it.
                          // If `validatedWebsites` is an empty array, we should pass it as such to clear existing websites.
       city?: string | null;
+      location?: string | null;
       showLocation?: boolean;
+      enableLocalNews?: boolean;
+      newsRadius?: number | null;
+      newsTypes?: string[];
     } = {};
 
     // Explicitly check if the key exists in validatedFields.data before assigning.
@@ -181,8 +219,22 @@ export async function updateUserProfileAction(
     if (validatedFields.data.hasOwnProperty('city')) {
       dataToUpdate.city = validatedCity === undefined ? null : validatedCity;
     }
+    if (validatedFields.data.hasOwnProperty('location')) {
+      dataToUpdate.location = validatedLocation === undefined ? null : validatedLocation;
+    }
     if (validatedFields.data.hasOwnProperty('showLocation')) {
       dataToUpdate.showLocation = validatedShowLocation;
+    }
+    if (validatedFields.data.hasOwnProperty('enableLocalNews')) {
+      dataToUpdate.enableLocalNews = validatedEnableLocalNews;
+    }
+    if (validatedFields.data.hasOwnProperty('newsRadius')) {
+      dataToUpdate.newsRadius = validatedNewsRadius === undefined ? null : validatedNewsRadius;
+    }
+    if (validatedFields.data.hasOwnProperty('newsTypes')) {
+      if (validatedNewsTypes !== undefined) {
+        dataToUpdate.newsTypes = validatedNewsTypes;
+      }
     }
 
     if (Object.keys(dataToUpdate).length === 0) {

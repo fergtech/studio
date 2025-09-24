@@ -21,7 +21,7 @@ import { VideoPlayer } from '@/components/ui/video-player';
 import { AudioPlayer } from '@/components/ui/audio-player';
 import { LinkPreview } from '@/components/ui/link-preview';
 import { DocumentPreview } from '@/components/ui/document-preview';
-import { AppSidebar } from '@/components/AppSidebar';
+import AppSidebar, { getDefaultCollapsedState } from '@/components/AppSidebar';
 import { updateSocietyPostContent } from '@/app/actions/postActions';
 import { LazySocietyStats } from '@/components/LazySocietyStats';
 import SocietyPostReactions from '@/components/SocietyPostReactions';
@@ -61,7 +61,7 @@ export function SocietyClientPage({ society: initialSociety, members, posts: ini
   const { toast } = useToast();
   const router = useRouter();
   const [isCreateInitiativeOpen, setIsCreateInitiativeOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => getDefaultCollapsedState({ type: 'society' }));
   
   // Scroll position restoration for society feed
   const { saveScrollPosition } = useScrollPosition({ key: `societyFeed_${society.id}` });

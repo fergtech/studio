@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { IdeaCard } from '@/components/IdeaCard';
 import { Idea } from '@/lib/types';
-import AppSidebar from '@/components/AppSidebar';
+import AppSidebar, { getDefaultCollapsedState } from '@/components/AppSidebar';
 import { Lightbulb, Filter, Plus } from 'lucide-react';
 import Link from 'next/link';
 
@@ -20,7 +20,7 @@ export default function IdeasPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('recent');
   const [isLoading, setIsLoading] = useState(true);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => getDefaultCollapsedState({ type: 'idea' }));
 
   useEffect(() => {
     fetchIdeas();

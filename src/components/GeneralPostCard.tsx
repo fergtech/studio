@@ -520,7 +520,27 @@ export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralP
             </>
           )}
         </div>
-        
+
+        {/* Topics Display */}
+        {post.topics && post.topics.length > 0 && (
+          <div className="mb-3 px-2">
+            <div className="flex flex-wrap gap-1">
+              {post.topics.map((topic) => (
+                <button
+                  key={topic}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    window.location.href = `/topics/${encodeURIComponent(topic)}`;
+                  }}
+                  className="inline-flex items-center px-2 py-1 bg-white/10 hover:bg-white/20 text-white/90 rounded-full text-xs font-medium transition-colors"
+                >
+                  #{topic}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Audio Player for audio posts */}
         {isAudio && (
           <div className="mb-3 px-2">

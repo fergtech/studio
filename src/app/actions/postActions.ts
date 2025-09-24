@@ -1,10 +1,12 @@
 "use server";
 
-import { MediaType } from "@prisma/client"; // Added MediaType
+import { MediaType, HotTakeStance } from "@prisma/client"; // Added MediaType and HotTakeStance
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { prisma } from '@/lib/prisma';
+import { detectTopicsFromContent } from '@/services/topicDetection';
+import { checkForHotTakeBattleOpportunity, createHotTakeBattle } from '@/services/hotTakeBattles';
 
 // CreatePostArgs is no longer needed if we pass FormData directly
 // interface CreatePostArgs {
@@ -28,18 +30,59 @@ export async function createGeneralPost(formData: FormData) { // Changed signatu
 
   const content = formData.get('content') as string;
   // Background from form (for color gradients) - only used if no media is primary
-  const formBackground = formData.get('formBackground') as string | undefined; 
+  const formBackground = formData.get('formBackground') as string | undefined;
   const linkedInitiativeId = formData.get('linkedInitiativeId') as string | undefined;
+
+  // Get manual topics from form
+  const manualTopics = formData.getAll('topics') as string[];
 
   // Get uploaded media URLs and types (already uploaded via /api/upload)
   const mediaUrls = formData.getAll('mediaUrls') as string[];
   const mediaTypes = formData.getAll('mediaTypes') as string[]; // e.g., "image", "video"
+
+  // Get battle context if provided
+  const relatedBattleId = formData.get('relatedBattleId') as string | undefined;
+  const battleTitle = formData.get('battleTitle') as string | undefined;
 
   if (!content || content.trim() === "") {
     return { error: "Content is required.", success: false };
   }
 
   try {
+    // AI topic detection
+    let allTopics = [...manualTopics]; // Start with manual topics
+
+    // If this is a battle response, add the battle's topic to ensure it appears in topic feeds
+    if (relatedBattleId) {
+      try {
+        const battle = await prisma.hotTakeBattle.findUnique({
+          where: { id: relatedBattleId },
+          select: { topic: true }
+        });
+        if (battle && battle.topic && !allTopics.includes(battle.topic)) {
+          allTopics.unshift(battle.topic); // Add battle topic as first item
+        }
+      } catch (error) {
+        console.error('Failed to fetch battle topic:', error);
+      }
+    }
+
+    // Use AI to detect semantic topics if we have fewer than 3 manual topics
+    if (manualTopics.length < 3) {
+      try {
+        const aiResult = await detectTopicsFromContent(content);
+        if (aiResult.confidence > 0.5) {
+          // Add AI-detected topics that aren't already in manual topics
+          const newAiTopics = aiResult.semanticTopics.filter(
+            aiTopic => !manualTopics.includes(aiTopic)
+          );
+          allTopics = [...manualTopics, ...newAiTopics].slice(0, 5); // Max 5 total topics
+        }
+      } catch (aiError) {
+        console.error('AI topic detection failed, continuing with manual topics only:', aiError);
+      }
+    }
+
     const mediaItemsToCreate: { url: string; type: MediaType }[] = [];
     let postBackground: string | undefined = formBackground; // Default to form background
 
@@ -71,6 +114,7 @@ export async function createGeneralPost(formData: FormData) { // Changed signatu
       creatorAvatar: userAvatar,
       content: content,
       background: postBackground, // Set based on first image or formBackground
+      topics: allTopics, // Add combined manual + AI topics to the post
     };
 
     if (linkedInitiativeId) {
@@ -90,6 +134,68 @@ export async function createGeneralPost(formData: FormData) { // Changed signatu
         media: true, // Ensure media is included in the returned post
       },
     });
+
+    // If this is a battle response, create the relation
+    if (relatedBattleId) {
+      try {
+        await prisma.hotTakeRelatedPost.create({
+          data: {
+            battleId: relatedBattleId,
+            postId: newPost.id,
+            stance: HotTakeStance.CUSTOM_TAKE // Battle response posts are custom takes
+          }
+        });
+        console.log(`Created battle relation: post ${newPost.id} -> battle ${relatedBattleId}`);
+      } catch (error) {
+        console.error('Failed to create battle relation:', error);
+        // Don't fail the post creation if battle relation fails
+      }
+    }
+
+    // Check for Hot Take Battle opportunities (async, don't block response)
+    if (allTopics.length > 0) {
+      setImmediate(async () => {
+        try {
+          const battleOpportunity = await checkForHotTakeBattleOpportunity(
+            newPost.id,
+            content,
+            allTopics,
+            undefined // TODO: Add location support
+          );
+
+          if (battleOpportunity.shouldCreateBattle && battleOpportunity.sharedTopic) {
+            // Find the opposing post (we need to refactor the detection to return it)
+            const recentPosts = await prisma.generalPost.findMany({
+              where: {
+                topics: { hasSome: allTopics },
+                timestamp: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+                id: { not: newPost.id },
+                AND: [
+                  { battleAsPost1: { none: {} } },
+                  { battleAsPost2: { none: {} } }
+                ]
+              },
+              orderBy: { timestamp: 'desc' },
+              take: 1
+            });
+
+            if (recentPosts.length > 0) {
+              const opposingPost = recentPosts[0];
+              await createHotTakeBattle({
+                post1Id: opposingPost.id, // Earlier post
+                post2Id: newPost.id,      // New post
+                topic: battleOpportunity.sharedTopic,
+                title: battleOpportunity.battleTitle || `${battleOpportunity.sharedTopic} Hot Take Battle`,
+                description: battleOpportunity.battleDescription
+              });
+              console.log(`🔥 Hot Take Battle created: ${battleOpportunity.battleTitle}`);
+            }
+          }
+        } catch (error) {
+          console.error('Error in Hot Take Battle detection:', error);
+        }
+      });
+    }
 
     revalidatePath("/");
     if (linkedInitiativeId) {

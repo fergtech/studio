@@ -14,7 +14,11 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MapPin } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { MapPin, Newspaper } from 'lucide-react';
+
+import LocationInput from '@/components/LocationInput';
+import { ResolvedLocation } from '@/services/location';
 
 interface EditProfileUser {
   id: string;
@@ -31,7 +35,11 @@ interface EditProfileUser {
   organization?: string | null;
   institution?: string | null;
   city: string | null;
+  location: string | null; // JSON string of ResolvedLocation
   showLocation?: boolean;
+  enableLocalNews?: boolean;
+  newsRadius?: number | null;
+  newsTypes?: string[];
 }
 
 interface EditProfileFormProps {
@@ -64,7 +72,15 @@ export default function EditProfileForm({ user }: EditProfileFormProps) {
   const [isUploadingBanner, setIsUploadingBanner] = useState(false);
 
   const [city, setCity] = useState(user.city ?? '');
+  const [location, setLocation] = useState<ResolvedLocation | null>(
+    user.location ? JSON.parse(user.location) : null
+  );
   const [showLocation, setShowLocation] = useState(user.showLocation ?? true);
+
+  // News preference state
+  const [enableLocalNews, setEnableLocalNews] = useState(user.enableLocalNews ?? true);
+  const [newsRadius, setNewsRadius] = useState(user.newsRadius ?? 25);
+  const [newsTypes, setNewsTypes] = useState<string[]>(user.newsTypes ?? ['local', 'community', 'government']);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bannerFileInputRef = useRef<HTMLInputElement>(null);
@@ -179,8 +195,17 @@ export default function EditProfileForm({ user }: EditProfileFormProps) {
     websites.forEach(website => formData.append('websites', website));
     // --- New location fields ---
     formData.append('city', city);
+    if (location) {
+      formData.append('location', JSON.stringify(location));
+    }
     formData.append('showLocation', showLocation ? 'true' : 'false');
     // --- End new location fields ---
+
+    // --- News preference fields ---
+    formData.append('enableLocalNews', enableLocalNews ? 'true' : 'false');
+    formData.append('newsRadius', newsRadius.toString());
+    newsTypes.forEach(type => formData.append('newsTypes', type));
+    // --- End news preference fields ---
 
     let finalImageUrl = user.image; // Default to existing image
     let finalBannerImageUrl = user.bannerImageUrl ?? null; // Default to existing banner image
@@ -332,16 +357,14 @@ export default function EditProfileForm({ user }: EditProfileFormProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="city">City</Label>
-            <div className="flex items-center space-x-2">
-              <MapPin className="h-4 w-4 text-gray-400" />
-              <Input 
-                id="city"
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                placeholder="Enter your city"
-              />
-            </div>
+            <Label htmlFor="location">Location</Label>
+            <LocationInput 
+              initialLocation={location}
+              onLocationChange={setLocation} 
+            />
+            <p className="text-xs text-muted-foreground">
+              Start typing your city, zip code, or county to find your location.
+            </p>
           </div>
 
           <div className="flex items-center space-x-2">
@@ -353,6 +376,85 @@ export default function EditProfileForm({ user }: EditProfileFormProps) {
               className="rounded"
             />
             <Label htmlFor="showLocation">Show location on profile</Label>
+          </div>
+
+          {/* News Preferences Section */}
+          <div className="space-y-4 border-t pt-6">
+            <div className="flex items-center space-x-2">
+              <Newspaper className="h-5 w-5 text-blue-600" />
+              <h3 className="text-lg font-semibold">News Preferences</h3>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="enableLocalNews"
+                checked={enableLocalNews}
+                onChange={(e) => setEnableLocalNews(e.target.checked)}
+                className="rounded"
+              />
+              <Label htmlFor="enableLocalNews">Enable local news in your feed</Label>
+            </div>
+
+            {enableLocalNews && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="newsRadius">News radius (miles)</Label>
+                  <Input
+                    id="newsRadius"
+                    type="number"
+                    min="1"
+                    max="500"
+                    value={newsRadius}
+                    onChange={(e) => setNewsRadius(parseInt(e.target.value) || 25)}
+                    placeholder="25"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    How far from your location to search for local news (1-500 miles).
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>News categories</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { value: 'local', label: 'Local' },
+                      { value: 'community', label: 'Community' },
+                      { value: 'government', label: 'Government' },
+                      { value: 'education', label: 'Education' },
+                      { value: 'health', label: 'Health' },
+                      { value: 'transportation', label: 'Transportation' },
+                      { value: 'environment', label: 'Environment' },
+                      { value: 'crime', label: 'Crime' },
+                      { value: 'business', label: 'Business' },
+                      { value: 'events', label: 'Events' }
+                    ].map((category) => (
+                      <div key={category.value} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id={`newsType-${category.value}`}
+                          checked={newsTypes.includes(category.value)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setNewsTypes([...newsTypes, category.value]);
+                            } else {
+                              setNewsTypes(newsTypes.filter(type => type !== category.value));
+                            }
+                          }}
+                          className="rounded"
+                        />
+                        <Label htmlFor={`newsType-${category.value}`} className="text-sm">
+                          {category.label}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Select the types of news you're interested in receiving.
+                  </p>
+                </div>
+              </>
+            )}
           </div>
 
           <div className="space-y-2">

@@ -28,6 +28,14 @@ export async function GET(req: NextRequest) {
         primaryIntent: true,
         image: true,
         dateCreated: true,
+        location: true,
+        city: true,
+        latitude: true,
+        longitude: true,
+        showLocation: true,
+        enableLocalNews: true,
+        newsRadius: true,
+        newsTypes: true,
       }
     });
 
@@ -78,6 +86,9 @@ export async function PATCH(req: NextRequest) {
         image: true,
         dateCreated: true,
         primaryIntent: true,
+        location: true,
+        city: true,
+        showLocation: true,
       }
     });
     return NextResponse.json(updated);

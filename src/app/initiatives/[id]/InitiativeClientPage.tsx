@@ -24,7 +24,7 @@ import type { Initiative, Role, UserSelectableMembershipRole, Member, EnhancedCh
 import { ALL_USER_SELECTABLE_MEMBERSHIP_ROLES } from "@/lib/types";
 import { MissionProgressBanner } from './MissionProgressBanner';
 import { InitiativeSidebar } from '@/components/initiatives/InitiativeSidebar'; // Corrected import path
-import AppSidebar from '@/components/AppSidebar'; // Add global AppSidebar
+import AppSidebar, { getDefaultCollapsedState } from '@/components/AppSidebar'; // Add global AppSidebar
 import { CreateUpdateForm } from './CreateUpdateForm';
 import { ActivityFeed } from './ActivityFeed';
 import { EditInitiativeDialog } from './EditInitiativeDialog';
@@ -194,7 +194,7 @@ export function InitiativeClientPage({
   const [isChangeRoleModalOpen, setIsChangeRoleModalOpen] = useState(false);
   const [isCreateGoalDialogOpen, setIsCreateGoalDialogOpen] = useState(false); // State for goal dialog
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => getDefaultCollapsedState({ type: 'initiative' }));
   const isMobile = useIsMobile();
 
   // State for suggested goals
@@ -1136,9 +1136,11 @@ export function InitiativeClientPage({
               {/* QR Code Section */}
               <div className="text-center">
                 {qrCodeDataURL ? (
-                  <img 
+                  <Image 
                     src={qrCodeDataURL} 
                     alt="QR Code for joining initiative"
+                    width={128}
+                    height={128}
                     className="w-32 h-32 border-2 border-gray-300 rounded-lg mx-auto mb-2"
                   />
                 ) : (

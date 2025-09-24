@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from 'react';
+import Image from 'next/image';
 import { useLazyLoad } from '@/hooks/useLazyLoad';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -168,9 +169,11 @@ export function LazyPostsFeed({
               <AudioPlayer src={item.url} className="w-full" />
             )}
             {item.type === 'image' && (
-              <img 
+              <Image 
                 src={item.url} 
                 alt="Post media" 
+                width={600}
+                height={400}
                 className="w-full rounded-lg object-cover max-h-96"
                 loading="lazy"
               />
@@ -257,9 +260,11 @@ export function LazyPostsFeed({
                           onClick={() => window.open(link.linkPreview.url, '_blank', 'noopener,noreferrer')}
                         >
                           {link.linkPreview.favicon ? (
-                            <img 
+                            <Image 
                               src={link.linkPreview.favicon} 
                               alt="Site favicon" 
+                              width={16}
+                              height={16}
                               className="w-4 h-4 rounded"
                               onError={(e) => {
                                 e.currentTarget.style.display = 'none';

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import AppSidebar from '@/components/AppSidebar';
+import AppSidebar, { getDefaultCollapsedState } from '@/components/AppSidebar';
 import EditProfileForm from './EditProfileForm';
 import { User } from '@prisma/client';
 
@@ -10,7 +10,7 @@ interface EditProfileClientProps {
 }
 
 export default function EditProfileClient({ user }: EditProfileClientProps) {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => getDefaultCollapsedState({ type: 'profile-edit' }));
 
   return (
     <div className="w-full min-w-0 overflow-hidden">

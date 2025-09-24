@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { cachedFetch } from '@/lib/cache';
 
 export interface ActivityFeedItem {
   id: string;
@@ -35,18 +36,25 @@ export async function GET(req: NextRequest) {
     const preview = searchParams.get('preview') === '1';
 
     const currentUserId = session.user.id;
+    
+    // Create cache key based on user and parameters
+    const cacheKey = `activity:${currentUserId}:${page}:${limit}:${preview}`;
+    
+    // Use cached fetch with stale-while-revalidate for optimal social media performance
+    const result = await cachedFetch(
+      cacheKey,
+      async () => {
+        // Get user's follow list to filter activities
+        const following = await prisma.userFollow.findMany({
+          where: { followerId: currentUserId },
+          select: { followingId: true },
+        });
+        const followingIds = following.map(f => f.followingId);
 
-    // Get user's follow list to filter activities
-    const following = await prisma.userFollow.findMany({
-      where: { followerId: currentUserId },
-      select: { followingId: true },
-    });
-    const followingIds = following.map(f => f.followingId);
+        // For preview mode, only show activities from people you follow (not your own)
+        const relevantUserIds = preview ? followingIds : [currentUserId, ...followingIds];
 
-    // For preview mode, only show activities from people you follow (not your own)
-    const relevantUserIds = preview ? followingIds : [currentUserId, ...followingIds];
-
-    const activities: ActivityFeedItem[] = [];
+        const activities: ActivityFeedItem[] = [];
 
     // 1. General Posts
     const posts = await prisma.generalPost.findMany({
@@ -276,11 +284,19 @@ export async function GET(req: NextRequest) {
     // Apply pagination
     const paginatedActivities = activities.slice(0, limit);
 
-    return NextResponse.json({
-      activities: paginatedActivities,
-      hasMore: activities.length > limit,
-      total: activities.length,
-    });
+        return {
+          activities: paginatedActivities,
+          hasMore: activities.length > limit,
+          total: activities.length,
+        };
+      },
+      {
+        ttl: preview ? 60 * 1000 : 2 * 60 * 1000, // 1-2 minutes TTL for social feed
+        staleWhileRevalidate: true,
+      }
+    );
+
+    return NextResponse.json(result);
   } catch (error) {
     console.error('Error fetching activity feed:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

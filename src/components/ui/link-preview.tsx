@@ -88,13 +88,14 @@ export function LinkPreview({
           {/* Favicon */}
           <div className="flex-shrink-0">
             {metadata.favicon && !faviconError ? (
-              <img
+              <Image
                 src={metadata.favicon}
                 alt="Site favicon"
                 width={16}
                 height={16}
                 className="rounded"
                 onError={handleFaviconError}
+                loading="lazy"
               />
             ) : (
               <Globe className="h-4 w-4 text-muted-foreground" />
@@ -141,11 +142,13 @@ export function LinkPreview({
         {/* Image section */}
         {metadata.image && !imageError && (
           <div className="w-32 h-24 flex-shrink-0 relative">
-            <img
+            <Image
               src={metadata.image}
               alt={metadata.title || 'Link preview'}
-              className="object-cover w-full h-full"
+              fill
+              className="object-cover"
               onError={handleImageError}
+              loading="lazy"
             />
           </div>
         )}
@@ -155,13 +158,14 @@ export function LinkPreview({
           {/* Site info */}
           <div className="flex items-center gap-2 mb-2">
             {metadata.favicon && !faviconError ? (
-              <img
+              <Image
                 src={metadata.favicon}
                 alt="Site favicon"
                 width={16}
                 height={16}
                 className="rounded"
                 onError={handleFaviconError}
+                loading="lazy"
               />
             ) : (
               <Globe className="h-4 w-4 text-muted-foreground" />

@@ -1,6 +1,7 @@
 import { LoginForm } from "@/components/auth/LoginForm";
 import { Suspense } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,8 +12,10 @@ export default function LoginPage() {
         {/* Brand Header */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-3 mb-6 group">
-            <img 
-              src="/apple-touch-icon.png" 
+            <Image 
+              src="/apple-touch-icon.png"
+              width={40}
+              height={40} 
               alt="Society+ logo" 
               className="h-10 w-10 rounded-full ring-2 ring-primary/20 group-hover:ring-primary/40 transition-all" 
             />

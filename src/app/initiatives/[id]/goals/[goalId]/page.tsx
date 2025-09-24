@@ -24,7 +24,7 @@ import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { CalendarIcon } from 'lucide-react';
-import AppSidebar from '@/components/AppSidebar';
+import AppSidebar, { getDefaultCollapsedState } from '@/components/AppSidebar';
 
 import type { Goal, Action, Initiative, GoalStatus, Priority, StepStatus } from '@/lib/types';
 import { getGoalDetails, getInitiativeDetailsForGoalPage, getRelatedActions } from '@/app/actions/goalActions';
@@ -203,7 +203,7 @@ export default function GoalDetailPage() {
   const [initiative, setInitiative] = useState<Partial<Initiative> | null>(null);
   const [actions, setActions] = useState<Action[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => getDefaultCollapsedState({ type: 'initiative' }));
   const [isAddActionModalOpen, setIsAddActionModalOpen] = useState(false);
   const [newAction, setNewAction] = useState({
     title: '',

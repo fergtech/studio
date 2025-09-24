@@ -1,12 +1,38 @@
 "use client";
 
+import dynamic from 'next/dynamic';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { CreateInitiativeForm } from '@/components/CreateInitiativeForm';
-import { IssueForm } from '@/components/IssueForm';
-import { IdeaForm } from '@/components/IdeaForm';
-import { CreateSocietyForm } from '@/components/CreateSocietyForm';
-import { CreateDebateTopicForm } from '@/components/CreateDebateTopicForm';
 import { useModal } from '@/context/ModalContext';
+
+const CreateInitiativeForm = dynamic(() => import('@/components/CreateInitiativeForm').then(mod => ({ default: mod.CreateInitiativeForm })), {
+  ssr: false,
+  loading: () => <div className="animate-pulse bg-muted h-96 rounded-md" />
+});
+
+const IssueForm = dynamic(() => import('@/components/IssueForm').then(mod => ({ default: mod.IssueForm })), {
+  ssr: false,
+  loading: () => <div className="animate-pulse bg-muted h-96 rounded-md" />
+});
+
+const IdeaForm = dynamic(() => import('@/components/IdeaForm').then(mod => ({ default: mod.IdeaForm })), {
+  ssr: false,
+  loading: () => <div className="animate-pulse bg-muted h-96 rounded-md" />
+});
+
+const CreateSocietyForm = dynamic(() => import('@/components/CreateSocietyForm').then(mod => ({ default: mod.CreateSocietyForm })), {
+  ssr: false,
+  loading: () => <div className="animate-pulse bg-muted h-96 rounded-md" />
+});
+
+const CreateDebateTopicForm = dynamic(() => import('@/components/CreateDebateTopicForm').then(mod => ({ default: mod.CreateDebateTopicForm })), {
+  ssr: false,
+  loading: () => <div className="animate-pulse bg-muted h-96 rounded-md" />
+});
+
+const CreatePostForm = dynamic(() => import('@/components/CreatePostForm'), {
+  ssr: false,
+  loading: () => <div className="animate-pulse bg-muted h-96 rounded-md" />
+});
 
 export function GlobalModals() {
   const {
@@ -20,6 +46,8 @@ export function GlobalModals() {
     closeCreateSocietyModal,
     createDebateTopicModal,
     closeCreateDebateTopicModal,
+    createBattleResponseModal,
+    closeCreateBattleResponseModal,
   } = useModal();
 
   // Add handler to emit custom event for feed update
@@ -84,6 +112,32 @@ export function GlobalModals() {
             <DialogTitle>Create New Debate Topic</DialogTitle>
           </DialogHeader>
           <CreateDebateTopicForm setOpen={closeCreateDebateTopicModal} onCreated={handleFeedItemCreated} />
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Battle Response Modal */}
+      <Dialog open={createBattleResponseModal.isOpen} onOpenChange={(isOpen) => !isOpen && closeCreateBattleResponseModal()}>
+        <DialogContent className="w-[95vw] max-w-[600px] max-h-[85vh] sm:max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              🔥 Add Your Take
+              {createBattleResponseModal.battleTitle && (
+                <span className="block text-sm font-normal text-muted-foreground mt-1">
+                  Responding to: {createBattleResponseModal.battleTitle}
+                </span>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          <CreatePostForm
+            onSuccess={() => {
+              closeCreateBattleResponseModal();
+              handleFeedItemCreated({}); // Trigger feed refresh
+            }}
+            battleContext={{
+              battleId: createBattleResponseModal.battleId!,
+              battleTitle: createBattleResponseModal.battleTitle
+            }}
+          />
         </DialogContent>
       </Dialog>
     </>

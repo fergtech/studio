@@ -1,7 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import dynamic from 'next/dynamic';
+
+const motion = dynamic(() => import('framer-motion').then(mod => ({ default: mod.motion })), {
+  ssr: false,
+  loading: () => <div className="animate-pulse bg-muted h-20 rounded" />
+});
+
+const AnimatePresence = dynamic(() => import('framer-motion').then(mod => ({ default: mod.AnimatePresence })), {
+  ssr: false,
+  loading: () => null
+});
 import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
 import Image from 'next/image';

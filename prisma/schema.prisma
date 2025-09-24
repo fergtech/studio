@@ -29,8 +29,13 @@ model User {
   primaryIntent         String?
   location              String?
   city                  String?
+  latitude              Float?
+  longitude             Float?
   showLocation          Boolean                @default(true)
   lastActiveAt          DateTime?
+  enableLocalNews       Boolean                @default(true)
+  newsRadius            Int?                   @default(25)
+  newsTypes             String[]               @default(["local", "community", "government"])
   assignedActions       Action[]               @relation("AssigneeOfAction")
   completedActionsBy    Action[]               @relation("CompleterOfAction")
   createdActions        Action[]               @relation("CreatorOfAction")
@@ -46,6 +51,7 @@ model User {
   generalPostLikes      GeneralPostLike[]
   generalPostShares     GeneralPostShare[]
   ownedGoals            Goal[]                 @relation("OwnerOfGoal")
+  hotTakeParticipations HotTakeParticipant[]   @relation("UserHotTakeParticipations")
   championedIdeas       Idea[]                 @relation("ChampionedIdeaBy")
   createdIdeas          Idea[]                 @relation("CreatorOfIdea")
   ideaComments          IdeaComment[]
@@ -59,6 +65,7 @@ model User {
   issueLikes            IssueLike[]
   issueShares           IssueShare[]
   createdMilestones     Milestone[]            @relation("CreatorOfMilestone")
+  newsActions           NewsAction[]           @relation("UserNewsActions")
   notifications         Notification[]         @relation("UserNotifications")
   posts                 Post[]                 @relation("UserPosts")
   societies             Society[]              @relation("CreatorOfSociety")
@@ -72,6 +79,7 @@ model User {
   createdUpdates        Update[]               @relation("CreatorOfUpdate")
   userFollowers         UserFollow[]           @relation("UserFollowers")
   userFollowing         UserFollow[]           @relation("UserFollowing")
+  topicInterests        UserTopicInterest[]    @relation("UserTopicInterests")
 }
 
 model Initiative {
@@ -194,6 +202,7 @@ model GeneralPost {
   linkedInitiativeId String?
   linkPreviewId      String?
   linkUrl            String?
+  topics             String[]              @default([])
   creator            User                  @relation("CreatorOfGeneralPost", fields: [creatorId], references: [id])
   linkPreview        LinkPreview?          @relation(fields: [linkPreviewId], references: [id])
   linkedInitiative   Initiative?           @relation("LinkedInitiativePosts", fields: [linkedInitiativeId], references: [id])
@@ -202,7 +211,13 @@ model GeneralPost {
   likes              GeneralPostLike[]
   links              GeneralPostLink[]
   shares             GeneralPostShare[]
+  battleAsPost1      HotTakeBattle[]       @relation("BattlePost1")
+  battleAsPost2      HotTakeBattle[]       @relation("BattlePost2")
+  userHotTakePost    HotTakeParticipant[]  @relation("UserHotTakePost")
+  relatedHotTakes    HotTakeRelatedPost[]  @relation("RelatedHotTakePost")
   media              MediaItem[]
+
+  @@index([topics])
 }
 
 model GeneralPostLike {
@@ -691,6 +706,134 @@ model DebateArgumentVote {
   @@unique([argumentId, userId])
 }
 
+model Topic {
+  id             String              @id @default(cuid())
+  name           String              @unique
+  description    String?
+  createdAt      DateTime            @default(now())
+  postCount      Int                 @default(0)
+  weeklyPosts    Int                 @default(0)
+  popularInAreas String[]            @default([])
+  userInterests  UserTopicInterest[] @relation("TopicUserInterests")
+
+  @@index([name])
+  @@index([postCount])
+}
+
+model UserTopicInterest {
+  id       String @id @default(cuid())
+  userId   String
+  topicId  String
+  interest Float
+  topic    Topic  @relation("TopicUserInterests", fields: [topicId], references: [id])
+  user     User   @relation("UserTopicInterests", fields: [userId], references: [id])
+
+  @@unique([userId, topicId])
+}
+
+model HotTakeBattle {
+  id                String               @id @default(cuid())
+  topic             String
+  title             String
+  description       String?
+  status            HotTakeBattleStatus  @default(ACTIVE)
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  post1Id           String
+  post2Id           String
+  totalParticipants Int                  @default(0)
+  post1Supporters   Int                  @default(0)
+  post2Supporters   Int                  @default(0)
+  neutralTakes      Int                  @default(0)
+  location          String?
+  post1             GeneralPost          @relation("BattlePost1", fields: [post1Id], references: [id], onDelete: Cascade)
+  post2             GeneralPost          @relation("BattlePost2", fields: [post2Id], references: [id], onDelete: Cascade)
+  participants      HotTakeParticipant[]
+  relatedPosts      HotTakeRelatedPost[]
+
+  @@index([topic])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model HotTakeParticipant {
+  id         String        @id @default(cuid())
+  battleId   String
+  userId     String
+  stance     HotTakeStance
+  createdAt  DateTime      @default(now())
+  takePostId String?
+  battle     HotTakeBattle @relation(fields: [battleId], references: [id], onDelete: Cascade)
+  takePost   GeneralPost?  @relation("UserHotTakePost", fields: [takePostId], references: [id])
+  user       User          @relation("UserHotTakeParticipations", fields: [userId], references: [id])
+
+  @@unique([battleId, userId])
+  @@index([userId])
+}
+
+model HotTakeRelatedPost {
+  id        String        @id @default(cuid())
+  battleId  String
+  postId    String
+  stance    HotTakeStance
+  createdAt DateTime      @default(now())
+  battle    HotTakeBattle @relation(fields: [battleId], references: [id], onDelete: Cascade)
+  post      GeneralPost   @relation("RelatedHotTakePost", fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([battleId, postId])
+  @@index([battleId])
+}
+
+model NewsPost {
+  id               String       @id @default(cuid())
+  title            String
+  summary          String
+  excerpt          String?
+  source           String
+  sourceUrl        String
+  imageUrl         String?
+  publishedAt      DateTime
+  location         String?
+  city             String?
+  urgencyLevel     Int          @default(1)
+  tags             String[]     @default([])
+  createdAt        DateTime     @default(now())
+  triggeredActions NewsAction[]
+
+  @@index([city])
+  @@index([urgencyLevel])
+  @@index([publishedAt])
+  @@index([createdAt])
+}
+
+model NewsAction {
+  id            String   @id @default(cuid())
+  newsPostId    String
+  userId        String
+  actionType    String
+  createdPostId String?
+  createdAt     DateTime @default(now())
+  newsPost      NewsPost @relation(fields: [newsPostId], references: [id], onDelete: Cascade)
+  user          User     @relation("UserNewsActions", fields: [userId], references: [id])
+
+  @@index([newsPostId])
+  @@index([userId])
+  @@index([actionType])
+}
+
+enum HotTakeBattleStatus {
+  ACTIVE
+  ARCHIVED
+  ESCALATED_TO_ACTION
+}
+
+enum HotTakeStance {
+  SUPPORT_POST1
+  SUPPORT_POST2
+  NEUTRAL
+  CUSTOM_TAKE
+}
+
 enum InitiativeStatus {
   Idea
   Planning
@@ -780,4 +923,19 @@ enum NotificationType {
   INITIATIVE_INVITE
   GOAL_COMPLETED
   MILESTONE_REACHED
+}
+
+// A searchable geographic area (e.g., city, neighborhood)
+model Area {
+  id        String   @id @default(cuid())
+  name      String   // e.g., "Downtown", "The Fan District"
+  city      String   // e.g., "Richmond"
+  state     String   // e.g., "VA"
+  country   String   // e.g., "USA"
+  latitude  Float
+  longitude Float
+  createdAt DateTime @default(now())
+
+  @@index([latitude, longitude])
+  @@index([city])
 }

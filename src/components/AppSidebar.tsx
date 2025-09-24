@@ -2,22 +2,19 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Menu, ChevronLeft, ChevronRight } from 'lucide-react';
 import NavigationWidget from '@/components/NavigationWidget';
-import SmartSuggestionsWidget from '@/components/SmartSuggestionsWidget';
-import LocationBasedWidget from '@/components/LocationBasedWidget';
 import ResourcesWidget from '@/components/ResourcesWidget';
 import FooterLinksWidget from '@/components/FooterLinksWidget';
 import UserControlsWidget from '@/components/UserControlsWidget';
 import { cn } from '@/lib/utils';
 
 // Define available widget types
-export type SidebarWidgetType = 
+export type SidebarWidgetType =
   | 'navigation'
-  | 'suggestions' 
-  | 'location'
   | 'resources'
   | 'footer'
   | 'userControls';
@@ -27,21 +24,39 @@ interface AppSidebarProps {
   className?: string;
   children?: React.ReactNode;
   context?: {
-    type?: 'home' | 'profile' | 'society' | 'initiative' | 'activity' | 'chat' | 'debate' | 'explore' | 'idea' | 'issue' | 'societies' | 'profile-edit';
+    type?: 'home' | 'profile' | 'society' | 'initiative' | 'initiatives' | 'activity' | 'chat' | 'debate' | 'explore' | 'idea' | 'issue' | 'ideas' | 'issues' | 'societies' | 'profile-edit' | 'topic' | 'goal' | 'post';
     data?: any;
   };
   onCollapseChange?: (collapsed: boolean) => void;
 }
+
+// Determine default collapsed state based on page context
+export const getDefaultCollapsedState = (context?: AppSidebarProps['context']): boolean => {
+  if (!context?.type) return false; // Default to open if no context
+  
+  // Utility/Discovery pages - default to open (false = not collapsed)
+  const utilityPages = ['explore', 'profile-edit', 'topic', 'ideas', 'issues', 'societies', 'initiatives', 'post'];
+
+  // Core engagement pages - default to closed (true = collapsed)
+  const corePages = ['home', 'profile', 'society', 'initiative', 'activity', 'chat', 'debate', 'idea', 'issue', 'goal'];
+  
+  if (utilityPages.includes(context.type)) {
+    return false; // Open by default
+  }
+  
+  if (corePages.includes(context.type)) {
+    return true; // Closed by default
+  }
+  
+  // Default to closed for unknown page types
+  return true;
+};
 
 // Widget component mapping
 const getWidgetComponent = (type: SidebarWidgetType, context?: any, collapsed?: boolean) => {
   switch (type) {
     case 'navigation':
       return <NavigationWidget key={type} />;
-    case 'suggestions':
-      return <SmartSuggestionsWidget key={type} />;
-    case 'location':
-      return <LocationBasedWidget key={type} />;
     case 'resources':
       return <ResourcesWidget key={type} />;
     case 'footer':
@@ -54,14 +69,14 @@ const getWidgetComponent = (type: SidebarWidgetType, context?: any, collapsed?: 
 };
 
 function AppSidebar({ 
-  widgets = ['userControls', 'navigation', 'suggestions', 'location', 'resources', 'footer'], 
+  widgets = ['userControls', 'navigation', 'resources', 'footer'], 
   className,
   children,
   context,
   onCollapseChange
 }: AppSidebarProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [desktopCollapsed, setDesktopCollapsed] = useState(false);
+  const [desktopCollapsed, setDesktopCollapsed] = useState(() => getDefaultCollapsedState(context));
 
   const handleCollapseToggle = () => {
     const newCollapsed = !desktopCollapsed;
@@ -91,7 +106,7 @@ function AppSidebar({
           {!desktopCollapsed ? (
             <>
               <Link href="/" className="flex items-center space-x-2">
-                <img src="/apple-touch-icon.png" alt="Society+ logo" className="h-6 w-6 rounded-full" />
+                <Image src="/apple-touch-icon.png" alt="Society+ logo" width={24} height={24} className="h-6 w-6 rounded-full" priority />
                 <span className="font-bold text-lg">society+</span>
               </Link>
               <Button
@@ -107,7 +122,7 @@ function AppSidebar({
           ) : (
             <div className="flex flex-col items-center space-y-1 w-full">
               <Link href="/" className="flex items-center justify-center">
-                <img src="/apple-touch-icon.png" alt="Society+ logo" className="h-6 w-6 rounded-full hover:scale-110 transition-transform" />
+                <Image src="/apple-touch-icon.png" alt="Society+ logo" width={24} height={24} className="h-6 w-6 rounded-full hover:scale-110 transition-transform" priority />
               </Link>
               <Button
                 variant="ghost"
@@ -144,7 +159,7 @@ function AppSidebar({
             className="fixed top-4 left-4 z-50 lg:hidden bg-background/95 backdrop-blur-sm border shadow-lg rounded-full px-3 py-2 h-12 flex items-center justify-center gap-2 hover:bg-background/90 transition-all duration-200 min-w-fit"
             aria-label="Open sidebar"
           >
-            <img src="/apple-touch-icon.png" alt="Society+ logo" className="h-6 w-6 rounded-full flex-shrink-0" />
+            <Image src="/apple-touch-icon.png" alt="Society+ logo" width={24} height={24} className="h-6 w-6 rounded-full flex-shrink-0" priority />
             <ChevronRight className="h-4 w-4 flex-shrink-0" />
           </Button>
         </SheetTrigger>
@@ -154,7 +169,7 @@ function AppSidebar({
           {/* Mobile Header with Logo */}
           <div className="flex items-center p-4 border-b border-border">
             <Link href="/" className="flex items-center space-x-2" onClick={() => setSidebarOpen(false)}>
-              <img src="/apple-touch-icon.png" alt="Society+ logo" className="h-6 w-6 rounded-full" />
+              <Image src="/apple-touch-icon.png" alt="Society+ logo" width={24} height={24} className="h-6 w-6 rounded-full" priority />
               <span className="font-bold text-lg">society+</span>
             </Link>
           </div>

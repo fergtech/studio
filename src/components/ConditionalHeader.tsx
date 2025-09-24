@@ -11,14 +11,15 @@ export function ConditionalHeader() {
     '/', // Main page (authenticated users)
     '/societies',
     '/initiatives',
-    '/activity', 
+    '/activity',
     '/explore',
-    '/chat/',
-    '/profile/',
-    '/debates/',
-    '/issues/',
-    '/ideas/',
-    '/posts/'
+    '/chat',
+    '/profile',
+    '/debates',
+    '/issues',
+    '/ideas',
+    '/posts',
+    '/topics'
   ];
 
   // Check if current path should hide header
@@ -26,6 +27,11 @@ export function ConditionalHeader() {
     if (path === '/') return pathname === '/';
     return pathname.startsWith(path);
   });
+
+  // Debug logging in development
+  if (process.env.NODE_ENV === 'development') {
+    console.log('ConditionalHeader - pathname:', pathname, 'shouldHideHeader:', shouldHideHeader);
+  }
 
   // Don't render header on pages with AppSidebar
   if (shouldHideHeader) {

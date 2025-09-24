@@ -80,22 +80,57 @@ export async function getOrCreateAiGuidance(initiativeId: string): Promise<{ suc
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash"});
 
     let generatedGuidance = "";
-    try {
-      console.log("Calling Gemini API for guidance generation...");
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      generatedGuidance = response.text();
-      console.log("Gemini API response received successfully.");
-
-    } catch (aiError: any) {
-      console.error("Error calling Gemini API:", aiError);
+    
+    // Retry logic with exponential backoff
+    const maxRetries = 3;
+    const baseDelay = 1000; // 1 second
+    let lastError: any = null;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`Attempt ${attempt}/${maxRetries} to call Gemini API for guidance generation...`);
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        generatedGuidance = response.text();
+        console.log(`Gemini API guidance response received successfully on attempt ${attempt}.`);
+        break; // Success, exit retry loop
+        
+      } catch (aiError: any) {
+        lastError = aiError;
+        console.error(`Attempt ${attempt}/${maxRetries} failed:`, aiError);
+        
+        // Check if this is a retryable error
+        const isRetryable = (
+          aiError.status === 503 || 
+          aiError.message?.includes('503') || 
+          aiError.message?.includes('overloaded') ||
+          aiError.message?.includes('Service Unavailable') ||
+          aiError.status === 429 ||
+          aiError.message?.includes('429') ||
+          aiError.message?.includes('quota')
+        );
+        
+        if (!isRetryable || attempt === maxRetries) {
+          break; // Non-retryable error or max retries reached
+        }
+        
+        // Wait with exponential backoff before retrying
+        const delay = baseDelay * Math.pow(2, attempt - 1);
+        console.log(`Waiting ${delay}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+    
+    // Handle final error if all retries failed
+    if (!generatedGuidance && lastError) {
+      console.error("Error calling Gemini API after all retries:", lastError);
       
       // Handle specific API errors
-      if (aiError.message?.includes('503') || aiError.message?.includes('overloaded')) {
+      if (lastError.message?.includes('503') || lastError.message?.includes('overloaded')) {
         return { success: false, error: "AI service is currently overloaded. Please try again in a few minutes." };
-      } else if (aiError.message?.includes('429') || aiError.message?.includes('quota')) {
+      } else if (lastError.message?.includes('429') || lastError.message?.includes('quota')) {
         return { success: false, error: "AI service quota exceeded. Please try again later." };
-      } else if (aiError.message?.includes('401') || aiError.message?.includes('authentication')) {
+      } else if (lastError.message?.includes('401') || lastError.message?.includes('authentication')) {
         return { success: false, error: "AI service authentication error. Please contact support." };
       } else {
         return { success: false, error: "Failed to generate AI guidance. Please try again later." };
@@ -154,43 +189,74 @@ ${existingGoalsText || 'None'}
 Please provide the suggested goals in a JSON array format, where each element is an object with 'title' and 'description' keys. For example: [{ "title": "Goal Title 1", "description": "Goal Description 1" }, { "title": "Goal Title 2", "description": "Goal Description 2" }]. Ensure the output is valid JSON and contains ONLY the JSON array.
 `;
 
-  try {
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
-    console.log("Raw AI suggested goals response:", text);
-
-    // Improved: Try to extract the first valid JSON array from the response
-    let jsonString = text.trim();
-    // Remove markdown code fences if present
-    jsonString = jsonString.replace(/^```json[\r\n]+/i, '').replace(/```$/i, '').trim();
-    // Try to find the first JSON array in the string
-    const arrayMatch = jsonString.match(/\[[\s\S]*\]/);
-    if (!arrayMatch) {
-      console.error("No JSON array found in AI response:", jsonString);
-      return [];
-    }
-    let suggestedGoals;
+  // Retry logic with exponential backoff
+  const maxRetries = 3;
+  const baseDelay = 1000; // 1 second
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      suggestedGoals = JSON.parse(arrayMatch[0]);
-    } catch (parseError) {
-      console.error("Failed to parse JSON array from AI response:", arrayMatch[0], parseError);
-      return [];
+      console.log(`Attempt ${attempt}/${maxRetries} to call Gemini API for suggested goals...`);
+      
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const text = response.text();
+      console.log("Raw AI suggested goals response:", text);
+
+      // Improved: Try to extract the first valid JSON array from the response
+      let jsonString = text.trim();
+      // Remove markdown code fences if present
+      jsonString = jsonString.replace(/^```json[\r\n]+/i, '').replace(/```$/i, '').trim();
+      // Try to find the first JSON array in the string
+      const arrayMatch = jsonString.match(/\[[\s\S]*\]/);
+      if (!arrayMatch) {
+        console.error("No JSON array found in AI response:", jsonString);
+        return [];
+      }
+      let suggestedGoals;
+      try {
+        suggestedGoals = JSON.parse(arrayMatch[0]);
+      } catch (parseError) {
+        console.error("Failed to parse JSON array from AI response:", arrayMatch[0], parseError);
+        return [];
+      }
+
+      // Validate the parsed structure (basic check)
+      if (!Array.isArray(suggestedGoals) || suggestedGoals.some(goal => typeof goal.title !== 'string' || typeof goal.description !== 'string')) {
+        console.error("AI response is not in the expected format:", suggestedGoals);
+        return [];
+      }
+
+      // Limit to a maximum of 5 suggestions, just in case the AI returns more
+      console.log(`Successfully generated ${suggestedGoals.length} suggested goals on attempt ${attempt}`);
+      return suggestedGoals.slice(0, 5);
+
+    } catch (aiError: any) {
+      console.error(`Attempt ${attempt}/${maxRetries} failed:`, aiError);
+      
+      // Check if this is a retryable error
+      const isRetryable = (
+        aiError.status === 503 || 
+        aiError.message?.includes('503') || 
+        aiError.message?.includes('overloaded') ||
+        aiError.message?.includes('Service Unavailable') ||
+        aiError.status === 429 ||
+        aiError.message?.includes('429') ||
+        aiError.message?.includes('quota')
+      );
+      
+      if (!isRetryable || attempt === maxRetries) {
+        console.error("Non-retryable error or max retries reached for suggested goals:", aiError);
+        return [];
+      }
+      
+      // Wait with exponential backoff before retrying
+      const delay = baseDelay * Math.pow(2, attempt - 1);
+      console.log(`Waiting ${delay}ms before retry...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
     }
-
-    // Validate the parsed structure (basic check)
-    if (!Array.isArray(suggestedGoals) || suggestedGoals.some(goal => typeof goal.title !== 'string' || typeof goal.description !== 'string')) {
-      console.error("AI response is not in the expected format:", suggestedGoals);
-      return [];
-    }
-
-    // Limit to a maximum of 5 suggestions, just in case the AI returns more
-    return suggestedGoals.slice(0, 5);
-
-  } catch (aiError) {
-    console.error("Error calling Gemini API for suggested goals or parsing response:", aiError);
-    return [];
   }
+  
+  return [];
 }
 
 export async function generateSuggestedActionsAction(
@@ -222,28 +288,59 @@ ${existingActionsText || 'None'}
 Please provide the suggested actions in a JSON array format, where each element is an object with 'title' and 'description' keys. For example: [{ "title": "Action Title 1", "description": "Action Description 1" }, { "title": "Action Title 2", "description": "Action Description 2" }]. Ensure the output is valid JSON and contains ONLY the JSON array.
 `;
 
-  try {
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
-    console.log("Raw AI suggested actions response:", text);
+  // Retry logic with exponential backoff
+  const maxRetries = 3;
+  const baseDelay = 1000; // 1 second
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`Attempt ${attempt}/${maxRetries} to call Gemini API for suggested actions...`);
+      
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const text = response.text();
+      console.log("Raw AI suggested actions response:", text);
 
-    // Attempt to parse the JSON response, stripping markdown fences if present
-    const jsonString = text.replace(/^```json\n/m, '').replace(/\n```$/m, '').trim();
+      // Attempt to parse the JSON response, stripping markdown fences if present
+      const jsonString = text.replace(/^```json\n/m, '').replace(/\n```$/m, '').trim();
 
-    const suggestedActions = JSON.parse(jsonString);
+      const suggestedActions = JSON.parse(jsonString);
 
-    // Validate the parsed structure
-    if (!Array.isArray(suggestedActions) || suggestedActions.some(action => typeof action.title !== 'string' || typeof action.description !== 'string')) {
-       console.error("AI response for suggested actions is not in the expected format:", suggestedActions);
-       return []; // Return empty array if parsing or validation fails
+      // Validate the parsed structure
+      if (!Array.isArray(suggestedActions) || suggestedActions.some(action => typeof action.title !== 'string' || typeof action.description !== 'string')) {
+         console.error("AI response for suggested actions is not in the expected format:", suggestedActions);
+         return []; // Return empty array if parsing or validation fails
+      }
+
+      // Limit to a maximum of 5 suggestions
+      console.log(`Successfully generated ${suggestedActions.length} suggested actions on attempt ${attempt}`);
+      return suggestedActions.slice(0, 5);
+
+    } catch (aiError: any) {
+      console.error(`Attempt ${attempt}/${maxRetries} failed:`, aiError);
+      
+      // Check if this is a retryable error
+      const isRetryable = (
+        aiError.status === 503 || 
+        aiError.message?.includes('503') || 
+        aiError.message?.includes('overloaded') ||
+        aiError.message?.includes('Service Unavailable') ||
+        aiError.status === 429 ||
+        aiError.message?.includes('429') ||
+        aiError.message?.includes('quota')
+      );
+      
+      if (!isRetryable || attempt === maxRetries) {
+        console.error("Non-retryable error or max retries reached for suggested actions:", aiError);
+        return [];
+      }
+      
+      // Wait with exponential backoff before retrying
+      const delay = baseDelay * Math.pow(2, attempt - 1);
+      console.log(`Waiting ${delay}ms before retry...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
     }
-
-    // Limit to a maximum of 5 suggestions
-    return suggestedActions.slice(0, 5);
-
-  } catch (aiError) {
-    console.error("Error calling Gemini API for suggested actions or parsing response:", aiError);
-    return []; // Return empty array on error
   }
+  
+  return [];
 } 

@@ -7,6 +7,7 @@ import { MetaActionCard } from "@/components/MetaActionCard";
 import CreatePostForm from "@/components/CreatePostForm";
 import type { Initiative as PrismaInitiative, GeneralPost as PrismaGeneralPost, User as PrismaUser, MediaItem as PrismaMediaItem, Issue as PrismaIssue, Idea as PrismaIdea } from '@prisma/client';
 import type { GeneralPost, Initiative, Role, SkillRoleType, InitiativeStatus, UserForDisplay } from '@/lib/types';
+import { HotTakeStance } from '@prisma/client';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -17,13 +18,19 @@ import { PostActions } from '@/components/PostActions';
 import { IdeaCard } from "@/components/IdeaCard";
 import { IssueCard } from "@/components/IssueCard";
 import ActivityFeed from "@/components/ActivityFeed";
-import AppSidebar from "@/components/AppSidebar";
+import AppSidebar, { getDefaultCollapsedState } from "@/components/AppSidebar";
 import { useToast } from "@/hooks/use-toast";
 import { useWindowScrollPosition } from "@/hooks/useScrollPosition";
 // import { io, Socket } from 'socket.io-client'; // Temporarily disabled for Vercel deployment
 import { MainFeedSocietyPostCard } from './MainFeedSocietyPostCard';
-import { DebateTopicsWidget } from './DebateTopicsWidget';
 import { DebateTopicCard } from './DebateTopicCard';
+import { TrendingTopicsWidget } from './TrendingTopicsWidget';
+import { HotTakeBattleCard } from './HotTakeBattleCard';
+import { NewsPostCard } from './NewsPostCard';
+import { useModal } from '@/context/ModalContext';
+import { NewsColumn } from './NewsColumn';
+import LocationBasedWidget from './LocationBasedWidget';
+import SmartSuggestionsWidget from './SmartSuggestionsWidget';
 
 // Temporary mock user avatars for fallback
 const mockUserAvatars: Record<string, string | undefined> = {
@@ -34,13 +41,41 @@ const mockUserAvatars: Record<string, string | undefined> = {
 };
 
 // Define extended types that include the relations we'll fetch
-type InitiativeWithCreator = PrismaInitiative & { 
+type InitiativeWithCreator = PrismaInitiative & {
   creator: PrismaUser | null;
   society: { id: string; name: string; image: string | null } | null;
 };
 type GeneralPostWithCreatorAndMedia = PrismaGeneralPost & { creator: PrismaUser | null; media: PrismaMediaItem[] };
 type IssueWithCreator = PrismaIssue & { creator: PrismaUser | null; media: PrismaMediaItem[]; championCount: number };
 type IdeaWithCreator = PrismaIdea & { creator: PrismaUser | null; media: PrismaMediaItem[]; championCount: number };
+
+// Hot Take Battle type from the API
+type HotTakeBattleWithCreator = {
+  id: string;
+  topic: string;
+  title: string;
+  description?: string;
+  createdAt: Date;
+  totalParticipants: number;
+  post1Supporters: number;
+  post2Supporters: number;
+  neutralTakes: number;
+  post1: {
+    id: string;
+    content: string;
+    creatorName: string;
+    creatorAvatar?: string;
+    timestamp: Date;
+  };
+  post2: {
+    id: string;
+    content: string;
+    creatorName: string;
+    creatorAvatar?: string;
+    timestamp: Date;
+  };
+  userStance?: HotTakeStance;
+};
 
 // Meta action types that match the API response
 interface UpdateWithUserAndInitiative {
@@ -96,7 +131,7 @@ interface InitiativeMembershipWithUserAndInitiative {
 }
 
 // Unified feed item types
-type FeedItemType = 'initiative' | 'generalPost' | 'societyPost' | 'issue' | 'idea' | 'debate' | 'update' | 'follow' | 'initiativeJoin';
+type FeedItemType = 'initiative' | 'generalPost' | 'societyPost' | 'issue' | 'idea' | 'debate' | 'hotTakeBattle' | 'update' | 'follow' | 'initiativeJoin' | 'live-news';
 
 interface SocietyPostWithUserAndSociety {
   id: string;
@@ -138,11 +173,27 @@ interface DebateTopicWithCreatorAndStats {
   }[];
 }
 
+interface LiveNewsPost {
+  id: string;
+  title: string;
+  summary: string;
+  source: string;
+  sourceUrl: string;
+  imageUrl?: string;
+  publishedAt: string;
+  location?: string;
+  city?: string;
+  urgencyLevel: number;
+  tags: string[];
+  createdAt: string;
+  type: 'live-news';
+}
+
 interface UnifiedFeedItem {
   type: FeedItemType;
   id: string;
   timestamp: Date;
-  data: InitiativeWithCreator | GeneralPostWithCreatorAndMedia | SocietyPostWithUserAndSociety | IssueWithCreator | IdeaWithCreator | DebateTopicWithCreatorAndStats | UpdateWithUserAndInitiative | UserFollowWithUsers | InitiativeMembershipWithUserAndInitiative;
+  data: InitiativeWithCreator | GeneralPostWithCreatorAndMedia | SocietyPostWithUserAndSociety | IssueWithCreator | IdeaWithCreator | DebateTopicWithCreatorAndStats | UpdateWithUserAndInitiative | UserFollowWithUsers | InitiativeMembershipWithUserAndInitiative | LiveNewsPost;
 }
 
 // Meta action types for the MetaActionCard component
@@ -170,7 +221,7 @@ interface InitiativeJoinAction {
 type MetaAction = UpdateAction | FollowAction | InitiativeJoinAction;
 
 // Legacy types for backward compatibility
-type FeedItemDb = InitiativeWithCreator | GeneralPostWithCreatorAndMedia | SocietyPostWithUserAndSociety | IssueWithCreator | IdeaWithCreator | DebateTopicWithCreatorAndStats;
+type FeedItemDb = InitiativeWithCreator | GeneralPostWithCreatorAndMedia | SocietyPostWithUserAndSociety | IssueWithCreator | IdeaWithCreator | DebateTopicWithCreatorAndStats | HotTakeBattleWithCreator;
 
 // Helper function to check if an item is a GeneralPost
 function isGeneralPost(item: FeedItemDb): item is GeneralPostWithCreatorAndMedia {
@@ -194,13 +245,18 @@ function isDebate(item: FeedItemDb): item is DebateTopicWithCreatorAndStats {
   return 'votes' in item && 'arguments' in item && 'title' in item && 'content' in item && !('status' in item) && !('tags' in item);
 }
 
+// Helper function to check if an item is live news
+function isLiveNews(item: UnifiedFeedItem): boolean {
+  return item.type === 'live-news';
+}
+
 // Helper functions for unified feed items
 function isMetaAction(item: UnifiedFeedItem): item is UnifiedFeedItem & { type: 'update' | 'follow' | 'initiativeJoin' } {
   return ['update', 'follow', 'initiativeJoin'].includes(item.type);
 }
 
-function isContentItem(item: UnifiedFeedItem): item is UnifiedFeedItem & { type: 'initiative' | 'generalPost' | 'societyPost' | 'issue' | 'idea' | 'debate' } {
-  return ['initiative', 'generalPost', 'societyPost', 'issue', 'idea', 'debate'].includes(item.type);
+function isContentItem(item: UnifiedFeedItem): item is UnifiedFeedItem & { type: 'initiative' | 'generalPost' | 'societyPost' | 'issue' | 'idea' | 'debate' | 'hotTakeBattle' } {
+  return ['initiative', 'generalPost', 'societyPost', 'issue', 'idea', 'debate', 'hotTakeBattle'].includes(item.type);
 }
 
 function isSocietyPost(item: any): item is SocietyPostWithUserAndSociety {
@@ -253,24 +309,27 @@ interface HomeClientProps {
 
 
 export function HomeClient({ currentUserId, username }: HomeClientProps) {
-  const [feedItems, setFeedItems] = useState<UnifiedFeedItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [allFeedItems, setAllFeedItems] = useState<UnifiedFeedItem[]>([]);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => getDefaultCollapsedState({ type: 'home' }));
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [feedFilter, setFeedFilter] = useState<'all' | 'initiatives' | 'generalPosts' | 'ideas' | 'issues' | 'community'>('all');
+  const [filterSwitching, setFilterSwitching] = useState(false);
   const { toast } = useToast();
-  
+  const { openCreateBattleResponseModal } = useModal();
+  const [showMoreNews, setShowMoreNews] = useState(false);
 
-  // Filter feed items based on selected filter - Simple and straightforward
-  const filteredFeedItems = feedItems.filter((item) => {
+
+  // Filter feed items based on selected filter - Instant client-side filtering
+  const filteredFeedItems = allFeedItems.filter((item) => {
     switch (feedFilter) {
       case 'initiatives':
         return item.type === 'initiative' || (isMetaAction(item) && (item.type === 'update' || item.type === 'initiativeJoin'));
       case 'generalPosts':
-        return item.type === 'generalPost' || item.type === 'societyPost' || item.type === 'debate';
+        return item.type === 'generalPost' || item.type === 'societyPost' || item.type === 'debate' || item.type === 'hotTakeBattle';
       case 'ideas':
         return item.type === 'idea';
       case 'issues':
@@ -285,44 +344,53 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
 
   // Add this handler in HomeClient
   const handlePostDeleted = (postId: string) => {
-    setFeedItems(prev => prev.filter(item => !(isContentItem(item) && isGeneralPost(item.data as any) && item.data.id === postId)));
+    setAllFeedItems(prev => prev.filter(item => !(isContentItem(item) && isGeneralPost(item.data as any) && item.data.id === postId)));
   };
 
+  // Handle tab switching with smooth UX
+  const handleTabSwitch = (newFilter: typeof feedFilter) => {
+    if (newFilter === feedFilter) return;
+
+    setFilterSwitching(true);
+    setFeedFilter(newFilter);
+
+    // Quick feedback - stop loading state after a short delay
+    setTimeout(() => setFilterSwitching(false), 150);
+  };
+
+  // Load initial feed data once - no more refetching on tab switches
   useEffect(() => {
-    const fetchFeedItems = async () => {
+    const fetchInitialFeedItems = async () => {
       try {
-        setIsLoading(true);
-        const response = await fetch('/api/feed?unified=true&limit=5');
+        setIsInitialLoading(true);
+
+        // Always fetch 'all' content including news for initial load
+        const response = await fetch(`/api/feed?unified=true&limit=20&type=all`);
         if (!response.ok) {
           throw new Error(`Failed to fetch feed items: ${response.statusText}`);
         }
         const data = await response.json();
-        
+
         // Handle both new paginated format and legacy format for backward compatibility
-        // Feed response received
         if (data.items && data.pagination) {
           // New cursor-based format
-          // Using cursor-based pagination
-          setFeedItems(data.items);
+          setAllFeedItems(data.items);
           setNextCursor(data.pagination.nextCursor);
           setHasMore(data.pagination.hasMore);
-          // Initial state set
         } else {
           // Legacy format - assume it's the items directly
-          // Using legacy format
-          setFeedItems(Array.isArray(data) ? data : []);
+          setAllFeedItems(Array.isArray(data) ? data : []);
           setHasMore(false); // No pagination info available
-          // Legacy state set
         }
       } catch (err: any) {
         setError(err.message);
       } finally {
-        setIsLoading(false);
+        setIsInitialLoading(false);
       }
     };
 
-    fetchFeedItems();
-  }, []);
+    fetchInitialFeedItems();
+  }, []); // Only run once on mount
 
   useEffect(() => {
     // Show welcome toast if just registered
@@ -357,20 +425,40 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
   useEffect(() => {
     const handleFeedItemCreated = (event: CustomEvent) => {
       const item = event.detail;
-      // Infer type based on item shape
+
+      // Infer type based on item shape - improve the logic to correctly distinguish ideas from issues
       let type: FeedItemType | undefined;
-      if ('status' in item && 'roles' in item) type = 'initiative';
-      else if ('tags' in item && !('content' in item) && !('status' in item)) type = item.title ? 'idea' : 'issue';
-      else if ('tags' in item) type = 'issue';
-      else if ('type' in item && item.type === 'societyPost') type = 'societyPost';
-      else type = 'generalPost';
+      if ('status' in item && 'roles' in item) {
+        type = 'initiative';
+      } else if ('tags' in item && 'title' in item && 'description' in item && !('content' in item) && !('status' in item)) {
+        // Both ideas and issues have tags, title, and description, but not content or status
+        // Check for specific fields that distinguish ideas from issues
+        if ('addressingIssueId' in item || 'societyId' in item) {
+          type = 'idea'; // Ideas can have societyId or address issues
+        } else if ('location' in item && item.location) {
+          // Issues typically have location, ideas might too, so this is not definitive
+          // For now, assume it's an issue if we can't determine it's an idea
+          type = 'issue';
+        } else {
+          // Default to idea if we can't determine
+          type = 'idea';
+        }
+      } else if ('tags' in item) {
+        type = 'issue';
+      } else if ('type' in item && item.type === 'societyPost') {
+        type = 'societyPost';
+      } else {
+        type = 'generalPost';
+      }
+
       const newFeedItem: UnifiedFeedItem = {
         type: type as FeedItemType,
-        id: item.id,
+        id: item.id, // Use original database ID to match API format
         timestamp: new Date(item.createdAt || Date.now()),
         data: item,
       };
-      setFeedItems(prev => [newFeedItem, ...prev]);
+
+      setAllFeedItems(prev => [newFeedItem, ...prev]);
     };
     window.addEventListener('feed:itemCreated', handleFeedItemCreated as EventListener);
     return () => {
@@ -378,71 +466,42 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
     };
   }, []);
 
-  // Load more posts function (following LazyPostsFeed pattern)
+  // Load more posts function - improved to load more items at once
   const loadMorePosts = useCallback(async () => {
-    // Loading more posts
     if (!hasMore || loadingMore || !nextCursor) {
-      // Cannot load more
       return;
     }
-    
+
     setLoadingMore(true);
     try {
-      const url = `/api/feed?unified=true&limit=5&cursor=${nextCursor}`;
-      // Fetching more posts
+      // Always load from 'all' since we filter client-side
+      const url = `/api/feed?unified=true&limit=20&cursor=${nextCursor}&type=all`;
       const response = await fetch(url);
-      
+
       if (response.ok) {
         const data = await response.json();
-        // More posts received
-        
+
         if (data.items && data.pagination) {
           // New cursor-based format - filter out duplicates
-          setFeedItems(prev => {
+          setAllFeedItems(prev => {
             const existingIds = new Set(prev.map(item => {
               if (isContentItem(item) && item.data) {
                 return item.data.id;
               }
               return item.id;
             }));
-            
-            const newItems = data.items.filter(item => {
+
+            const newItems = data.items.filter((item: UnifiedFeedItem) => {
               const itemId = isContentItem(item) && item.data ? item.data.id : item.id;
               return !existingIds.has(itemId);
             });
-            
-            // Items added, duplicates filtered
-            // Pagination updated
-            
+
             return [...prev, ...newItems];
           });
-          
+
           // Update pagination state
           setNextCursor(data.pagination.nextCursor);
-          
-          // If no new items after filtering, we've reached the end regardless of API hasMore
-          if (data.items.length > 0) {
-            const existingIds = new Set(feedItems.map(item => {
-              if (isContentItem(item) && item.data) {
-                return item.data.id;
-              }
-              return item.id;
-            }));
-            
-            const newItemsCount = data.items.filter(item => {
-              const itemId = isContentItem(item) && item.data ? item.data.id : item.id;
-              return !existingIds.has(itemId);
-            }).length;
-            
-            if (newItemsCount === 0) {
-              // No new items, reached end
-              setHasMore(false);
-            } else {
-              setHasMore(data.pagination.hasMore);
-            }
-          } else {
-            setHasMore(data.pagination.hasMore);
-          }
+          setHasMore(data.pagination.hasMore);
         }
       } else {
         console.error('Failed to load more posts:', response.status, response.statusText);
@@ -452,7 +511,7 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
     } finally {
       setLoadingMore(false);
     }
-  }, [hasMore, loadingMore, nextCursor]);
+  }, [hasMore, loadingMore, nextCursor, allFeedItems]);
 
   // Basic scroll position saving (auto-restore disabled due to performance issues)
   const saveScrollPosition = () => {
@@ -470,7 +529,7 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
     window.location.reload(); // Simple refresh for now
   };
 
-  if (isLoading) {
+  if (isInitialLoading) {
     return <div className="flex justify-center items-center min-h-screen">Loading feed...</div>;
   }
 
@@ -481,32 +540,41 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
   return (
     <div className="w-full min-w-0 overflow-hidden">
       {/* Sidebar */}
-      <AppSidebar 
+      <AppSidebar
         widgets={['userControls', 'navigation', 'suggestions', 'location', 'resources', 'footer']}
         context={{ type: 'home' }}
         onCollapseChange={setSidebarCollapsed}
       />
-      {/* Main Feed - with dynamic left margin based on sidebar state and top padding for mobile sidebar toggle */}
-      <div className={`flex flex-col items-center space-y-6 px-4 lg:px-6 min-w-0 transition-all duration-300 pt-20 lg:pt-6 ${
+
+      {/* Main Content Area - with dynamic left margin based on sidebar state and top padding for mobile sidebar toggle */}
+      <div className={`min-w-0 transition-all duration-300 pt-20 lg:pt-6 ${
         sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'
       }`}>
-        {/* Debate Topics Widget - Full width with larger max width */}
-        <div className="w-full max-w-7xl px-2 lg:px-6 min-w-0">
-          <DebateTopicsWidget />
+        {/* Trending Topics Widget - Full width */}
+        <div className="w-full px-4 lg:px-6 mb-6">
+          <div className="max-w-7xl mx-auto">
+            <TrendingTopicsWidget />
+          </div>
         </div>
-        
-        <div className="w-full max-w-3xl flex flex-col items-center space-y-6">
+
+        {/* Main Layout: Feed + News Column - Centered Container */}
+        <div className="flex justify-center w-full px-4 lg:px-6">
+          <div className="flex gap-6 w-full max-w-7xl">
+            {/* Main Feed */}
+            <div className="flex-1 max-w-3xl">
+            <div className="flex flex-col items-center space-y-6">
           <div className="w-full max-w-[500px]">
             <CreatePostForm onPostCreated={handlePostCreated} />
           </div>
-          
-          {/* Feed Filter Controls - Modern Pill Style */}
+
+          {/* Feed Filter Controls - Horizontal Scrollable Tabs */}
           <div className="w-full max-w-[500px] px-1">
-            <div className="flex items-center gap-1 flex-wrap">
-              <Filter className="h-4 w-4 text-muted-foreground mr-2" />
+            <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-2">
+              <Filter className="h-4 w-4 text-muted-foreground flex-shrink-0" />
               <button
-                onClick={() => setFeedFilter('all')}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                onClick={() => handleTabSwitch('all')}
+                disabled={filterSwitching}
+                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 flex-shrink-0 ${
                   feedFilter === 'all'
                     ? 'bg-primary text-primary-foreground shadow-sm'
                     : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-border/50'
@@ -515,8 +583,9 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
                 All Activity
               </button>
               <button
-                onClick={() => setFeedFilter('initiatives')}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
+                onClick={() => handleTabSwitch('initiatives')}
+                disabled={filterSwitching}
+                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 flex items-center gap-2 flex-shrink-0 ${
                   feedFilter === 'initiatives'
                     ? 'bg-blue-500/10 text-blue-600 border border-blue-500/20 shadow-sm'
                     : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-border/50'
@@ -526,8 +595,9 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
                 Initiatives
               </button>
               <button
-                onClick={() => setFeedFilter('generalPosts')}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                onClick={() => handleTabSwitch('generalPosts')}
+                disabled={filterSwitching}
+                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 flex-shrink-0 ${
                   feedFilter === 'generalPosts'
                     ? 'bg-green-500/10 text-green-600 border border-green-500/20 shadow-sm'
                     : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-border/50'
@@ -536,8 +606,9 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
                 Posts
               </button>
               <button
-                onClick={() => setFeedFilter('ideas')}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                onClick={() => handleTabSwitch('ideas')}
+                disabled={filterSwitching}
+                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 flex-shrink-0 ${
                   feedFilter === 'ideas'
                     ? 'bg-yellow-500/10 text-yellow-600 border border-yellow-500/20 shadow-sm'
                     : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-border/50'
@@ -546,8 +617,9 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
                 Ideas
               </button>
               <button
-                onClick={() => setFeedFilter('issues')}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                onClick={() => handleTabSwitch('issues')}
+                disabled={filterSwitching}
+                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 flex-shrink-0 ${
                   feedFilter === 'issues'
                     ? 'bg-red-500/10 text-red-600 border border-red-500/20 shadow-sm'
                     : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-border/50'
@@ -556,8 +628,9 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
                 Issues
               </button>
               <button
-                onClick={() => setFeedFilter('community')}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                onClick={() => handleTabSwitch('community')}
+                disabled={filterSwitching}
+                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 flex-shrink-0 ${
                   feedFilter === 'community'
                     ? 'bg-purple-500/10 text-purple-600 border border-purple-500/20 shadow-sm'
                     : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-border/50'
@@ -567,29 +640,74 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
               </button>
             </div>
           </div>
-          
-          {filteredFeedItems.map((item) => {
+
+          {filteredFeedItems.map((item, index) => {
+            // Generate a safe key that works for all item types
+            const itemKey = item.id || `item-${index}-${item.type || 'unknown'}`;
+
+            // Skip live news items - they're handled in the dedicated news column
+            if (isLiveNews(item)) {
+              return null;
+            }
+
             // Handle meta actions
             if (isMetaAction(item)) {
               const metaAction = patchMetaActionUsernames(convertToMetaAction(item));
               return (
-                <div key={item.id} className="w-full max-w-[500px]">
+                <div key={`${item.type}-${itemKey}`} className="w-full max-w-[500px]">
                   <MetaActionCard action={metaAction} currentUserId={currentUserId} />
                 </div>
               );
             }
-            
+
             // Handle content items
             if (isContentItem(item)) {
               const contentData = item.data as FeedItemDb;
-              
+
               if (item.type === 'societyPost' && isSocietyPost(item.data)) {
                 return (
-                  <MainFeedSocietyPostCard key={item.id} post={item.data as SocietyPostWithUserAndSociety} />
+                  <MainFeedSocietyPostCard key={`${item.type}-${itemKey}`} post={item.data as SocietyPostWithUserAndSociety} />
                 );
-              } else if (isDebate(contentData)) {
+              } else if (item.type === 'hotTakeBattle') {
+                const battleItem = contentData as HotTakeBattleWithCreator;
+                return (
+                  <div key={`${item.type}-${itemKey}`} className="w-full max-w-[500px]">
+                    <HotTakeBattleCard
+                      battle={battleItem}
+                      onJoinBattle={async (battleId: string, stance: any) => {
+                        try {
+                          const response = await fetch(`/api/hot-take-battles/${battleId}/join`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ stance }),
+                          });
+
+                          if (!response.ok) throw new Error('Failed to join battle');
+
+                          // Refresh the specific battle in feed
+                          const updatedResponse = await fetch(`/api/hot-take-battles/${battleId}`);
+                          if (updatedResponse.ok) {
+                            const updatedBattle = await updatedResponse.json();
+                            setAllFeedItems(prev => prev.map(feedItem =>
+                              feedItem.type === 'hotTakeBattle' && feedItem.data.id === battleId
+                                ? { ...feedItem, data: updatedBattle }
+                                : feedItem
+                            ));
+                          }
+                        } catch (error) {
+                          console.error('Error joining battle:', error);
+                        }
+                      }}
+                      onCreateTake={(battleId: string) => {
+                        openCreateBattleResponseModal(battleId, battleItem.title);
+                      }}
+                      variant="feed"
+                    />
+                  </div>
+                );
+              } else if (contentData && isDebate(contentData)) {
                 const debateItem = contentData; // Type is DebateTopicWithCreatorAndStats
-                
+
                 // Calculate stats for the debate
                 const proVotes = debateItem.votes.filter(v => v.side === 'PRO').length;
                 const conVotes = debateItem.votes.filter(v => v.side === 'CON').length;
@@ -597,7 +715,7 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
                 const proPercentage = totalVotes > 0 ? Math.round((proVotes / totalVotes) * 100) : 0;
                 const conPercentage = totalVotes > 0 ? Math.round((conVotes / totalVotes) * 100) : 0;
                 const argumentCount = debateItem.arguments.length;
-                
+
                 const stats = {
                   proVotes,
                   conVotes,
@@ -606,7 +724,7 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
                   conPercentage,
                   argumentCount,
                 };
-                
+
                 const creatorForDebate = debateItem.creator
                   ? {
                       id: debateItem.creator.id,
@@ -620,9 +738,9 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
                       image: undefined,
                       username: undefined,
                     };
-                
+
                 return (
-                  <div key={debateItem.id} className="w-full max-w-[500px]">
+                  <div key={`${item.type}-${itemKey}`} className="w-full max-w-[500px]">
                     <DebateTopicCard
                       id={debateItem.id}
                       title={debateItem.title}
@@ -634,7 +752,7 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
                     />
                   </div>
                 );
-              } else if (isGeneralPost(contentData)) {
+              } else if (contentData && isGeneralPost(contentData)) {
                 const postCreatorName = contentData.creator?.name || 'Anonymous';
                 const postCreatorAvatar = contentData.creator?.image || mockUserAvatars[contentData.creatorId] || "https://i.pravatar.cc/40?u=anonymous";
                 const displayPost: GeneralPost = {
@@ -643,17 +761,18 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
                   creatorName: postCreatorName,
                   creatorAvatar: postCreatorAvatar,
                   content: contentData.content,
+                  topics: contentData.topics || [], // Add topics field
                   timestamp: contentData.timestamp,
                   background: contentData.background || undefined,
                   linkedInitiativeId: contentData.linkedInitiativeId || undefined,
                   media: contentData.media,
                 };
                 return (
-                  <div key={contentData.id} className="w-full max-w-[500px]">
+                  <div key={`${item.type}-${itemKey}`} className="w-full max-w-[500px]">
                     <GeneralPostCard post={displayPost} currentUserId={currentUserId} onPostDeleted={handlePostDeleted} />
                   </div>
                 );
-              } else if (isInitiative(contentData)) {
+              } else if (contentData && isInitiative(contentData)) {
                 const initiativeItem = contentData;
                 const initiativeCreatorName = initiativeItem.creator?.name || 'Unknown Creator';
                 const initiativeCreatorAvatar = initiativeItem.creator?.image || mockUserAvatars[initiativeItem.creatorId] || "https://i.pravatar.cc/40?u=unknown";
@@ -694,7 +813,7 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
                 };
 
                 return (
-                  <div key={initiativeItem.id} className="w-full max-w-[500px]">
+                  <div key={`${item.type}-${itemKey}`} className="w-full max-w-[500px]">
                     <InitiativeCard
                       initiative={initiativeForCard}
                       creatorName={initiativeCreatorName}
@@ -703,14 +822,14 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
                     />
                   </div>
                 );
-              } else if (isTaggedContent(contentData)) {
+              } else if (contentData && isTaggedContent(contentData)) {
                 const taggedItem = contentData; // Type is now IssueWithCreator | IdeaWithCreator
                 const taggedItemCreatorName = taggedItem.creator?.name || 'Anonymous';
                 const taggedItemCreatorAvatar = taggedItem.creator?.image || mockUserAvatars[taggedItem.creatorId] || "https://i.pravatar.cc/40?u=anonymous";
-                const timeAgo = taggedItem.createdAt ? 
+                const timeAgo = taggedItem.createdAt ?
                   formatDistanceToNow(
-                    typeof taggedItem.createdAt === 'string' 
-                      ? parseISO(taggedItem.createdAt) 
+                    typeof taggedItem.createdAt === 'string'
+                      ? parseISO(taggedItem.createdAt)
                       : taggedItem.createdAt instanceof Date
                         ? taggedItem.createdAt
                         : new Date(taggedItem.createdAt as any),
@@ -719,7 +838,7 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
 
                 // Use the item.type to determine if it's an issue or idea
                 const isCurrentItemAnIssue = item.type === 'issue';
-                
+
                 const hasMedia = taggedItem.media && taggedItem.media.length > 0 && taggedItem.media[0].url; // Check for media
                 const mediaUrl = hasMedia ? taggedItem.media![0].url : undefined;
 
@@ -784,15 +903,15 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
                     championedByInitiativeId: taggedItem.championedByInitiativeId,
                     creator: creatorForDisplay,
                   };
-                  
+
                   return (
-                    <div key={taggedItem.id} className="w-full max-w-[500px]">
+                    <div key={`issue-${itemKey}`} className="w-full max-w-[500px]">
                       <IssueCard
                         issue={issueData}
                         currentUserId={currentUserId}
                         onIssueDeleted={(issueId) => {
                           // Remove the issue from the feed
-                          setFeedItems(prev => prev.filter(item => 
+                          setAllFeedItems(prev => prev.filter(item =>
                             !(item.type === 'issue' && item.data.id === issueId)
                           ));
                         }}
@@ -826,15 +945,15 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
                     championedByInitiativeId: taggedItem.championedByInitiativeId,
                     creator: creatorForDisplay,
                   };
-                  
+
                   return (
-                    <div key={taggedItem.id} className="w-full max-w-[500px]">
+                    <div key={`idea-${itemKey}`} className="w-full max-w-[500px]">
                       <IdeaCard
                         idea={ideaData}
                         currentUserId={currentUserId}
                         onIdeaDeleted={(ideaId) => {
                           // Remove the idea from the feed
-                          setFeedItems(prev => prev.filter(item => 
+                          setAllFeedItems(prev => prev.filter(item =>
                             !(item.type === 'idea' && item.data.id === ideaId)
                           ));
                         }}
@@ -844,12 +963,20 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
                 }
               }
             }
-            
+
             // Fallback for any other unexpected item types
             console.warn("Unknown feed item type:", item);
             return null;
           })}
-          {filteredFeedItems.length === 0 && !isLoading && (
+          {/* Show loading state for filter switching */}
+          {filterSwitching && (
+            <div className="flex justify-center items-center py-4">
+              <Loader2 className="h-5 w-5 animate-spin mr-2" />
+              <span className="text-sm text-muted-foreground">Filtering...</span>
+            </div>
+          )}
+
+          {filteredFeedItems.length === 0 && !isInitialLoading && !filterSwitching && (
             <div className="text-center py-12">
               <div className="text-muted-foreground mb-2">
                 {feedFilter === 'all' && "No activity yet. Be the first to create something!"}
@@ -863,7 +990,7 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setFeedFilter('all')}
+                  onClick={() => handleTabSwitch('all')}
                   className="text-xs mt-2"
                 >
                   Show all activity
@@ -871,11 +998,11 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
               )}
             </div>
           )}
-          
+
           {/* Load More Button */}
-          {hasMore && feedItems.length > 0 && (
+          {hasMore && allFeedItems.length > 0 && !filterSwitching && (
             <div className="flex justify-center py-8 w-full max-w-[500px]">
-              <Button 
+              <Button
                 onClick={loadMorePosts}
                 disabled={loadingMore}
                 variant="outline"
@@ -892,6 +1019,24 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
               </Button>
             </div>
           )}
+            </div>
+          </div>
+
+            {/* News Column - Desktop only with backup news source */}
+            <div className="hidden xl:block flex-shrink-0 w-80">
+              <NewsColumn limit={5} showMore={showMoreNews} onShowMore={() => setShowMoreNews(!showMoreNews)} />
+
+              {/* Local Content Section - Below News */}
+              <div className="mt-6">
+                <LocationBasedWidget />
+              </div>
+
+              {/* Smart Suggestions Section - Below Local Content */}
+              <div className="mt-6">
+                <SmartSuggestionsWidget />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import AppSidebar from '@/components/AppSidebar';
+import AppSidebar, { getDefaultCollapsedState } from '@/components/AppSidebar';
 import { Search, Target, Users, Calendar } from 'lucide-react';
 import { useModal } from '@/context/ModalContext';
 
@@ -34,7 +34,7 @@ interface Initiative {
 export default function InitiativesPage() {
   const [initiatives, setInitiatives] = useState<Initiative[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => getDefaultCollapsedState({ type: 'initiative' }));
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('createdAt');
@@ -110,7 +110,7 @@ export default function InitiativesPage() {
       <div className="w-full min-w-0 overflow-hidden">
         <AppSidebar 
           widgets={['userControls', 'navigation', 'suggestions', 'location', 'resources', 'footer']}
-          context={{ type: 'initiative' }}
+          context={{ type: 'initiatives' }}
           onCollapseChange={setSidebarCollapsed}
         />
         <div className={`transition-all duration-300 px-4 lg:px-6 pt-20 lg:pt-6 ${
@@ -128,7 +128,7 @@ export default function InitiativesPage() {
     <div className="w-full min-w-0 overflow-hidden">
       <AppSidebar 
         widgets={['userControls', 'navigation', 'suggestions', 'location', 'resources', 'footer']}
-        context={{ type: 'initiative' }}
+        context={{ type: 'initiatives' }}
         onCollapseChange={setSidebarCollapsed}
       />
       <div className={`transition-all duration-300 px-4 lg:px-6 pt-20 lg:pt-6 ${

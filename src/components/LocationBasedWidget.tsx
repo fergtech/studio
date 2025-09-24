@@ -1,49 +1,253 @@
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { MapPin, Target, Lightbulb, Handshake, Users, ChevronRight } from 'lucide-react';
+import { MapPin, Target, Lightbulb, Handshake, Users, ChevronRight, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
+import { findNearbyAreas, findNearbyAreasByLocation, ResolvedLocation, calculateDistance } from '@/services/location';
 
-// Mock data for location-based content - in real implementation, this would come from APIs
-const MOCK_LOCATION_DATA = {
+interface LocalContentCounts {
+  issues: number;
+  ideas: number;
+  initiatives: number;
+  societies: number;
+}
+
+interface LocationData {
   primary: {
-    name: "Harford County",
-    counts: {
-      issues: 12,
-      ideas: 8,
-      initiatives: 5,
-      societies: 3
-    }
-  },
-  neighboring: [
-    { name: "Baltimore County", distance: "15 miles" },
-    { name: "Cecil County", distance: "20 miles" },
-    { name: "York County", distance: "25 miles" }
-  ]
-};
+    name: string;
+    counts: LocalContentCounts;
+    coordinates?: { lat: number; lng: number };
+  };
+  neighboring: Array<{
+    name: string;
+    distance: string;
+    coordinates?: { lat: number; lng: number };
+  }>;
+}
 
 export default function LocationBasedWidget() {
-  const { primary, neighboring } = MOCK_LOCATION_DATA;
+  const { data: session } = useSession();
+  const [locationData, setLocationData] = useState<LocationData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadLocationData() {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        // Get user's location from session/profile
+        if (!session?.user) {
+          // If no user session, show default mock data
+          setLocationData({
+            primary: {
+              name: "Set your location",
+              counts: { issues: 0, ideas: 0, initiatives: 0, societies: 0 }
+            },
+            neighboring: []
+          });
+          return;
+        }
+
+        // Fetch user profile to get location (with cache busting)
+        const userResponse = await fetch(`/api/auth/me?_t=${Date.now()}`);
+        if (!userResponse.ok) {
+          throw new Error('Failed to fetch user profile');
+        }
+        
+        const userData = await userResponse.json();
+        console.log('🗺️ LocationBasedWidget userData:', {
+          location: userData.location,
+          city: userData.city,
+          latitude: userData.latitude,
+          longitude: userData.longitude,
+          id: userData.id
+        });
+
+        // Try to get location from the new structured location field first
+        let userLocation: string | null = null;
+        let userCoordinates: { lat: number; lng: number } | null = null;
+
+        if (userData.location) {
+          try {
+            const parsedLocation: ResolvedLocation = JSON.parse(userData.location);
+            userLocation = parsedLocation.displayName;
+            userCoordinates = parsedLocation.coordinates;
+            console.log('🗺️ Parsed location:', { userLocation, userCoordinates });
+          } catch (error) {
+            console.error('Failed to parse location data:', error);
+          }
+        }
+
+        // If we didn't get coordinates from JSON, try separate lat/lng fields
+        if (!userCoordinates && userData.latitude && userData.longitude) {
+          userCoordinates = {
+            lat: userData.latitude,
+            lng: userData.longitude
+          };
+          console.log('🗺️ Using separate lat/lng fields:', userCoordinates);
+        }
+
+        // Fallback to city field if no structured location
+        if (!userLocation) {
+          userLocation = userData.city;
+          console.log('🗺️ Using fallback city:', userLocation);
+        }
+        
+        if (!userLocation) {
+          // User hasn't set location yet
+          setLocationData({
+            primary: {
+              name: "Set your location",
+              counts: { issues: 0, ideas: 0, initiatives: 0, societies: 0 }
+            },
+            neighboring: []
+          });
+          return;
+        }
+
+        // Fetch local content data
+        // Use coordinates if available, otherwise fall back to location string
+        const contentUrl = userCoordinates 
+          ? `/api/content/local?lat=${userCoordinates.lat}&lng=${userCoordinates.lng}&radius=25`
+          : `/api/content/local?location=${encodeURIComponent(userLocation)}&radius=25`;
+        
+        const contentResponse = await fetch(contentUrl);
+        
+        if (!contentResponse.ok) {
+          throw new Error('Failed to fetch local content');
+        }
+        
+        const contentData = await contentResponse.json();
+        
+        // For societies, we need a separate call since they're not location-filtered yet
+        const societiesResponse = await fetch('/api/societies');
+        const societiesCount = societiesResponse.ok 
+          ? (await societiesResponse.json()).length || 0 
+          : 0;
+
+        // Format neighboring areas - only if we have coordinates
+        let formattedNeighboring: Array<{
+          name: string;
+          distance: string;
+          coordinates?: { lat: number; lng: number };
+        }> = [];
+        
+        // Try to get nearby areas using coordinates first
+        if (userCoordinates || contentData.centerCoordinates) {
+          const centerCoords = userCoordinates || contentData.centerCoordinates;
+          console.log('🗺️ LocationBasedWidget: Attempting to find nearby areas with coordinates:', centerCoords);
+
+          try {
+            const neighboring = await findNearbyAreas(centerCoords);
+            console.log('🗺️ LocationBasedWidget: findNearbyAreas returned:', neighboring);
+
+            formattedNeighboring = neighboring.map(area => ({
+              name: area.displayName,
+              distance: `${Math.round(calculateDistance(centerCoords, area.coordinates))} miles`,
+              coordinates: area.coordinates
+            }));
+
+            console.log('🗺️ LocationBasedWidget: Formatted neighboring areas:', formattedNeighboring);
+          } catch (error) {
+            console.error('🗺️ LocationBasedWidget: Error finding nearby areas:', error);
+          }
+        }
+        // Fallback: use location string (zip code, city name, etc.)
+        else if (userLocation && userLocation !== "Set your location") {
+          console.log('🗺️ LocationBasedWidget: No coordinates, trying location string:', userLocation);
+
+          try {
+            const neighboring = await findNearbyAreasByLocation(userLocation);
+            console.log('🗺️ LocationBasedWidget: findNearbyAreasByLocation returned:', neighboring);
+
+            // For location string, we can't calculate exact distance, so use the service's distance
+            formattedNeighboring = neighboring.slice(0, 3).map((area, index) => ({
+              name: area.displayName,
+              distance: `${Math.round((index + 1) * 12)} miles`, // Approximate distances
+              coordinates: area.coordinates
+            }));
+
+            console.log('🗺️ LocationBasedWidget: Formatted neighboring areas from location:', formattedNeighboring);
+          } catch (error) {
+            console.error('🗺️ LocationBasedWidget: Error finding nearby areas by location:', error);
+          }
+        } else {
+          console.log('🗺️ LocationBasedWidget: No coordinates or location available for nearby areas', {
+            userCoordinates,
+            centerCoordinates: contentData.centerCoordinates,
+            userLocation
+          });
+        }
+
+        setLocationData({
+          primary: {
+            name: userLocation,
+            counts: {
+              issues: contentData.counts.issues,
+              ideas: contentData.counts.ideas,
+              initiatives: contentData.counts.initiatives,
+              societies: societiesCount
+            },
+            coordinates: userCoordinates || contentData.centerCoordinates
+          },
+          neighboring: formattedNeighboring
+        });
+
+      } catch (err) {
+        console.error('Error loading location data:', err);
+        setError('Failed to load local content');      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    loadLocationData();
+  }, [session?.user]);
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader className="py-2 px-3">
+          <CardTitle className="flex items-center gap-2 text-base font-semibold">
+            <MapPin className="h-4 w-4" />
+            Local Content
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="py-2 px-3 flex items-center justify-center h-32">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!locationData) {
+    return null;
+  }
+
+  const { primary, neighboring } = locationData;
 
   const categoryItems = [
     { 
       icon: Target, 
       label: 'Issues', 
       count: primary.counts.issues, 
-      href: '/explore?type=issues&location=harford-county',
+      href: '/issues', // Updated to working pages
       color: 'text-red-600'
     },
     { 
       icon: Lightbulb, 
       label: 'Ideas', 
       count: primary.counts.ideas, 
-      href: '/explore?type=ideas&location=harford-county',
+      href: '/ideas', // Updated to working pages
       color: 'text-yellow-600'
     },
     { 
       icon: Handshake, 
       label: 'Initiatives', 
       count: primary.counts.initiatives, 
-      href: '/explore?type=initiatives&location=harford-county',
+      href: '/initiatives', // Updated to working pages
       color: 'text-blue-600'
     },
     { 
@@ -64,25 +268,53 @@ export default function LocationBasedWidget() {
         </CardTitle>
       </CardHeader>
       <CardContent className="py-2 px-3 space-y-3">
+        {error && (
+          <div className="text-xs text-muted-foreground text-center py-2">
+            {error}
+          </div>
+        )}
+        
         {/* Primary Location */}
         <div>
           <div className="flex items-center gap-2 mb-2">
             <h4 className="font-semibold text-sm">{primary.name}</h4>
-            <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">Your area</span>
+            {primary.name !== "Set your location" && (
+              <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">Your area</span>
+            )}
           </div>
-          <div className="grid grid-cols-2 gap-1">
-            {categoryItems.map((item) => {
-              const IconComponent = item.icon;
-              return (
-                <Button
-                  key={item.label}
-                  variant="ghost"
-                  size="sm"
-                  className="h-auto p-2 flex flex-col items-start text-left hover:bg-muted/50 disabled:opacity-50"
-                  disabled={item.href.includes('explore') || item.href.includes('?')} // Mock disabled state for non-existent pages
-                  asChild={item.href === '/societies'}
-                >
-                  {item.href === '/societies' ? (
+          
+          {primary.name === "Set your location" ? (
+            <div className="text-center py-4">
+              <p className="text-xs text-muted-foreground mb-2">
+                Set your location to see local content
+              </p>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => {
+                  // Use the user's ID or username for the profile edit URL
+                  const username = (session?.user as any)?.username;
+                  const userId = session?.user?.id;
+                  const identifier = username || userId || 'me';
+                  const profilePath = `/profile/${identifier}/edit`;
+                  window.location.href = profilePath;
+                }}
+              >
+                Set Location
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-1">
+              {categoryItems.map((item) => {
+                const IconComponent = item.icon;
+                return (
+                  <Button
+                    key={item.label}
+                    variant="ghost"
+                    size="sm"
+                    className="h-auto p-2 flex flex-col items-start text-left hover:bg-muted/50"
+                    asChild
+                  >
                     <Link href={item.href} className="w-full">
                       <div className="flex items-center gap-1.5 mb-1">
                         <IconComponent className={`h-3.5 w-3.5 ${item.color}`} />
@@ -90,54 +322,48 @@ export default function LocationBasedWidget() {
                       </div>
                       <span className="text-xs text-muted-foreground">{item.count}</span>
                     </Link>
-                  ) : (
-                    <div className="w-full cursor-not-allowed">
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <IconComponent className={`h-3.5 w-3.5 ${item.color}`} />
-                        <span className="font-medium text-xs">{item.label}</span>
-                      </div>
-                      <span className="text-xs text-muted-foreground">{item.count}</span>
-                    </div>
-                  )}
-                </Button>
-              );
-            })}
-          </div>
+                  </Button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Neighboring Areas */}
-        <div>
-          <h4 className="font-semibold text-sm mb-2 text-muted-foreground">Nearby Areas</h4>
-          <div className="space-y-1">
-            {neighboring.map((area) => (
-              <Button
-                key={area.name}
-                variant="ghost"
-                size="sm"
-                className="w-full justify-between h-7 text-xs hover:bg-muted/30 disabled:opacity-50"
-                disabled // Mock disabled state - no functionality yet
-              >
-                <span className="flex items-center gap-1.5">
-                  <MapPin className="h-3 w-3 text-muted-foreground" />
-                  {area.name}
-                </span>
-                <div className="flex items-center gap-1">
-                  <span className="text-muted-foreground text-xs">{area.distance}</span>
-                  <ChevronRight className="h-3 w-3 text-muted-foreground" />
-                </div>
-              </Button>
-            ))}
+        {neighboring.length > 0 && (
+          <div>
+            <h4 className="font-semibold text-sm mb-2 text-muted-foreground">Nearby Areas</h4>
+            <div className="space-y-1">
+              {neighboring.map((area) => (
+                <Button
+                  key={area.name}
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-between h-7 text-xs hover:bg-muted/30 disabled:opacity-50"
+                  disabled // Disabled for now - future enhancement
+                >
+                  <span className="flex items-center gap-1.5">
+                    <MapPin className="h-3 w-3 text-muted-foreground" />
+                    {area.name}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-muted-foreground text-xs">{area.distance}</span>
+                    <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                  </div>
+                </Button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* View All Link */}
         <Button
           variant="ghost"
           size="sm"
-          className="w-full text-xs h-7 text-muted-foreground hover:text-foreground disabled:opacity-50"
-          disabled // Mock disabled - no "explore by location" page yet
+          className="w-full text-xs h-7 text-muted-foreground hover:text-foreground"
+          asChild
         >
-          View all locations →
+          <Link href="/explore">Explore all content →</Link>
         </Button>
       </CardContent>
     </Card>

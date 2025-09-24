@@ -1,5 +1,6 @@
 "use client";
 import { useState, useRef } from 'react';
+import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -99,10 +100,11 @@ export function EditSocietyDialog({ society, isOpen, onClose, onSave }: EditSoci
             <div className="flex items-center gap-4">
               {imagePreview && (
                 <div className="relative w-32 h-20 rounded-lg overflow-hidden border">
-                  <img
+                  <Image
                     src={imagePreview}
                     alt="Banner preview"
-                    className="object-cover w-full h-full"
+                    fill
+                    className="object-cover"
                   />
                 </div>
               )}

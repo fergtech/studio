@@ -11,6 +11,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Parse request body for enhanced status information
+    const body = await request.json().catch(() => ({}));
+    const { status = 'online', lastActivity, pageVisible = true } = body;
+
     // Check if user exists first, then update or skip gracefully
     const existingUser = await prisma.user.findUnique({
       where: { id: session.user.id },
@@ -24,13 +28,33 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, skipped: true });
     }
 
-    // Update user's last active timestamp
+    // Update user's activity status with detailed information
+    const updateData: any = {
+      lastActiveAt: new Date(),
+    };
+
+    // Only update additional fields if the user model supports them
+    // For now, we'll just use lastActiveAt, but this could be extended
+    if (status === 'active') {
+      updateData.lastActiveAt = new Date(); // Most recent for active users
+    }
+
     await prisma.user.update({
       where: { id: session.user.id },
-      data: { lastActiveAt: new Date() },
+      data: updateData,
     });
 
-    return NextResponse.json({ success: true });
+    // Return enhanced status information for client-side optimization
+    return NextResponse.json({ 
+      success: true, 
+      status: status,
+      serverTime: new Date().toISOString(),
+      recommendation: {
+        // Recommend polling frequency based on status
+        notificationPolling: status === 'active' ? 30000 : status === 'online' ? 45000 : 60000,
+        heartbeatInterval: status === 'active' ? 15000 : status === 'online' ? 30000 : 60000
+      }
+    });
   } catch (error) {
     console.error('Error updating user heartbeat:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

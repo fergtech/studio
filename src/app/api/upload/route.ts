@@ -140,11 +140,16 @@ export async function POST(request: NextRequest) {
           data: { bannerImageUrl: imageUrl },
         });
         console.log("User banner image updated in database:", updatedUser);
+      } else if (imageType === 'initiative') {
+        // For initiatives, we just return the URL without updating any user fields
+        // The initiative update will be handled separately by the initiative actions
+        console.log(`Initiative image uploaded with URL: ${imageUrl}`);
+        return NextResponse.json({ imageUrl: imageUrl, message: "Initiative image uploaded successfully." }, { status: 200 });
       } else {
         // If imageType is not specified or recognized, we might not update the DB
         // or handle it as a generic upload not tied to a specific user field.
         // For now, we'll assume it's one of the above or we don't update user record directly here.
-        console.log(`Image uploaded with URL: ${imageUrl}, but no specific user field updated as imageType ('${imageType}') is not 'profile' or 'banner'.`);
+        console.log(`Image uploaded with URL: ${imageUrl}, but no specific user field updated as imageType ('${imageType}') is not 'profile', 'banner', or 'initiative'.`);
         // Return just the URL if no specific user field is targeted by this upload
         return NextResponse.json({ imageUrl: imageUrl, message: "File uploaded successfully, no specific user field updated." }, { status: 200 });
       }

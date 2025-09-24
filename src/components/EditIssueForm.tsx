@@ -3,6 +3,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import Image from 'next/image';
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -246,8 +247,7 @@ export function EditIssueForm({ setOpen, issue }: EditIssueFormProps) {
 
         {mediaPreview && (
           <div className="w-full h-48 relative rounded-md overflow-hidden bg-muted flex items-center justify-center">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={mediaPreview} alt="Media Preview" className="object-cover w-full h-full" />
+            <Image src={mediaPreview} alt="Media Preview" fill className="object-cover" />
             <div className="absolute inset-0 bg-black/20"></div>
           </div>
         )}

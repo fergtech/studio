@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Issue } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from "@/components/ui/button";
-import { PlusCircle, MessageSquare, Share2, X, Send, Star, Trash2 } from 'lucide-react';
+import { PlusCircle, MessageSquare, Share2, X, Send, Star, Trash2, MapPin } from 'lucide-react';
 import Link from 'next/link';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -278,6 +278,12 @@ export function IssueCard({ issue, currentUserId, onIssueDeleted }: IssueCardPro
               {issue.creator?.name}
             </p>
             <p className="text-xs opacity-80">{issueTime}</p>
+            {issue.location && (
+              <div className="flex items-center gap-1 mt-0.5">
+                <MapPin className="h-3 w-3 opacity-60" />
+                <p className="text-xs opacity-80 truncate">{issue.location}</p>
+              </div>
+            )}
           </div>
           {/* Delete Button - Show only to author */}
           {currentUserId && issue.creatorId === currentUserId && (
@@ -462,6 +468,12 @@ export function IssueCard({ issue, currentUserId, onIssueDeleted }: IssueCardPro
                   {issue.creator?.name}
                 </p>
                 <p className="text-xs truncate opacity-70">{issue.title.substring(0, 60)}...</p>
+                {issue.location && (
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <MapPin className="h-2.5 w-2.5 opacity-60" />
+                    <p className="text-xs opacity-70 truncate">{issue.location}</p>
+                  </div>
+                )}
               </div>
             </div>
             <button 

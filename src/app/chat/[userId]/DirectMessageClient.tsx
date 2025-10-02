@@ -10,11 +10,11 @@ import { formatDistanceToNow } from 'date-fns';
 import { useToast } from '@/components/ui/use-toast';
 // import { io, Socket } from 'socket.io-client'; // Temporarily disabled for Vercel deployment
 import AppSidebar, { getDefaultCollapsedState } from '@/components/AppSidebar';
-import ChatInput from '@/components/chat/ChatInput';
 import Image from 'next/image';
-import { FileIcon } from 'lucide-react';
+import { FileIcon, Send, Paperclip, X, Smile } from 'lucide-react';
 import { RichMessageRenderer } from '@/components/RichMessageRenderer';
 import { formatFileSize } from '@/lib/messageUtils';
+import { Textarea } from '@/components/ui/textarea';
 
 interface DirectMessageClientProps {
   otherUser: {
@@ -251,18 +251,106 @@ export default function DirectMessageClient({
           </div>
           
           {/* Message Input */}
-          <ChatInput 
-            newMessage={newMessage}
-            setNewMessage={setNewMessage}
-            handleSendMessage={handleSendMessage}
-            isLoading={isLoading}
-            selectedFile={selectedFile}
-            setSelectedFile={setSelectedFile}
-            filePreview={filePreview}
-            setFilePreview={setFilePreview}
-            fileType={fileType}
-            setFileType={setFileType}
-          />
+          <div className="flex-shrink-0 border-t bg-background p-4">
+            {/* File Preview */}
+            {filePreview && (
+              <div className="mb-3 p-3 bg-muted rounded-lg flex items-center gap-3">
+                {fileType === 'image' ? (
+                  <Image src={filePreview} alt="Preview" width={60} height={60} className="rounded object-cover" />
+                ) : fileType === 'video' ? (
+                  <video src={filePreview} className="w-16 h-16 rounded object-cover" />
+                ) : (
+                  <FileIcon className="h-10 w-10 text-muted-foreground" />
+                )}
+                <span className="text-sm flex-1">{selectedFile?.name}</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    setSelectedFile(null);
+                    setFilePreview(null);
+                    setFileType(null);
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+
+            {/* Input Area */}
+            <div className="flex items-end gap-2">
+              <Textarea
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                placeholder="Type a message..."
+                className="min-h-[44px] max-h-[120px] resize-none"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
+              />
+
+              {/* File Upload Button */}
+              <input
+                type="file"
+                id="file-upload"
+                className="hidden"
+                accept="image/*,video/*,application/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setSelectedFile(file);
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                      setFilePreview(reader.result as string);
+                    };
+                    reader.readAsDataURL(file);
+
+                    if (file.type.startsWith('image/')) {
+                      setFileType('image');
+                    } else if (file.type.startsWith('video/')) {
+                      setFileType('video');
+                    } else {
+                      setFileType('document');
+                    }
+                  }
+                }}
+              />
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => document.getElementById('file-upload')?.click()}
+                disabled={isLoading}
+              >
+                <Paperclip className="h-4 w-4" />
+              </Button>
+
+              {/* Emoji Button - TODO: Add emoji picker */}
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => {
+                  // TODO: Implement emoji picker
+                  // For now, just add a simple emoji
+                  setNewMessage(prev => prev + '😊');
+                }}
+                disabled={isLoading}
+              >
+                <Smile className="h-4 w-4" />
+              </Button>
+
+              {/* Send Button */}
+              <Button
+                onClick={handleSendMessage}
+                disabled={isLoading || (!newMessage.trim() && !selectedFile)}
+                size="icon"
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

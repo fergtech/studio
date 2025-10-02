@@ -17,6 +17,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useRouter } from 'next/navigation';
+import { AvatarStack } from '@/components/ui/AvatarStack'; // Import AvatarStack
 // import { io, Socket } from 'socket.io-client'; // Temporarily disabled for Vercel deployment
 
 
@@ -58,6 +59,29 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
   const [currentSkills, setCurrentSkills] = useState<string[]>(user.skills || []);
   const [currentInterests, setCurrentInterests] = useState<string[]>(user.interests || []);
   const [isUpdating, setIsUpdating] = useState(false);
+
+  // Fetch initial followers and following for avatar stacks
+  useEffect(() => {
+    // Fetch initial followers
+    fetch(`/api/users/${user.id}/followers?page=1&limit=10`)
+      .then(res => res.json())
+      .then(data => {
+        setFollowers(data.users || []);
+        if (followersPage === 1) { // Only set total if we are on the first page
+          setFollowersTotal(data.total || 0);
+        }
+      });
+
+    // Fetch initial following
+    fetch(`/api/users/${user.id}/following?page=1&limit=10`)
+      .then(res => res.json())
+      .then(data => {
+        setFollowing(data.users || []);
+        if (followingPage === 1) {
+          setFollowingTotal(data.total || 0);
+        }
+      });
+  }, [user.id]);
 
   // Posts filter state
   const [postsFilter, setPostsFilter] = useState<'all' | 'general' | 'issues' | 'ideas'>('all');
@@ -394,7 +418,7 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
       <div className="w-full">
         {/* Sidebar */}
         <AppSidebar 
-          widgets={['userControls', 'navigation', 'suggestions', 'location', 'resources', 'footer']}
+          widgets={['userControls', 'navigation', 'resources', 'footer']}
           context={{ type: 'profile' }}
           onCollapseChange={setSidebarCollapsed}
         />
@@ -577,6 +601,10 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
             <TabsTrigger value="initiatives" className="flex-shrink-0 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 min-w-max">
               <Rocket className="w-4 h-4 mr-2" />
               Initiatives
+            </TabsTrigger>
+            <TabsTrigger value="societies" className="flex-shrink-0 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 min-w-max">
+              <Users className="w-4 h-4 mr-2" />
+              Societies
             </TabsTrigger>
             <TabsTrigger value="posts" className="flex-shrink-0 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 min-w-max">
               <Lightbulb className="w-4 h-4 mr-2" />
@@ -1002,6 +1030,44 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
             </Card>
           </TabsContent>
 
+          {/* Societies Tab */}
+          <TabsContent value="societies" className="space-y-6 mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="w-5 h-5" />
+                  Societies
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {user.societyMemberships && user.societyMemberships.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {user.societyMemberships.map((membership: any) => (
+                      <Link key={membership.society.id} href={`/societies/${membership.society.id}`} className="block">
+                        <Card className="h-full hover:shadow-md transition-shadow">
+                          <CardHeader className="flex flex-row items-center gap-4 p-4">
+                            <Avatar>
+                              <AvatarImage src={membership.society.image || '/images/placeholder-image.png'} alt={membership.society.name} />
+                              <AvatarFallback>{membership.society.name.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1">
+                              <CardTitle className="text-base">{membership.society.name}</CardTitle>
+                              <CardDescription className="text-xs">{membership.role}</CardDescription>
+                            </div>
+                          </CardHeader>
+                        </Card>
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500 dark:text-gray-400 text-center py-8">
+                    {isOwnProfile ? "You haven't joined any societies yet." : "This user hasn't joined any societies yet."}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           {/* Posts Tab - Mixed post types with filtering */}
           <TabsContent value="posts" className="space-y-6 mt-6">
             <Card>
@@ -1129,23 +1195,24 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Users2 className="w-5 h-5 text-orange-600" />
-                    {isOwnProfile ? 'In Your Circle' : `In ${user.name?.split(' ')[0] || 'Their'} Circle`}
+                    {isOwnProfile ? 'Circles You\'re In' : `Circles ${user.name?.split(' ')[0] || 'Their'} is in`}
                   </CardTitle>
                   <CardDescription>
                     {isOwnProfile 
-                      ? `People who have added you to their circle (${communityStats.followers})`
+                      ? `People who have added you to their circle (${communityStats.following})`
                       : `People who have added ${user.name?.split(' ')[0] || 'them'} to their circle (${communityStats.followers})`
                     }
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
+                  <AvatarStack users={followers} />
                   <Button 
                     variant="outline" 
-                    className="w-full" 
+                    className="w-full mt-2" 
                     onClick={() => setShowFollowersModal(true)}
                   >
                     <Users className="w-4 h-4 mr-2" />
-                    View Circle Members
+                    View Circles
                   </Button>
                 </CardContent>
               </Card>
@@ -1155,23 +1222,24 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Users2 className="w-5 h-5 text-indigo-600" />
-                    {isOwnProfile ? 'My Circle' : `${user.name?.split(' ')[0] || 'Their'} Circle`}
+                    {isOwnProfile ? 'In Your Circle' : `${user.name?.split(' ')[0] || 'Their'}\'s Circle`}
                   </CardTitle>
                   <CardDescription>
                     {isOwnProfile 
-                      ? `People you have added to your circle (${communityStats.following})`
+                      ? `People you have added to your circle (${communityStats.followers})`
                       : `People ${user.name?.split(' ')[0] || 'they'} have added to their circle (${communityStats.following})`
                     }
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
+                  <AvatarStack users={following} />
                   <Button 
                     variant="outline" 
-                    className="w-full" 
+                    className="w-full mt-2" 
                     onClick={() => setShowFollowingModal(true)}
                   >
                     <Users className="w-4 h-4 mr-2" />
-                    View Circle Members
+                    View Circle
                   </Button>
                 </CardContent>
               </Card>
@@ -1237,7 +1305,7 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {isOwnProfile ? 'In Your Circle' : `In ${user.name?.split(' ')[0] || 'Their'} Circle`}
+              {isOwnProfile ? 'Others who\'ve added you' : `Others who\'ve added ${user.name?.split(' ')[0] || 'Their'}`}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 max-h-80 overflow-y-auto">
@@ -1283,7 +1351,7 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {isOwnProfile ? 'Your Circle' : `${user.name?.split(' ')[0] || 'Their'} Circle`}
+              {isOwnProfile ? 'Your Circle' : `Others ${user.name?.split(' ')[0] || 'Their'} has added`}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 max-h-80 overflow-y-auto">

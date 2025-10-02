@@ -168,6 +168,11 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
             createdAt: 'desc'
           }
         },
+        societyMemberships: {
+          include: {
+            society: true,
+          },
+        },
       }
     });
   }
@@ -295,6 +300,11 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
           orderBy: {
             createdAt: 'desc'
           }
+        },
+        societyMemberships: {
+          include: {
+            society: true,
+          },
         },
       }
     } as const;

@@ -3,14 +3,18 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ArrowLeft, Send, User2 } from 'lucide-react';
+import { ArrowLeft, User2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useToast } from '@/components/ui/use-toast';
 // import { io, Socket } from 'socket.io-client'; // Temporarily disabled for Vercel deployment
 import AppSidebar, { getDefaultCollapsedState } from '@/components/AppSidebar';
+import ChatInput from '@/components/chat/ChatInput';
+import Image from 'next/image';
+import { FileIcon } from 'lucide-react';
+import { RichMessageRenderer } from '@/components/RichMessageRenderer';
+import { formatFileSize } from '@/lib/messageUtils';
 
 interface DirectMessageClientProps {
   otherUser: {
@@ -31,6 +35,9 @@ export default function DirectMessageClient({
   const [messages, setMessages] = useState(initialMessages);
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [filePreview, setFilePreview] = useState<string | null>(null);
+  const [fileType, setFileType] = useState<'image' | 'video' | 'document' | null>(null);
   // const [socket, setSocket] = useState<Socket | null>(null); // Temporarily disabled
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => getDefaultCollapsedState({ type: 'chat' }));
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -69,13 +76,45 @@ export default function DirectMessageClient({
   }, [messages]);
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || isLoading) return;
+    if ((!newMessage.trim() && !selectedFile) || isLoading) return;
 
     setIsLoading(true);
     const messageText = newMessage.trim();
+    const fileToSend = selectedFile;
+    
+    // Reset input fields immediately for a better user experience
     setNewMessage('');
+    setSelectedFile(null);
+    setFilePreview(null);
+    setFileType(null);
 
     try {
+      let fileUrl: string | undefined = undefined;
+
+      // 1. Upload file if it exists
+      if (fileToSend) {
+        const formData = new FormData();
+        formData.append('file', fileToSend);
+        formData.append('filePath', `direct-messages/${currentUserId}-${otherUser.id}`);
+        
+        const uploadResponse = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const result = await uploadResponse.json();
+        if (uploadResponse.ok && result.imageUrl) {
+          fileUrl = result.imageUrl;
+        } else {
+          throw new Error(result.message || result.error || 'File upload failed.');
+        }
+      }
+
+      // 2. Send message with file URL
+      const isImage = fileToSend?.type?.startsWith('image/');
+      const isVideo = fileToSend?.type?.startsWith('video/');
+      const isMediaFile = isImage || isVideo;
+
       const response = await fetch('/api/direct-messages', {
         method: 'POST',
         headers: {
@@ -83,7 +122,12 @@ export default function DirectMessageClient({
         },
         body: JSON.stringify({
           receiverId: otherUser.id,
-          text: messageText,
+          text: fileUrl && !isMediaFile ? fileUrl : messageText, // For non-media files, URL goes in text field
+          imageUrl: isMediaFile ? fileUrl : undefined, // Images and videos go in imageUrl field
+          fileName: fileToSend?.name,
+          fileSize: fileToSend?.size ? formatFileSize(fileToSend.size) : undefined,
+          mimeType: fileToSend?.type,
+          messageType: fileToSend && !isMediaFile ? 'file' : undefined,
         }),
       });
 
@@ -98,13 +142,6 @@ export default function DirectMessageClient({
       // Add message to local state
       setMessages(prev => [...prev, savedMessage]);
 
-      // Socket emit temporarily disabled for Vercel deployment
-      // if (socket) {
-      //   socket.emit('sendDirectMessage', {
-      //     ...savedMessage,
-      //     conversationId: `${currentUserId}-${otherUser.id}`,
-      //   });
-      // }
     } catch (error) {
       console.error('Error sending message:', error);
       toast({
@@ -112,134 +149,122 @@ export default function DirectMessageClient({
         description: error instanceof Error ? error.message : 'Failed to send message. Please try again.',
         variant: 'destructive',
       });
-      // Restore the message text if sending failed
+      // Restore the message text and file if sending failed
       setNewMessage(messageText);
+      if (fileToSend) {
+        setSelectedFile(fileToSend);
+        // Re-create file preview
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setFilePreview(reader.result as string);
+        };
+        reader.readAsDataURL(fileToSend);
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
-
   return (
-    <div className="w-full min-w-0 overflow-hidden">
+    <div className="flex h-screen">
       <AppSidebar 
-        widgets={['userControls', 'navigation', 'suggestions', 'location', 'resources', 'footer']}
+        widgets={['userControls', 'navigation', 'resources', 'footer']}
         context={{ type: 'chat' }}
         onCollapseChange={setSidebarCollapsed}
       />
-      <div className={`transition-all duration-300 px-4 lg:px-6 ${
+      <div className={`flex-1 flex flex-col transition-all duration-300 ${
         sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'
       }`}>
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-          {/* Header */}
-          <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-            <div className="container mx-auto px-4 py-4">
-              <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => router.back()}
-              className="p-2"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            
-            <Avatar className="h-10 w-10">
-              <AvatarImage src={otherUser.image || undefined} />
-              <AvatarFallback>
-                {otherUser.name ? otherUser.name.charAt(0).toUpperCase() : <User2 className="h-4 w-4" />}
-              </AvatarFallback>
-            </Avatar>
-            
-            <div>
-              <h1 className="font-semibold text-gray-900 dark:text-white">
-                {otherUser.name || 'Anonymous User'}
-              </h1>
-              {otherUser.username && (
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  @{otherUser.username}
-                </p>
-              )}
+        {/* Header */}
+        <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+          <div className="container mx-auto px-4 py-4">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => router.back()}
+                className="p-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              
+              <Avatar className="h-10 w-10">
+                <AvatarImage src={otherUser.image || undefined} />
+                <AvatarFallback>
+                  {otherUser.name ? otherUser.name.charAt(0).toUpperCase() : <User2 className="h-4 w-4" />}
+                </AvatarFallback>
+              </Avatar>
+              
+              <div>
+                <h1 className="font-semibold text-gray-900 dark:text-white">
+                  {otherUser.name || 'Anonymous User'}
+                </h1>
+                {otherUser.username && (
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    @{otherUser.username}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Messages */}
-      <div className="container mx-auto px-4 py-4">
-        <Card className="h-[calc(100vh-200px)] flex flex-col">
-          <CardHeader className="flex-shrink-0 pb-2">
-            <h2 className="text-lg font-semibold">Direct Message</h2>
-          </CardHeader>
-          
-          <CardContent className="flex-1 flex flex-col p-0">
-            {/* Messages List */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {messages.length === 0 ? (
-                <div className="text-center text-gray-500 dark:text-gray-400 py-8">
-                  <p>No messages yet. Start the conversation!</p>
-                </div>
-              ) : (
-                messages.map((message) => {
-                  const isOwnMessage = message.senderId === currentUserId;
-                  
-                  return (
-                    <div
-                      key={message.id}
-                      className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
-                    >
-                      <div
-                        className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                          isOwnMessage
-                            ? 'bg-blue-500 text-white'
-                            : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
-                        }`}
-                      >
-                        <p className="text-sm">{message.text}</p>
-                        <p className={`text-xs mt-1 ${
-                          isOwnMessage ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
-                        }`}>
-                          {formatDistanceToNow(new Date(message.timestamp), { addSuffix: true })}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Message Input */}
-            <div className="flex-shrink-0 p-4 border-t border-gray-200 dark:border-gray-700">
-              <div className="flex gap-2">
-                <Input
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Type your message..."
-                  disabled={isLoading}
-                  className="flex-1"
-                />
-                <Button
-                  onClick={handleSendMessage}
-                  disabled={!newMessage.trim() || isLoading}
-                  size="sm"
-                >
-                  <Send className="h-4 w-4" />
-                </Button>
+        {/* Messages */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {messages.length === 0 ? (
+              <div className="text-center text-gray-500 dark:text-gray-400 py-8">
+                <p>No messages yet. Start the conversation!</p>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            ) : (
+              messages.map((message) => {
+                const isOwnMessage = message.senderId === currentUserId;
+                
+                return (
+                  <div
+                    key={message.id}
+                    className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div
+                      className={`max-w-xs lg:max-w-md px-3 py-2 rounded-lg ${
+                        isOwnMessage
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
+                      }`}
+                    >
+                      <RichMessageRenderer
+                        text={message.text}
+                        isOwnMessage={isOwnMessage}
+                        className={isOwnMessage ? 'text-white' : 'text-gray-900 dark:text-white'}
+                      />
+                      <p className={`text-xs mt-1 ${
+                        isOwnMessage ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
+                      }`}>
+                        {formatDistanceToNow(new Date(message.timestamp), { addSuffix: true })}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+            <div ref={messagesEndRef} />
           </div>
+          
+          {/* Message Input */}
+          <ChatInput 
+            newMessage={newMessage}
+            setNewMessage={setNewMessage}
+            handleSendMessage={handleSendMessage}
+            isLoading={isLoading}
+            selectedFile={selectedFile}
+            setSelectedFile={setSelectedFile}
+            filePreview={filePreview}
+            setFilePreview={setFilePreview}
+            fileType={fileType}
+            setFileType={setFileType}
+          />
         </div>
       </div>
     </div>
   );
-} 
+}

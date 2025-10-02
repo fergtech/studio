@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { emitNotification } from '@/lib/socket';
 import { logger } from '@/lib/logger';
+import { createImageMessage, createVideoMessage, createFileMessage, createLinkMessage, createMixedMessage, getMessagePreview } from '@/lib/messageUtils';
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,11 +16,11 @@ export async function POST(req: NextRequest) {
 
     const payload = await req.json();
     logger.debug('API /api/direct-messages POST: Request received');
-    const { receiverId, text } = payload;
+    const { receiverId, text, imageUrl, fileName, fileSize, mimeType, messageType } = payload;
 
-    if (!receiverId || !text) {
+    if (!receiverId || (!text && !imageUrl)) {
       logger.error('API /api/direct-messages POST: Missing required fields');
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+      return NextResponse.json({ error: 'Missing required fields: receiverId and either text or imageUrl are required.' }, { status: 400 });
     }
 
     // Prevent users from messaging themselves
@@ -38,9 +39,42 @@ export async function POST(req: NextRequest) {
 
     logger.debug('API /api/direct-messages POST: Creating message');
 
+    // Encode the message based on type
+    let encodedText: string;
+    if (imageUrl) {
+      // Determine media type
+      const mediaType = mimeType?.startsWith('video/') ? 'video' : 'image';
+
+      // If there's accompanying text, create a mixed message
+      if (text && text.trim()) {
+        encodedText = createMixedMessage(text, [{
+          type: mediaType,
+          url: imageUrl,
+          fileName: fileName
+        }]);
+      } else {
+        // Just media, no text
+        if (mediaType === 'video') {
+          encodedText = createVideoMessage(imageUrl, fileName);
+        } else {
+          encodedText = createImageMessage(imageUrl, fileName);
+        }
+      }
+    } else if (messageType === 'file' && fileName) {
+      // File message (expecting URL in text field)
+      encodedText = createFileMessage(text, fileName, fileSize, mimeType);
+    } else if (messageType === 'link') {
+      // Link message with metadata
+      const linkMetadata = payload.linkMetadata;
+      encodedText = createLinkMessage(payload.url, linkMetadata, text);
+    } else {
+      // Plain text message
+      encodedText = text;
+    }
+
     const message = await prisma.chatMessage.create({
       data: {
-        text,
+        text: encodedText,
         timestamp: new Date(),
         senderName: session.user.name || 'Anonymous',
         sender: {
@@ -57,12 +91,13 @@ export async function POST(req: NextRequest) {
 
     // Create notification for the receiver
     try {
+      const previewText = getMessagePreview(encodedText, 50);
       await prisma.notification.create({
         data: {
           userId: receiverId,
           type: 'DIRECT_MESSAGE',
           title: 'New Message',
-          message: `${session.user.name || 'Someone'} sent you a message`,
+          message: `${session.user.name || 'Someone'}: ${previewText}`,
           data: {
             senderId: session.user.id,
             senderName: session.user.name,
@@ -134,7 +169,14 @@ export async function GET(req: NextRequest) {
         ]
       },
       orderBy: { timestamp: 'asc' },
-      include: {
+      select: {
+        id: true,
+        text: true,
+        timestamp: true,
+        senderId: true,
+        senderName: true,
+        receiverId: true,
+        initiativeId: true,
         sender: {
           select: { id: true, name: true, image: true }
         }
@@ -147,4 +189,4 @@ export async function GET(req: NextRequest) {
     logger.error('API /api/direct-messages GET: Error fetching direct messages', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-} 
+}

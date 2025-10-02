@@ -12,7 +12,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 // Initialize the Google Generative AI model
 console.log("GOOGLE_AI_API_KEY:", process.env.GOOGLE_AI_API_KEY);
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY!); // Use non-null assertion as we expect this to be set
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
 
 interface CreateInitiativeArgs {
   title: string;

@@ -76,8 +76,8 @@ export async function getOrCreateAiGuidance(initiativeId: string): Promise<{ suc
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    // Use the gemini-1.5-flash model
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash"});
+    // Use gemini-2.0-flash (available in v1 API)
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp"});
 
     let generatedGuidance = "";
     
@@ -174,7 +174,7 @@ export async function generateSuggestedGoalsAction(
   }
 
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
 
   const existingGoalsText = existingGoals.map(goal => `Title: ${goal.title}${goal.description ? '\nDescription: ' + goal.description : ''}`).join('\n\n');
 
@@ -273,7 +273,7 @@ export async function generateSuggestedActionsAction(
   }
 
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
 
   const existingActionsText = existingActions.map(action => `Title: ${action.title}${action.description ? '\nDescription: ' + action.description : ''}`).join('\n\n');
 

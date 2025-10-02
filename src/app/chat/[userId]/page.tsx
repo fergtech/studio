@@ -8,20 +8,20 @@ import DirectMessageClient from './DirectMessageClient';
 export const dynamic = 'force-dynamic';
 
 interface DirectMessagePageProps {
-  params: {
+  params: Promise<{
     userId: string;
-  };
+  }>;
 }
 
 export default async function DirectMessagePage({ params }: DirectMessagePageProps) {
   const session = await getServerSession(authOptions);
-  
+  const { userId: otherUserId } = await params;
+
   if (!session?.user?.id) {
-    redirect('/login?callbackUrl=/chat/' + params.userId);
+    redirect('/login?callbackUrl=/chat/' + otherUserId);
   }
 
   const currentUserId = session.user.id;
-  const otherUserId = params.userId;
 
   // Prevent users from messaging themselves
   if (currentUserId === otherUserId) {
@@ -59,7 +59,14 @@ export default async function DirectMessagePage({ params }: DirectMessagePagePro
       ]
     },
     orderBy: { timestamp: 'asc' },
-    include: {
+    select: {
+      id: true,
+      text: true,
+      timestamp: true,
+      senderId: true,
+      senderName: true,
+      receiverId: true,
+      initiativeId: true,
       sender: {
         select: { id: true, name: true, image: true }
       }

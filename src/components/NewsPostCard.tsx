@@ -27,6 +27,20 @@ import { useModal } from '@/context/ModalContext';
 import { useSession } from 'next-auth/react';
 import { useToast } from '@/hooks/use-toast';
 
+// Helper function to parse and display location data
+const getLocationDisplay = (location: string | null | undefined): string | null => {
+  if (!location) return null;
+  try {
+    const parsed = JSON.parse(location);
+    if (parsed.name) return parsed.name;
+    if (parsed.address) return parsed.address;
+    return null;
+  } catch {
+    // If not JSON, return as-is (plain text location)
+    return location;
+  }
+};
+
 interface NewsPost {
   id: string;
   title: string;
@@ -224,12 +238,12 @@ export function NewsPostCard({
               </div>
               <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground overflow-hidden mb-2">
                 <span className="truncate">{news.source}</span>
-                {news.location && (
+                {getLocationDisplay(news.location) && (
                   <>
                     <span>•</span>
                     <span className="flex items-center gap-1 truncate">
                       <MapPin className="h-3 w-3 flex-shrink-0" />
-                      <span className="truncate">{news.city}</span>
+                      <span className="truncate">{getLocationDisplay(news.location)}</span>
                     </span>
                   </>
                 )}
@@ -389,10 +403,10 @@ export function NewsPostCard({
         <div className="flex items-center justify-between text-sm text-muted-foreground">
           <div className="flex items-center gap-4">
             <span className="font-medium">{news.source}</span>
-            {news.location && (
+            {getLocationDisplay(news.location) && (
               <span className="flex items-center gap-1">
                 <MapPin className="h-3 w-3" />
-                {news.location}
+                {getLocationDisplay(news.location)}
               </span>
             )}
           </div>

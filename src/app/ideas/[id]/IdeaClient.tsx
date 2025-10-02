@@ -16,6 +16,20 @@ import CommentPanel from '@/components/CommentPanel';
 import IdeaReactions from '@/components/IdeaReactions';
 import { useModal } from '@/context/ModalContext';
 
+// Helper function to parse and display location data
+const getLocationDisplay = (location: string | null | undefined): string | null => {
+  if (!location) return null;
+  try {
+    const parsed = JSON.parse(location);
+    if (parsed.name) return parsed.name;
+    if (parsed.address) return parsed.address;
+    return null;
+  } catch {
+    // If not JSON, return as-is (plain text location)
+    return location;
+  }
+};
+
 interface MediaItem {
   type: string;
   url: string;
@@ -532,9 +546,9 @@ export default function IdeaClient({ idea, currentUserId, initiallyChampioned }:
               )}
 
               {/* Location */}
-              {idea.location && (
+              {getLocationDisplay(idea.location) && (
                 <div className="text-sm text-muted-foreground">
-                  📍 {idea.location}
+                  📍 {getLocationDisplay(idea.location)}
                 </div>
               )}
 

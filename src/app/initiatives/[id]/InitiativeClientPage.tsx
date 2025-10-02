@@ -39,6 +39,20 @@ import { ChatPanel } from '@/components/initiatives/ChatPanel';
 import { SuggestedGoalTag } from '@/components/initiatives/SuggestedGoalTag';
 import { deleteGoal } from '@/app/actions/goalActions';
 
+// Helper function to parse and display location data
+const getLocationDisplay = (location: string | null | undefined): string | null => {
+  if (!location) return null;
+  try {
+    const parsed = JSON.parse(location);
+    if (parsed.name) return parsed.name;
+    if (parsed.address) return parsed.address;
+    return null;
+  } catch {
+    // If not JSON, return as-is (plain text location)
+    return location;
+  }
+};
+
 // Simple QR Code generator using canvas
 const generateQRCodeDataURL = (text: string): string => {
   // Using a simple QR code pattern for demonstration
@@ -826,7 +840,7 @@ export function InitiativeClientPage({
                       {initiative.memberships?.length || 0} members
                     </Badge>
                     <Badge variant="secondary" className="bg-card/30 text-foreground text-xs backdrop-blur-sm">
-                      {initiative.location ? initiative.location : 'Online'}
+                      {getLocationDisplay(initiative.location) || 'Online'}
                     </Badge>
                   </div>
                 </div>

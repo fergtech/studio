@@ -15,6 +15,24 @@ import { deleteIssue } from '@/app/actions/issueActions';
 import { saveScrollPositionForKey } from '@/hooks/useScrollPosition';
 import { useRouter } from 'next/navigation';
 
+// Helper function to safely parse and display location
+const getLocationDisplay = (location: string | null | undefined): string | null => {
+  if (!location) return null;
+
+  try {
+    // Try to parse as JSON in case it's stored as object
+    const parsed = JSON.parse(location);
+    // If it has a name property, use that
+    if (parsed.name) return parsed.name;
+    // If it has address, use that
+    if (parsed.address) return parsed.address;
+    // Otherwise return null to hide it
+    return null;
+  } catch {
+    // If it's not JSON, it's already a string, return it
+    return location;
+  }
+};
 // Mock comment data (in a real app, this would come from the database)
 interface Comment {
   id: string;
@@ -288,7 +306,7 @@ export function IssueCard({ issue, currentUserId, onIssueDeleted }: IssueCardPro
             {issue.location && (
               <div className="flex items-center gap-1 mt-0.5">
                 <MapPin className="h-3 w-3 opacity-60" />
-                <p className="text-xs opacity-80 truncate">{issue.location}</p>
+                <p className="text-xs opacity-80 truncate">{getLocationDisplay(issue.location)}</p>
               </div>
             )}
           </div>
@@ -478,7 +496,7 @@ export function IssueCard({ issue, currentUserId, onIssueDeleted }: IssueCardPro
                 {issue.location && (
                   <div className="flex items-center gap-1 mt-0.5">
                     <MapPin className="h-2.5 w-2.5 opacity-60" />
-                    <p className="text-xs opacity-70 truncate">{issue.location}</p>
+                    <p className="text-xs opacity-70 truncate">{getLocationDisplay(issue.location)}</p>
                   </div>
                 )}
               </div>

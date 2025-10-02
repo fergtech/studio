@@ -10,12 +10,30 @@ export async function GET(
     const { topic } = await params;
     const decodedTopic = decodeURIComponent(topic);
 
-    // Fetch posts that have this topic
+    // Fetch posts using the new relational system
     const posts = await prisma.generalPost.findMany({
       where: {
-        topics: {
-          has: decodedTopic
-        }
+        OR: [
+          // New relational system
+          {
+            postTopics: {
+              some: {
+                topic: {
+                  name: {
+                    equals: decodedTopic,
+                    mode: 'insensitive'
+                  }
+                }
+              }
+            }
+          },
+          // Fallback to old array system for compatibility
+          {
+            topics: {
+              has: decodedTopic
+            }
+          }
+        ]
       },
       select: {
         id: true,
@@ -31,6 +49,18 @@ export async function GET(
             id: true,
             url: true,
             type: true,
+          }
+        },
+        // Include relational topics
+        postTopics: {
+          select: {
+            topic: {
+              select: {
+                name: true,
+                category: true
+              }
+            },
+            confidence: true
           }
         }
       },
@@ -106,10 +136,17 @@ export async function GET(
     };
 
     return NextResponse.json({
-      posts: posts.map(post => ({
-        ...post,
-        timestamp: post.timestamp.toISOString()
-      })),
+      posts: posts.map(post => {
+        // Merge old topics array with new relational topics
+        const relationalTopics = post.postTopics.map(pt => pt.topic.name);
+        const allTopics = [...new Set([...post.topics, ...relationalTopics])]; // Remove duplicates
+
+        return {
+          ...post,
+          topics: allTopics, // Use combined topics
+          timestamp: post.timestamp.toISOString()
+        };
+      }),
       stats
     });
 

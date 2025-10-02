@@ -10,6 +10,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { useSession } from 'next-auth/react';
 import { HotTakeStance } from '@prisma/client';
 import { useToast } from '@/hooks/use-toast';
+import Link from 'next/link';
 
 interface HotTakeBattleCardProps {
   battle: {
@@ -113,7 +114,9 @@ export function HotTakeBattleCard({
         <CardContent className="p-3">
           <div className="flex items-center gap-2 mb-2">
             <Flame className="h-4 w-4 text-orange-500" />
-            <span className="text-sm font-semibold text-orange-600">#{battle.topic}</span>
+            <Link href={`/topics/${encodeURIComponent(battle.topic)}`} className="text-sm font-semibold text-orange-600 hover:text-orange-700 transition-colors">
+              #{battle.topic}
+            </Link>
             <Badge variant="secondary" className="text-xs">
               {battle.totalParticipants}
             </Badge>
@@ -138,9 +141,11 @@ export function HotTakeBattleCard({
             <span className="font-bold text-lg">HOT TAKE BATTLE</span>
             <Zap className="h-4 w-4" />
           </div>
-          <Badge variant="secondary" className="bg-white/20 text-white">
-            #{battle.topic}
-          </Badge>
+          <Link href={`/topics/${encodeURIComponent(battle.topic)}`}>
+            <Badge variant="secondary" className="bg-white/20 text-white hover:bg-white/30 transition-colors cursor-pointer">
+              #{battle.topic}
+            </Badge>
+          </Link>
         </div>
         <p className="text-sm opacity-90 mt-1">{battle.title}</p>
       </div>

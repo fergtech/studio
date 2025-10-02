@@ -59,6 +59,55 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
   const [currentInterests, setCurrentInterests] = useState<string[]>(user.interests || []);
   const [isUpdating, setIsUpdating] = useState(false);
 
+  // Posts filter state
+  const [postsFilter, setPostsFilter] = useState<'all' | 'general' | 'issues' | 'ideas'>('all');
+
+  // Combine all posts and sort by date
+  const getAllPosts = () => {
+    const posts: Array<any> = [];
+
+    // Add general posts
+    if (user.createdGeneralPosts) {
+      user.createdGeneralPosts.forEach((post: any) => {
+        posts.push({
+          ...post,
+          type: 'general',
+          createdAt: post.timestamp,
+        });
+      });
+    }
+
+    // Add issues
+    if (user.createdIssues) {
+      user.createdIssues.forEach((issue: any) => {
+        posts.push({
+          ...issue,
+          type: 'issues',
+        });
+      });
+    }
+
+    // Add ideas
+    if (user.createdIdeas) {
+      user.createdIdeas.forEach((idea: any) => {
+        posts.push({
+          ...idea,
+          type: 'ideas',
+        });
+      });
+    }
+
+    // Sort by date (newest first)
+    return posts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  };
+
+  // Filter posts based on current filter
+  const getFilteredPosts = () => {
+    const allPosts = getAllPosts();
+    if (postsFilter === 'all') return allPosts;
+    return allPosts.filter(post => post.type === postsFilter);
+  };
+
   useEffect(() => {
     // Socket connection temporarily disabled for Vercel deployment
     // TODO: Re-enable online status checking after implementing polling system
@@ -228,6 +277,85 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
     setEditingInterests(false);
   };
 
+  // Post card component for mixed post types
+  const PostCard = ({ post }: { post: any }) => {
+    let href = '#';
+    let icon = null;
+    let gradientClass = '';
+    let typeLabel = '';
+
+    if (post.type === 'general') {
+      href = `/posts/${post.id}`;
+      icon = <MessageCircle className="h-4 w-4 text-white" />;
+      gradientClass = 'from-blue-600 to-blue-800';
+      typeLabel = 'Post';
+    } else if (post.type === 'issues') {
+      href = `/issues/${post.id}`;
+      icon = <AlertTriangle className="h-4 w-4 text-white" />;
+      gradientClass = 'from-red-600 to-red-800';
+      typeLabel = 'Issue';
+    } else if (post.type === 'ideas') {
+      href = `/ideas/${post.id}`;
+      icon = <Lightbulb className="h-4 w-4 text-white" />;
+      gradientClass = 'from-yellow-500 to-yellow-700';
+      typeLabel = 'Idea';
+    }
+
+    const hasMedia = post.media && post.media.length > 0;
+    const backgroundImage = hasMedia ? post.media[0].url : (post.background || null);
+
+    return (
+      <Link key={post.id} href={href} className="block h-[200px] cursor-pointer">
+        <div className="relative cursor-pointer hover:shadow-lg transition-shadow overflow-hidden group h-full rounded-lg">
+          {/* Background Image and Overlay */}
+          {backgroundImage ? (
+            <div
+              className="absolute inset-0 bg-cover bg-center transition-transform duration-300 group-hover:scale-105"
+              style={{ backgroundImage: `url(${backgroundImage})` }}
+            >
+              <div className="absolute inset-0 bg-black/60" />
+            </div>
+          ) : (
+            <div className={`absolute inset-0 bg-gradient-to-br ${gradientClass}`} />
+          )}
+          {/* Content Layer */}
+          <div className="relative z-10 flex flex-col h-full justify-between p-4">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  {icon}
+                  <span className="text-xs text-white font-medium">{typeLabel}</span>
+                </div>
+                {post.society && (
+                  <div className="px-2 py-1 bg-white/20 backdrop-blur-sm rounded-full">
+                    <span className="text-xs text-white font-medium">{post.society.name}</span>
+                  </div>
+                )}
+              </div>
+              <div className="text-base line-clamp-2 text-white font-semibold">
+                {post.title || (post.content ? post.content.slice(0, 60) + '...' : 'Untitled')}
+              </div>
+              {(post.description || post.content) && (
+                <div className="line-clamp-3 text-gray-200 text-xs mt-1">
+                  {post.description || post.content}
+                </div>
+              )}
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-gray-300">
+                {new Date(post.createdAt).toLocaleDateString()}
+              </span>
+              {(post.championCount !== undefined || post.likeCount !== undefined) && (
+                <span className="text-xs text-gray-300">
+                  💪 {post.championCount || post.likeCount || 0}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      </Link>
+    );
+  };
 
   // Calculate community impact metrics
   const communityStats = {
@@ -438,9 +566,10 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
       </div>
 
       {/* Main Content with Tabs */}
-      <div className="max-w-4xl mx-auto px-4">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6">
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="flex w-full overflow-x-auto scrollbar-hide bg-gray-100 dark:bg-gray-800 gap-1 p-1">
+          <div className="w-full overflow-x-auto scrollbar-hide mb-6">
+            <TabsList className="flex bg-gray-100 dark:bg-gray-800 gap-1 p-1 rounded-lg min-w-max">
             <TabsTrigger value="overview" className="flex-shrink-0 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 min-w-max">
               <Activity className="w-4 h-4 mr-2" />
               Overview
@@ -449,15 +578,22 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
               <Rocket className="w-4 h-4 mr-2" />
               Initiatives
             </TabsTrigger>
-            <TabsTrigger value="activity" className="flex-shrink-0 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 min-w-max">
-              <Clock className="w-4 h-4 mr-2" />
-              Activity
+            <TabsTrigger value="posts" className="flex-shrink-0 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 min-w-max">
+              <Lightbulb className="w-4 h-4 mr-2" />
+              Posts
             </TabsTrigger>
+            {isOwnProfile && (
+              <TabsTrigger value="activity" className="flex-shrink-0 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 min-w-max">
+                <Clock className="w-4 h-4 mr-2" />
+                Activity
+              </TabsTrigger>
+            )}
             <TabsTrigger value="circle" className="flex-shrink-0 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 min-w-max">
               <Users2 className="w-4 h-4 mr-2" />
               Circle
             </TabsTrigger>
           </TabsList>
+          </div>
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6 mt-6">
@@ -866,8 +1002,80 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
             </Card>
           </TabsContent>
 
-          {/* Activity Tab */}
-          <TabsContent value="activity" className="space-y-6 mt-6">
+          {/* Posts Tab - Mixed post types with filtering */}
+          <TabsContent value="posts" className="space-y-6 mt-6">
+            <Card>
+              <CardHeader>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <CardTitle className="flex items-center gap-2">
+                    <Lightbulb className="w-5 h-5" />
+                    Posts
+                  </CardTitle>
+                  {/* Filter buttons - scrollable on mobile */}
+                  <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 min-w-0 -mb-2 sm:mb-0">
+                    <Button
+                      variant={postsFilter === 'all' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setPostsFilter('all')}
+                      className="flex-shrink-0"
+                    >
+                      All
+                    </Button>
+                    <Button
+                      variant={postsFilter === 'general' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setPostsFilter('general')}
+                      className="flex-shrink-0"
+                    >
+                      <MessageCircle className="w-4 h-4 mr-1" />
+                      Posts
+                    </Button>
+                    <Button
+                      variant={postsFilter === 'issues' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setPostsFilter('issues')}
+                      className="flex-shrink-0"
+                    >
+                      <AlertTriangle className="w-4 h-4 mr-1" />
+                      Issues
+                    </Button>
+                    <Button
+                      variant={postsFilter === 'ideas' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setPostsFilter('ideas')}
+                      className="flex-shrink-0"
+                    >
+                      <Lightbulb className="w-4 h-4 mr-1" />
+                      Ideas
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {(() => {
+                  const filteredPosts = getFilteredPosts();
+                  return filteredPosts.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {filteredPosts.map((post: any) => (
+                        <PostCard key={`${post.type}-${post.id}`} post={post} />
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 dark:text-gray-400 text-center py-8">
+                      {postsFilter === 'all'
+                        ? (isOwnProfile ? "You haven't posted anything yet." : "This user hasn't posted anything yet.")
+                        : `No ${postsFilter} found.`
+                      }
+                    </p>
+                  );
+                })()}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Activity Tab - Only visible for own profile */}
+          {isOwnProfile && (
+            <TabsContent value="activity" className="space-y-6 mt-6">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -911,6 +1119,7 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
               </CardContent>
             </Card>
           </TabsContent>
+          )}
 
           {/* Circle Tab - NEW TAB WITH CIRCLE UI */}
           <TabsContent value="circle" className="space-y-6 mt-6">

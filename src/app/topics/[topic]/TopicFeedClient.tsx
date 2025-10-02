@@ -47,7 +47,7 @@ export function TopicFeedClient({ topic }: TopicFeedClientProps) {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'posts' | 'battles'>('all');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => getDefaultCollapsedState({ type: 'topic' }));
-  const { openCreateBattleResponseModal } = useModal();
+  const { openCreateBattleResponseModal, openCreateTopicPostModal } = useModal();
 
   useEffect(() => {
     fetchTopicData();
@@ -179,7 +179,7 @@ export function TopicFeedClient({ topic }: TopicFeedClientProps) {
         {/* Header */}
         <div className="mb-6">
           <div className="flex items-center gap-4 mb-4">
-            <Link href="/explore">
+            <Link href="/">
               <Button variant="ghost" size="sm">
                 <ArrowLeft className="h-4 w-4 mr-1" />
                 Back
@@ -272,9 +272,9 @@ export function TopicFeedClient({ topic }: TopicFeedClientProps) {
                   <p className="text-muted-foreground mb-4">
                     Be the first to start a discussion about this topic!
                   </p>
-                  <Link href="/">
-                    <Button>Create a Post</Button>
-                  </Link>
+                  <Button onClick={() => openCreateTopicPostModal(topic)}>
+                    Create a Post
+                  </Button>
                 </CardContent>
               </Card>
             ) : (
@@ -321,11 +321,13 @@ export function TopicFeedClient({ topic }: TopicFeedClientProps) {
                 <p className="text-sm text-muted-foreground mb-3">
                   Share your thoughts on #{topic} and engage with the community.
                 </p>
-                <Link href="/">
-                  <Button size="sm" className="w-full">
-                    Create Post
-                  </Button>
-                </Link>
+                <Button
+                  size="sm"
+                  className="w-full"
+                  onClick={() => openCreateTopicPostModal(topic)}
+                >
+                  Create Post
+                </Button>
               </CardContent>
             </Card>
           </div>

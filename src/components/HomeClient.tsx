@@ -21,6 +21,7 @@ import ActivityFeed from "@/components/ActivityFeed";
 import AppSidebar, { getDefaultCollapsedState } from "@/components/AppSidebar";
 import { useToast } from "@/hooks/use-toast";
 import { useWindowScrollPosition } from "@/hooks/useScrollPosition";
+import { restoreScrollPosition } from "@/utils/navigation";
 // import { io, Socket } from 'socket.io-client'; // Temporarily disabled for Vercel deployment
 import { MainFeedSocietyPostCard } from './MainFeedSocietyPostCard';
 import { DebateTopicCard } from './DebateTopicCard';
@@ -308,6 +309,8 @@ interface HomeClientProps {
 }
 
 
+type FeedFilterType = 'all' | 'initiatives' | 'generalPosts' | 'ideas' | 'issues' | 'community';
+
 export function HomeClient({ currentUserId, username }: HomeClientProps) {
   const [allFeedItems, setAllFeedItems] = useState<UnifiedFeedItem[]>([]);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
@@ -316,7 +319,16 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [feedFilter, setFeedFilter] = useState<'all' | 'initiatives' | 'generalPosts' | 'ideas' | 'issues' | 'community'>('all');
+  const [feedFilter, setFeedFilter] = useState<FeedFilterType>(() => {
+    // Restore filter state if returning from a post
+    if (typeof window !== 'undefined') {
+      const savedFilter = sessionStorage.getItem('feedFilter');
+      if (savedFilter && ['all', 'initiatives', 'generalPosts', 'ideas', 'issues', 'community'].includes(savedFilter)) {
+        return savedFilter as FeedFilterType;
+      }
+    }
+    return 'all';
+  });
   const [filterSwitching, setFilterSwitching] = useState(false);
   const { toast } = useToast();
   const { openCreateBattleResponseModal } = useModal();
@@ -335,7 +347,7 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
       case 'issues':
         return item.type === 'issue';
       case 'community':
-        return isMetaAction(item) && item.type === 'follow';
+        return isMetaAction(item) && (item.type === 'follow' || item.type === 'initiativeJoin');
       case 'all':
       default:
         return true;
@@ -353,6 +365,9 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
 
     setFilterSwitching(true);
     setFeedFilter(newFilter);
+
+    // Save the new filter state
+    sessionStorage.setItem('feedFilter', newFilter);
 
     // Quick feedback - stop loading state after a short delay
     setTimeout(() => setFilterSwitching(false), 150);
@@ -466,6 +481,11 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
     };
   }, []);
 
+  // Restore scroll position when returning from a post
+  useEffect(() => {
+    restoreScrollPosition();
+  }, []);
+
   // Load more posts function - improved to load more items at once
   const loadMorePosts = useCallback(async () => {
     if (!hasMore || loadingMore || !nextCursor) {
@@ -541,7 +561,7 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
     <div className="w-full min-w-0 overflow-hidden">
       {/* Sidebar */}
       <AppSidebar
-        widgets={['userControls', 'navigation', 'suggestions', 'location', 'resources', 'footer']}
+        widgets={['userControls', 'navigation', 'resources', 'footer']}
         context={{ type: 'home' }}
         onCollapseChange={setSidebarCollapsed}
       />
@@ -551,24 +571,24 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
         sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'
       }`}>
         {/* Trending Topics Widget - Full width */}
-        <div className="w-full px-4 lg:px-6 mb-6">
+        <div className="w-full px-2 sm:px-4 lg:px-6 mb-6">
           <div className="max-w-7xl mx-auto">
             <TrendingTopicsWidget />
           </div>
         </div>
 
         {/* Main Layout: Feed + News Column - Centered Container */}
-        <div className="flex justify-center w-full px-4 lg:px-6">
+        <div className="flex justify-center w-full px-2 sm:px-4 lg:px-6">
           <div className="flex gap-6 w-full max-w-7xl">
             {/* Main Feed */}
-            <div className="flex-1 max-w-3xl">
-            <div className="flex flex-col items-center space-y-6">
-          <div className="w-full max-w-[500px]">
+            <div className="flex-1 max-w-md mx-auto">
+            <div className="flex flex-col space-y-6">
+          <div className="w-full">
             <CreatePostForm onPostCreated={handlePostCreated} />
           </div>
 
           {/* Feed Filter Controls - Horizontal Scrollable Tabs */}
-          <div className="w-full max-w-[500px] px-1">
+          <div className="w-full">
             <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-2">
               <Filter className="h-4 w-4 text-muted-foreground flex-shrink-0" />
               <button
@@ -654,7 +674,7 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
             if (isMetaAction(item)) {
               const metaAction = patchMetaActionUsernames(convertToMetaAction(item));
               return (
-                <div key={`${item.type}-${itemKey}`} className="w-full max-w-[500px]">
+                <div key={`${item.type}-${itemKey}`} className="w-full">
                   <MetaActionCard action={metaAction} currentUserId={currentUserId} />
                 </div>
               );
@@ -671,7 +691,7 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
               } else if (item.type === 'hotTakeBattle') {
                 const battleItem = contentData as HotTakeBattleWithCreator;
                 return (
-                  <div key={`${item.type}-${itemKey}`} className="w-full max-w-[500px]">
+                  <div key={`${item.type}-${itemKey}`} className="w-full">
                     <HotTakeBattleCard
                       battle={battleItem}
                       onJoinBattle={async (battleId: string, stance: any) => {
@@ -740,7 +760,7 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
                     };
 
                 return (
-                  <div key={`${item.type}-${itemKey}`} className="w-full max-w-[500px]">
+                  <div key={`${item.type}-${itemKey}`} className="w-full">
                     <DebateTopicCard
                       id={debateItem.id}
                       title={debateItem.title}
@@ -768,7 +788,7 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
                   media: contentData.media,
                 };
                 return (
-                  <div key={`${item.type}-${itemKey}`} className="w-full max-w-[500px]">
+                  <div key={`${item.type}-${itemKey}`} className="w-full">
                     <GeneralPostCard post={displayPost} currentUserId={currentUserId} onPostDeleted={handlePostDeleted} />
                   </div>
                 );
@@ -813,7 +833,7 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
                 };
 
                 return (
-                  <div key={`${item.type}-${itemKey}`} className="w-full max-w-[500px]">
+                  <div key={`${item.type}-${itemKey}`} className="w-full">
                     <InitiativeCard
                       initiative={initiativeForCard}
                       creatorName={initiativeCreatorName}
@@ -905,7 +925,7 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
                   };
 
                   return (
-                    <div key={`issue-${itemKey}`} className="w-full max-w-[500px]">
+                    <div key={`issue-${itemKey}`} className="w-full">
                       <IssueCard
                         issue={issueData}
                         currentUserId={currentUserId}
@@ -947,7 +967,7 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
                   };
 
                   return (
-                    <div key={`idea-${itemKey}`} className="w-full max-w-[500px]">
+                    <div key={`idea-${itemKey}`} className="w-full">
                       <IdeaCard
                         idea={ideaData}
                         currentUserId={currentUserId}
@@ -1001,7 +1021,7 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
 
           {/* Load More Button */}
           {hasMore && allFeedItems.length > 0 && !filterSwitching && (
-            <div className="flex justify-center py-8 w-full max-w-[500px]">
+            <div className="flex justify-center py-8 w-full">
               <Button
                 onClick={loadMorePosts}
                 disabled={loadingMore}

@@ -1,15 +1,16 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, PlusCircle, AlertTriangle, Edit, Save, Loader2 } from 'lucide-react';
+import { ArrowLeft, PlusCircle, AlertTriangle, Edit, Save, Loader2, Paperclip, X, Upload } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '@/components/ui/textarea';
+import imageCompression from 'browser-image-compression';
 import AppSidebar, { getDefaultCollapsedState } from '@/components/AppSidebar';
 import CommentPanel from '@/components/CommentPanel';
 import IssueReactions from '@/components/IssueReactions';
@@ -63,6 +64,10 @@ export default function IssueClient({ issue, currentUserId, initiallyChampioned 
   const [editTitle, setEditTitle] = useState(issue.title);
   const [editDescription, setEditDescription] = useState(issue.description);
   const [editLoading, setEditLoading] = useState(false);
+  const [selectedMedia, setSelectedMedia] = useState<File | null>(null);
+  const [mediaPreview, setMediaPreview] = useState<string | null>(null);
+  const [removeExistingMedia, setRemoveExistingMedia] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const { openCreateInitiativeModal } = useModal();
   const { toast } = useToast();
@@ -103,6 +108,78 @@ export default function IssueClient({ issue, currentUserId, initiallyChampioned 
     openCreateInitiativeModal(issue.title, issue.description, imageUrl, issue.id, undefined);
   };
 
+  // Media handling functions
+  const compressFile = async (file: File): Promise<File | null> => {
+    const maxSizeInMB = 25;
+
+    if (file.size <= maxSizeInMB * 1024 * 1024) {
+      return file;
+    }
+
+    try {
+      if (file.type.startsWith('image/')) {
+        const options = {
+          maxSizeMB: maxSizeInMB,
+          maxWidthOrHeight: 1920,
+          useWebWorker: true,
+          fileType: 'image/webp',
+          quality: 0.85,
+          initialQuality: 0.85,
+        };
+        return await imageCompression(file, options);
+      }
+      return file;
+    } catch (error) {
+      console.error('Compression failed:', error);
+      toast({
+        title: "Compression Failed",
+        description: "Could not compress file. Please try a smaller file.",
+        variant: "destructive",
+      });
+      return null;
+    }
+  };
+
+  const handleMediaChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const processedFile = await compressFile(file);
+
+      if (processedFile) {
+        setSelectedMedia(processedFile);
+
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setMediaPreview(reader.result as string);
+        };
+        reader.readAsDataURL(processedFile);
+        setRemoveExistingMedia(false);
+      } else {
+        if (event.target) {
+          event.target.value = '';
+        }
+        setSelectedMedia(null);
+        setMediaPreview(null);
+      }
+    } else {
+      setSelectedMedia(null);
+      setMediaPreview(null);
+    }
+  };
+
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
+  };
+
+  const removeMedia = () => {
+    setSelectedMedia(null);
+    setMediaPreview(null);
+    setRemoveExistingMedia(true);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const handleEditSubmit = async () => {
     if (!editTitle.trim() || !editDescription.trim()) {
       toast({
@@ -113,26 +190,80 @@ export default function IssueClient({ issue, currentUserId, initiallyChampioned 
       return;
     }
 
-    if (editTitle === issue.title && editDescription === issue.description) {
+    const hasChanges = editTitle !== issue.title ||
+                      editDescription !== issue.description ||
+                      selectedMedia !== null ||
+                      removeExistingMedia;
+
+    if (!hasChanges) {
       setEditMode(false);
       return;
     }
 
     setEditLoading(true);
     try {
+      let uploadedMediaUrl: string | null = null;
+
+      // Handle media upload if there's a new file
+      if (selectedMedia) {
+        const uploadFormData = new FormData();
+        uploadFormData.append('file', selectedMedia);
+
+        try {
+          const uploadResponse = await fetch('/api/upload', {
+            method: 'POST',
+            body: uploadFormData,
+          });
+
+          if (!uploadResponse.ok) {
+            throw new Error(`Upload failed: ${uploadResponse.statusText}`);
+          }
+
+          const uploadResult = await uploadResponse.json();
+          if (uploadResult.imageUrl) {
+            uploadedMediaUrl = uploadResult.imageUrl;
+          }
+        } catch (uploadError) {
+          console.error('Media upload failed:', uploadError);
+          toast({
+            title: "Upload Error",
+            description: "Failed to upload media. Please try again.",
+            variant: "destructive",
+          });
+          setEditLoading(false);
+          return;
+        }
+      }
+
+      // Update the issue
+      const updateData: any = {
+        title: editTitle,
+        description: editDescription,
+      };
+
+      // Handle media changes
+      if (removeExistingMedia && !selectedMedia) {
+        updateData.mediaUrl = null;
+      } else if (uploadedMediaUrl) {
+        updateData.mediaUrl = uploadedMediaUrl;
+      }
+
       const response = await fetch(`/api/issues/${issue.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          title: editTitle,
-          description: editDescription,
-        }),
+        body: JSON.stringify(updateData),
       });
 
       if (response.ok) {
         setEditMode(false);
+        setSelectedMedia(null);
+        setMediaPreview(null);
+        setRemoveExistingMedia(false);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
         toast({
           title: "Issue Updated!",
           description: "Your issue has been updated successfully.",
@@ -168,15 +299,15 @@ export default function IssueClient({ issue, currentUserId, initiallyChampioned 
         sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'
       }`}>
         <div className="max-w-4xl mx-auto py-6">
-          {/* Header with back button */}
-          <div className="flex items-center gap-4 mb-6">
-            <Button variant="ghost" size="icon" onClick={() => router.back()}>
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
+          {/* Header with close button and type indicator on right */}
+          <div className="flex items-center justify-end gap-4 mb-6">
             <div className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-red-500" />
               <span className="text-sm font-medium text-muted-foreground">Issue</span>
             </div>
+            <Button variant="ghost" size="icon" onClick={() => router.push('/')}>
+              <X className="h-5 w-5" />
+            </Button>
           </div>
 
           <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
@@ -263,6 +394,89 @@ export default function IssueClient({ issue, currentUserId, initiallyChampioned 
                       className="min-h-[200px] resize-none border-none bg-transparent p-0 text-base"
                       placeholder="Describe the issue in detail..."
                     />
+
+                    {/* Media Editing Section */}
+                    <div className="space-y-3 pt-4 border-t">
+                      <h4 className="text-sm font-medium text-muted-foreground">Media</h4>
+
+                      {/* Current media or preview */}
+                      {mediaPreview ? (
+                        <div className="relative rounded-lg overflow-hidden">
+                          <Image
+                            src={mediaPreview}
+                            alt="Media preview"
+                            width={400}
+                            height={250}
+                            className="w-full h-auto max-h-64 object-cover"
+                          />
+                          <Button
+                            onClick={removeMedia}
+                            variant="destructive"
+                            size="sm"
+                            className="absolute top-2 right-2"
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      ) : hasMedia && !removeExistingMedia ? (
+                        <div className="relative rounded-lg overflow-hidden">
+                          <Image
+                            src={issue.media[0].url}
+                            alt="Current media"
+                            width={400}
+                            height={250}
+                            className="w-full h-auto max-h-64 object-cover"
+                          />
+                          <Button
+                            onClick={removeMedia}
+                            variant="destructive"
+                            size="sm"
+                            className="absolute top-2 right-2"
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="border-2 border-dashed border-muted-foreground/20 rounded-lg p-8 text-center">
+                          <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground/40" />
+                          <p className="text-sm text-muted-foreground mb-3">
+                            {hasMedia && removeExistingMedia ? 'Media will be removed' : 'No media selected'}
+                          </p>
+                          <Button
+                            onClick={triggerFileInput}
+                            variant="outline"
+                            size="sm"
+                            className="flex items-center gap-2"
+                          >
+                            <Paperclip className="w-3 h-3" />
+                            Choose File
+                          </Button>
+                        </div>
+                      )}
+
+                      {/* File input */}
+                      <input
+                        type="file"
+                        accept="image/*,video/*"
+                        ref={fileInputRef}
+                        onChange={handleMediaChange}
+                        className="hidden"
+                      />
+
+                      {/* Upload new media button */}
+                      {!mediaPreview && !(hasMedia && !removeExistingMedia) && (
+                        <Button
+                          onClick={triggerFileInput}
+                          variant="outline"
+                          size="sm"
+                          className="w-full flex items-center gap-2"
+                        >
+                          <Paperclip className="w-3 h-3" />
+                          Add Media
+                        </Button>
+                      )}
+                    </div>
+
                     <div className="flex gap-2 pt-4 border-t">
                       <Button
                         onClick={handleEditSubmit}
@@ -287,6 +501,12 @@ export default function IssueClient({ issue, currentUserId, initiallyChampioned 
                           setEditMode(false);
                           setEditTitle(issue.title);
                           setEditDescription(issue.description);
+                          setSelectedMedia(null);
+                          setMediaPreview(null);
+                          setRemoveExistingMedia(false);
+                          if (fileInputRef.current) {
+                            fileInputRef.current.value = '';
+                          }
                         }}
                         variant="outline"
                         size="sm"

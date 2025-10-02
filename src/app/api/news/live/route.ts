@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { fetchMultiTierNews, fetchHyperLocalNews, NewsArticle } from '@/services/enhancedNewsService';
+import { ResolvedLocation } from '@/services/location';
 
-// Simple cache for news articles
-const newsCache = new Map<string, { data: any[], timestamp: number }>();
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+// Enhanced cache for news articles with tier support
+const newsCache = new Map<string, { data: NewsArticle[], timestamp: number }>();
+const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes (longer cache for RSS)
 
 // Simple string similarity calculation (Jaccard similarity)
 function calculateSimilarity(str1: string, str2: string): number {
@@ -263,106 +265,78 @@ export async function GET(request: NextRequest) {
 
     // Get query parameters
     const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get('limit') || '5');
+    const limit = parseInt(searchParams.get('limit') || '20');
+    const tierFilter = searchParams.get('tier') as 'hyper-local' | 'all' | null;
 
-    // Use user's actual location data for search query
-    let locationQuery = '';
+    // Parse user location
+    let resolvedLocation: ResolvedLocation | null = null;
+
     if (user.location) {
       try {
-        // Parse location if it's a JSON object
-        const location = typeof user.location === 'string' ? JSON.parse(user.location) : user.location;
-        // Extract meaningful location string
-        locationQuery = location.displayName || location.county || location.city || user.city || 'General';
+        resolvedLocation = typeof user.location === 'string'
+          ? JSON.parse(user.location)
+          : user.location;
       } catch (e) {
-        // If not JSON, use as string
-        locationQuery = user.location;
+        console.error('❌ Failed to parse user location:', e);
       }
-    } else if (user.city) {
-      // Fallback to city if location not set
-      locationQuery = user.city;
+    }
+
+    // If no location set, return error asking user to set location
+    if (!resolvedLocation || !resolvedLocation.coordinates) {
+      console.log('⚠️ User has no location set');
+      return NextResponse.json({
+        success: false,
+        error: 'Location not set',
+        message: 'Please set your location in profile settings to see personalized news',
+        data: []
+      }, { status: 400 });
+    }
+
+    console.log('📍 Fetching news for:', resolvedLocation.displayName);
+
+    // Check cache first
+    const cacheKey = `news-${session.user.id}-${tierFilter || 'all'}-${limit}`;
+    const cached = newsCache.get(cacheKey);
+
+    if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
+      console.log('📦 Returning cached news');
+      return NextResponse.json({
+        success: true,
+        data: cached.data,
+        cached: true
+      });
+    }
+
+    // Fetch news using enhanced multi-tier system
+    let news: NewsArticle[];
+
+    if (tierFilter === 'hyper-local') {
+      // Fetch only hyper-local news
+      news = await fetchHyperLocalNews(resolvedLocation, limit);
     } else {
-      // No location set - use general news
-      locationQuery = 'General';
+      // Fetch multi-tier news (hyper-local + regional + national + global)
+      news = await fetchMultiTierNews(resolvedLocation, limit);
     }
 
-    console.log('📍 Fetching news for location:', locationQuery);
+    // Cache the results
+    newsCache.set(cacheKey, {
+      data: news,
+      timestamp: Date.now()
+    });
 
-    // Get nearby areas to expand search if needed
-    let nearbyAreas: string[] = [];
-    if (user.location) {
-      try {
-        const location = typeof user.location === 'string' ? JSON.parse(user.location) : user.location;
-        console.log('📍 User location data:', JSON.stringify(location));
-
-        // Check for coordinates in different possible structures
-        let lat, lng;
-        if (location.coordinates) {
-          lat = location.coordinates.lat;
-          lng = location.coordinates.lng;
-        } else if (location.lat && location.lng) {
-          lat = location.lat;
-          lng = location.lng;
-        }
-
-        if (lat && lng) {
-          console.log('🗺️ Using coordinates for nearby areas:', lat, lng);
-          const nearbyResponse = await fetch(
-            `${process.env.NEXTAUTH_URL}/api/nearby-areas?lat=${lat}&lng=${lng}&radius=25`,
-            { headers: { Cookie: request.headers.get('Cookie') || '' } }
-          );
-          if (nearbyResponse.ok) {
-            const nearbyData = await nearbyResponse.json();
-            nearbyAreas = nearbyData.areas || [];
-            console.log('🗺️ Found nearby areas:', nearbyAreas);
-          } else {
-            console.log('⚠️ Nearby areas API failed:', nearbyResponse.status);
-          }
-        } else {
-          console.log('⚠️ No coordinates found in user location data');
-        }
-      } catch (e) {
-        console.log('⚠️ Could not fetch nearby areas:', e);
-      }
-    } else {
-      console.log('⚠️ User has no location data set');
-    }
-
-    // Fetch news with fallback
-    let news = await fetchNewsFromAPI(locationQuery, limit);
-
-    // If NewsAPI fails or returns no results, try NewsData.io as backup
-    if (news.length === 0) {
-      console.log('🔄 NewsAPI returned no results, trying NewsData.io as backup...');
-      news = await fetchNewsFromNewsData(locationQuery, limit);
-    }
-
-    // If still no results and we have nearby areas, try with expanded query
-    if (news.length < 3 && nearbyAreas.length > 0) {
-      console.log('🔄 Expanding search with nearby areas for more content...');
-      const expandedQuery = `${locationQuery} OR ${nearbyAreas.slice(0, 3).join(' OR ')}`;
-      const additionalNews = await fetchNewsFromNewsData(expandedQuery, limit * 2);
-
-      // Merge and deduplicate
-      const combinedNews = [...news, ...additionalNews];
-      const seenTitles = new Set<string>();
-
-      news = combinedNews.filter(article => {
-        const normalizedTitle = article.title.toLowerCase().replace(/[^\w\s]/g, '').trim();
-        for (const seenTitle of seenTitles) {
-          if (calculateSimilarity(normalizedTitle, seenTitle) > 0.8) {
-            return false;
-          }
-        }
-        seenTitles.add(normalizedTitle);
-        return true;
-      }).slice(0, limit);
-    }
-
-    console.log('📰 News API: Returning', news.length, 'articles');
+    console.log('✅ Returning', news.length, 'articles');
+    console.log('📊 Tier distribution:', {
+      'hyper-local': news.filter(a => a.tier === 'hyper-local').length,
+      'regional': news.filter(a => a.tier === 'regional').length,
+      'national': news.filter(a => a.tier === 'national').length,
+      'global': news.filter(a => a.tier === 'global').length,
+    });
 
     return NextResponse.json({
       success: true,
-      data: news
+      data: news,
+      location: resolvedLocation.displayName,
+      cached: false
     });
 
   } catch (error) {

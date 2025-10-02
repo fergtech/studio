@@ -15,6 +15,7 @@ import { createIdea } from '@/app/actions/ideaActions';
 import { useToast } from '@/hooks/use-toast';
 import imageCompression from 'browser-image-compression';
 import { ResolvedLocation } from '@/services/location';
+import { extractHashtags, mergeHashtagsWithTopics, analyzeContent } from '@/utils/hashtagUtils';
 
 // Define some background options
 const backgroundOptions = [
@@ -90,9 +91,10 @@ interface CreatePostFormProps {
     battleId: string;
     battleTitle?: string;
   };
+  initialTopic?: string | null;
 }
 
-export default function CreatePostForm({ onPostCreated, onSuccess, societyId, context = 'general', battleContext }: CreatePostFormProps) {
+export default function CreatePostForm({ onPostCreated, onSuccess, societyId, context = 'general', battleContext, initialTopic }: CreatePostFormProps) {
   const { data: session, status } = useSession();
   const { toast } = useToast();
   
@@ -147,9 +149,9 @@ export default function CreatePostForm({ onPostCreated, onSuccess, societyId, co
   const getEffectiveLocation = (): string | null => {
     switch (selectedLocation) {
       case 'user':
-        return userLocation ? JSON.stringify(userLocation) : null;
+        return userLocation ? userLocation.displayName : null;
       case 'custom':
-        return customLocation ? JSON.stringify(customLocation) : null;
+        return customLocation ? customLocation.displayName : null;
       case 'global':
       default:
         return null;
@@ -170,6 +172,67 @@ export default function CreatePostForm({ onPostCreated, onSuccess, societyId, co
   const [topics, setTopics] = useState<string[]>([]);
   const [topicInput, setTopicInput] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-detect hashtags from content and merge with topics
+  // Only runs when user hits space or enters new line
+  const updateTopicsFromContent = (content: string, title: string = '') => {
+    const combinedText = `${title} ${content}`;
+    const detectedHashtags = extractHashtags(combinedText);
+
+    if (detectedHashtags.length > 0) {
+      setTopics(prevTopics => {
+        const mergedTopics = mergeHashtagsWithTopics(prevTopics, detectedHashtags);
+        return mergedTopics.slice(0, 5); // Limit to 5 topics
+      });
+    }
+  };
+
+  // Detect hashtags only when user hits space or Enter
+  const handleKeyPress = (e: React.KeyboardEvent, fieldContent: string, isTitle: boolean = false) => {
+    if (e.key === ' ' || e.key === 'Enter') {
+      if (isTitle) {
+        updateTopicsFromContent(content, fieldContent);
+      } else {
+        updateTopicsFromContent(fieldContent, title);
+      }
+    }
+  };
+
+  // Check for topic URL parameter or initialTopic prop and pre-fill
+  useEffect(() => {
+    const topicsToAdd: string[] = [];
+
+    // Handle initialTopic prop first
+    if (initialTopic && !topics.includes(initialTopic)) {
+      topicsToAdd.push(initialTopic);
+    }
+
+    // Handle URL parameter for home page usage (only if no initialTopic)
+    if (!initialTopic && typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const topicParam = urlParams.get('topic');
+      if (topicParam && !topics.includes(topicParam) && !topicsToAdd.includes(topicParam)) {
+        topicsToAdd.push(topicParam);
+        // Clear the URL parameter after using it
+        const url = new URL(window.location.href);
+        url.searchParams.delete('topic');
+        window.history.replaceState({}, '', url.pathname);
+      }
+    }
+
+    // Add all new topics at once
+    if (topicsToAdd.length > 0) {
+      setTopics(prev => {
+        const newTopics = [...prev];
+        topicsToAdd.forEach(topic => {
+          if (!newTopics.includes(topic)) {
+            newTopics.push(topic);
+          }
+        });
+        return newTopics;
+      });
+    }
+  }, [initialTopic]);
 
   // Get current location option
   const currentLocationOption = locationOptions.find(opt => opt.scope === selectedLocation) || locationOptions[0];
@@ -611,6 +674,7 @@ export default function CreatePostForm({ onPostCreated, onSuccess, societyId, co
                   placeholder={currentConfig.titlePlaceholder}
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
+                  onKeyDown={(e) => handleKeyPress(e, e.currentTarget.value, true)}
                   className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent text-lg font-medium placeholder:text-muted-foreground/70"
                 />
               )}
@@ -618,6 +682,7 @@ export default function CreatePostForm({ onPostCreated, onSuccess, societyId, co
                 placeholder={battleContext ? "Share your unique perspective on this Hot Take Battle..." : currentConfig.placeholder}
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
+                onKeyDown={(e) => handleKeyPress(e, e.currentTarget.value, false)}
                 className="resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent min-h-[80px] sm:min-h-[60px] placeholder:text-muted-foreground/70"
                 rows={3}
               />
@@ -627,9 +692,9 @@ export default function CreatePostForm({ onPostCreated, onSuccess, societyId, co
                 {/* Display selected topics */}
                 {topics.length > 0 && (
                   <div className="flex flex-wrap gap-1">
-                    {topics.map((topic) => (
+                    {topics.map((topic, index) => (
                       <span
-                        key={topic}
+                        key={`${topic}-${index}`}
                         className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 text-primary rounded-full text-xs font-medium"
                       >
                         #{topic}
@@ -647,7 +712,7 @@ export default function CreatePostForm({ onPostCreated, onSuccess, societyId, co
 
                 {/* Topic input field */}
                 <Input
-                  placeholder="Add topics (housing, climate, education...)"
+                  placeholder="Add topics (#housing, #climate, #education...)"
                   value={topicInput}
                   onChange={(e) => setTopicInput(e.target.value)}
                   onKeyDown={handleTopicInputKeyDown}

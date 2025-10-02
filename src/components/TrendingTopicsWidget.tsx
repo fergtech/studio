@@ -6,10 +6,26 @@ import { Hash } from 'lucide-react';
 import Link from 'next/link';
 import { getTopicIcons, TopicIconResult } from '@/services/topicIcons';
 import { DynamicIcon } from './DynamicIcon';
+import { TopicCard } from './TopicCard';
 
 interface TopicStats {
   topic: string;
   count: number;
+  category?: string;
+  latestPost?: {
+    id: string;
+    content: string;
+    timestamp: Date | string;
+    thumbnail?: {
+      url: string;
+      type: string;
+    } | null;
+    author: {
+      name: string;
+      username: string;
+      image?: string | null;
+    };
+  } | null;
 }
 
 interface TrendingTopicsWidgetProps {
@@ -120,33 +136,18 @@ export function TrendingTopicsWidget({ limit = 8, showHeader = true }: TrendingT
           </h2>
         </div>
       )}
-      <div className="px-2">
-        <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2">
+      <div className="px-2 relative group">
+        {/* Horizontal scrolling layout for topic cards with thumbnails */}
+        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
           {topics.map((topicStat, index) => (
-            <Link
-              key={topicStat.topic}
-              href={`/topics/${encodeURIComponent(topicStat.topic)}`}
-              className="flex-shrink-0 group flex flex-col items-center min-w-[80px] max-w-[100px]"
-            >
-              <div className={`
-                w-24 h-24 rounded-full border-2 flex items-center justify-center
-                transition-all duration-200 hover:scale-105 hover:shadow-md cursor-pointer
-                ${getTopicColor(index)}
-              `}>
-                {/* AI-powered dynamic icon - larger and more prominent */}
-                <DynamicIcon
-                  name={topicIcons.get(topicStat.topic)?.iconName || 'Hash'}
-                  size={32}
-                  className="mx-auto"
-                />
-              </div>
-              {/* Topic name with count below the circle */}
-              <div className="mt-2 text-center w-full px-1">
-                <div className="text-xs font-medium text-gray-700 leading-tight break-words hyphens-auto">
-                  {topicStat.topic} ({topicStat.count})
-                </div>
-              </div>
-            </Link>
+            <div key={topicStat.topic} className="flex-shrink-0 w-48">
+              <TopicCard
+                topic={topicStat.topic}
+                count={topicStat.count}
+                category={topicStat.category}
+                latestPost={topicStat.latestPost}
+              />
+            </div>
           ))}
         </div>
       </div>

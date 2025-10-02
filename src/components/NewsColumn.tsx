@@ -14,9 +14,11 @@ interface LiveNewsPost {
   publishedAt: string;
   location?: string;
   city?: string;
+  tier?: 'hyper-local' | 'regional' | 'national' | 'global';
+  relevanceScore?: number;
   urgencyLevel: number;
   tags: string[];
-  createdAt: string;
+  createdAt?: string;
   type: 'live-news';
 }
 
@@ -91,40 +93,95 @@ export function NewsColumn({ limit = 5, showMore = false, onShowMore }: NewsColu
     );
   }
 
+  // Group news by tier for better organization
+  const hyperLocalNews = news.filter(n => n.tier === 'hyper-local');
+  const otherNews = news.filter(n => n.tier !== 'hyper-local');
+
   return (
     <div className="w-80 bg-card border rounded-lg p-4">
-      <div className="flex items-center gap-2 mb-4">
-        <Newspaper className="h-5 w-5" />
-        <h2 className="font-semibold text-lg">Local News</h2>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Newspaper className="h-5 w-5" />
+          <h2 className="font-semibold text-lg">News Feed</h2>
+        </div>
+        {hyperLocalNews.length > 0 && (
+          <span className="text-xs text-muted-foreground">
+            {hyperLocalNews.length} local
+          </span>
+        )}
       </div>
 
       {news.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
-          <p>No local news available</p>
+          <p>No news available</p>
+          <p className="text-xs mt-2">Set your location to see personalized news</p>
         </div>
       ) : (
         <div className="space-y-4">
-          {news.map((article) => (
-            <div key={article.id} className="border-b border-border pb-4 last:border-b-0 last:pb-0">
-              <NewsPostCard
-                news={article}
-                variant="widget"
-                onActionTaken={(newsId: string, actionType: string) => {
-                  // Optional: Handle action feedback
-                  console.log(`Action ${actionType} taken on news ${newsId}`);
-                }}
-              />
+          {/* Show hyper-local news first */}
+          {hyperLocalNews.length > 0 && (
+            <div className="space-y-4">
+              {hyperLocalNews.map((article) => (
+                <div key={article.id} className="border-b border-border pb-4 last:border-b-0 last:pb-0">
+                  <NewsPostCard
+                    news={article}
+                    variant="widget"
+                    onActionTaken={(newsId: string, actionType: string) => {
+                      console.log(`Action ${actionType} taken on news ${newsId}`);
+                    }}
+                  />
+                </div>
+              ))}
             </div>
-          ))}
+          )}
 
-          <div className="text-center pt-4">
-            <button
-              onClick={onShowMore}
-              className="text-sm font-semibold text-primary hover:underline"
-            >
-              {showMore ? 'Show Less' : 'Show More'}
-            </button>
-          </div>
+          {/* Show other tiers */}
+          {otherNews.length > 0 && hyperLocalNews.length > 0 && (
+            <div className="border-t pt-4">
+              <p className="text-xs text-muted-foreground mb-3">Regional & Beyond</p>
+              <div className="space-y-4">
+                {otherNews.map((article) => (
+                  <div key={article.id} className="border-b border-border pb-4 last:border-b-0 last:pb-0">
+                    <NewsPostCard
+                      news={article}
+                      variant="widget"
+                      onActionTaken={(newsId: string, actionType: string) => {
+                        console.log(`Action ${actionType} taken on news ${newsId}`);
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Show all if no hyper-local */}
+          {otherNews.length > 0 && hyperLocalNews.length === 0 && (
+            <div className="space-y-4">
+              {otherNews.map((article) => (
+                <div key={article.id} className="border-b border-border pb-4 last:border-b-0 last:pb-0">
+                  <NewsPostCard
+                    news={article}
+                    variant="widget"
+                    onActionTaken={(newsId: string, actionType: string) => {
+                      console.log(`Action ${actionType} taken on news ${newsId}`);
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {onShowMore && (
+            <div className="text-center pt-4 border-t">
+              <button
+                onClick={onShowMore}
+                className="text-sm font-semibold text-primary hover:underline"
+              >
+                {showMore ? 'Show Less' : 'Show More'}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

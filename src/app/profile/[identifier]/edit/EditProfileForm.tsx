@@ -551,9 +551,20 @@ export default function EditProfileForm({ user }: EditProfileFormProps) {
             </div>
           </div>
         </CardContent>
-        <CardFooter>
+        <CardFooter className="flex gap-4">
           <Button type="submit" disabled={isPending || isUploadingImage || isUploadingBanner}>
             {isPending ? 'Saving...' : 'Save Changes'}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              const profileUrl = user.username ? `/profile/${user.username}` : `/profile/${user.id}`;
+              router.push(profileUrl);
+            }}
+            disabled={isPending || isUploadingImage || isUploadingBanner}
+          >
+            Cancel
           </Button>
         </CardFooter>
       </form>

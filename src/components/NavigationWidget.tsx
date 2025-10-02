@@ -3,19 +3,23 @@ import { Button } from "@/components/ui/button";
 import { Home, Activity, Search, Users, Target, AlertTriangle, Lightbulb } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 
 export default function NavigationWidget() {
   const pathname = usePathname();
+  const { data: session } = useSession();
 
   const navigationItems = [
     { href: '/', icon: Home, label: 'Home', isActive: pathname === '/' },
-    { href: '/activity', icon: Activity, label: 'Activity', isActive: pathname === '/activity' },
+    { href: '/activity', icon: Activity, label: 'Activity', isActive: pathname === '/activity', requiresAuth: true },
     { href: '/explore', icon: Search, label: 'Explore', isActive: pathname === '/explore' },
     { href: '/issues', icon: AlertTriangle, label: 'Issues', isActive: pathname.startsWith('/issues') },
     { href: '/ideas', icon: Lightbulb, label: 'Ideas', isActive: pathname.startsWith('/ideas') },
     { href: '/initiatives', icon: Target, label: 'Initiatives', isActive: pathname.startsWith('/initiatives') },
     { href: '/societies', icon: Users, label: 'Societies', isActive: pathname.startsWith('/societies') },
   ];
+
+  const filteredNavItems = navigationItems.filter(item => !item.requiresAuth || (item.requiresAuth && session));
 
   return (
     <Card>
@@ -25,7 +29,7 @@ export default function NavigationWidget() {
         </CardTitle>
       </CardHeader>
       <CardContent className="py-2 px-3 space-y-1">
-        {navigationItems.map((item) => {
+        {filteredNavItems.map((item) => {
           const IconComponent = item.icon;
           return (
             <Button

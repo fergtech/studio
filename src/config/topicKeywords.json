@@ -196,9 +196,9 @@
       "context": ["community support", "charitable organization", "volunteer program", "donation drive"]
     },
     "Smartphone": {
-      "primary": ["technology", "digital", "communication", "mobile", "internet", "connectivity"],
-      "secondary": ["app", "service", "online", "electronic", "innovation", "access"],
-      "context": ["digital services", "technology infrastructure", "digital divide", "connectivity"]
+      "primary": ["technology", "digital", "communication", "mobile", "internet", "connectivity", "artificial intelligence", "AI", "machine learning", "intelligence"],
+      "secondary": ["app", "service", "online", "electronic", "innovation", "access", "automation", "smart", "algorithm", "data"],
+      "context": ["digital services", "technology infrastructure", "digital divide", "connectivity", "artificial intelligence", "AI technology", "machine learning"]
     },
     "Wifi": {
       "primary": ["internet", "broadband", "connectivity", "network", "digital", "access"],

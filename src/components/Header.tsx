@@ -111,29 +111,33 @@ export function Header() {
           <Link href="/" className="flex items-center rounded-md p-2 text-sm font-medium text-muted-foreground transition-colors hover:text-primary">
             <Home className="h-4 w-4" />
           </Link>
-          <Link href="/activity" className="flex items-center rounded-md p-2 text-sm font-medium text-muted-foreground transition-colors hover:text-primary">
-            <Activity className="h-4 w-4" />
-          </Link>
+          {session?.user && (
+            <Link href="/activity" className="flex items-center rounded-md p-2 text-sm font-medium text-muted-foreground transition-colors hover:text-primary">
+              <Activity className="h-4 w-4" />
+            </Link>
+          )}
           <Link href="/explore" className="flex items-center rounded-md p-2 text-sm font-medium text-muted-foreground transition-colors hover:text-primary">
             <Search className="h-4 w-4" />
           </Link>
           <Link href="/societies" className="flex items-center rounded-md p-2 text-sm font-medium text-muted-foreground transition-colors hover:text-primary">
             <Users className="h-4 w-4" />
           </Link>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="default" size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90" suppressHydrationWarning={true}>
-                <PlusCircle className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56" align="end" forceMount>
-              <DropdownMenuItem onClick={() => openCreateInitiativeModal()} className="cursor-pointer">Create Initiative</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => openCreateIssueModal()} className="cursor-pointer">Create Issue</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => openCreateIdeaModal()} className="cursor-pointer">Create Idea</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => openCreateSocietyModal()} className="cursor-pointer">Create Society</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => openCreateDebateTopicModal()} className="cursor-pointer">Create Debate Topic</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {session?.user && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="default" size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90" suppressHydrationWarning={true}>
+                  <PlusCircle className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56" align="end" forceMount>
+                <DropdownMenuItem onClick={() => openCreateInitiativeModal()} className="cursor-pointer">Create Initiative</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openCreateIssueModal()} className="cursor-pointer">Create Issue</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openCreateIdeaModal()} className="cursor-pointer">Create Idea</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openCreateSocietyModal()} className="cursor-pointer">Create Society</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openCreateDebateTopicModal()} className="cursor-pointer">Create Debate Topic</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           {isLoading ? (
             <div className="h-8 w-20 bg-muted rounded animate-pulse"></div>
           ) : session?.user ? (
@@ -208,9 +212,11 @@ export function Header() {
               <Link href="/" className="flex items-center gap-2 px-4 py-3 text-base font-medium text-muted-foreground hover:text-primary transition-colors">
                 <Home className="h-5 w-5" /> Home
               </Link>
-              <Link href="/activity" className="flex items-center gap-2 px-4 py-3 text-base font-medium text-muted-foreground hover:text-primary transition-colors">
-                <Activity className="h-5 w-5" /> Activity
-              </Link>
+              {session?.user && (
+                <Link href="/activity" className="flex items-center gap-2 px-4 py-3 text-base font-medium text-muted-foreground hover:text-primary transition-colors">
+                  <Activity className="h-5 w-5" /> Activity
+                </Link>
+              )}
               <Link href="/explore" className="flex items-center gap-2 px-4 py-3 text-base font-medium text-muted-foreground hover:text-primary transition-colors">
                 <Search className="h-5 w-5" /> Explore
               </Link>
@@ -218,24 +224,28 @@ export function Header() {
                 <Users className="h-5 w-5" /> Societies
               </Link>
               <Separator className="my-2" />
-              <div className="p-4 pt-0 pb-2">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</span>
-              </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="default" size="lg" className="w-[85%] mx-auto flex items-center justify-center gap-2 mb-2">
-                    <PlusCircle className="h-5 w-5" /> Create
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56" align="start" forceMount>
-                  <DropdownMenuItem onClick={() => openCreateInitiativeModal()} className="cursor-pointer">Create Initiative</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => openCreateIssueModal()} className="cursor-pointer">Create Issue</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => openCreateIdeaModal()} className="cursor-pointer">Create Idea</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => openCreateSocietyModal()} className="cursor-pointer">Create Society</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => openCreateDebateTopicModal()} className="cursor-pointer">Create Debate Topic</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <Separator className="my-2" />
+              {session?.user && (
+                <>
+                  <div className="p-4 pt-0 pb-2">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</span>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="default" size="lg" className="w-[85%] mx-auto flex items-center justify-center gap-2 mb-2">
+                        <PlusCircle className="h-5 w-5" /> Create
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-56" align="start" forceMount>
+                      <DropdownMenuItem onClick={() => openCreateInitiativeModal()} className="cursor-pointer">Create Initiative</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => openCreateIssueModal()} className="cursor-pointer">Create Issue</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => openCreateIdeaModal()} className="cursor-pointer">Create Idea</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => openCreateSocietyModal()} className="cursor-pointer">Create Society</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => openCreateDebateTopicModal()} className="cursor-pointer">Create Debate Topic</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <Separator className="my-2" />
+                </>
+              )}
               <div className="p-4 pt-0 pb-2">
                 <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Account</span>
               </div>

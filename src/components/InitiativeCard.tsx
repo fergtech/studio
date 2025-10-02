@@ -2,7 +2,9 @@
 import React from 'react';
 import { Initiative } from '@/lib/types';
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { useRouter } from 'next/navigation';
@@ -125,7 +127,23 @@ export function InitiativeCard({ initiative, creatorName = "Creator", creatorAva
                 🏛️ {initiative.society.name}
               </Badge>
             )}
-            {/* Edit/Delete actions removed from main feed */}
+            {/* Delete Button - Show only to author */}
+            {currentUserId && initiative.creatorId === currentUserId && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleDelete();
+                }}
+                disabled={isDeleting}
+                className="ml-auto text-destructive-foreground hover:text-destructive hover:bg-destructive/10"
+                aria-label="Delete initiative"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </div>
 
@@ -151,6 +169,7 @@ export function InitiativeCard({ initiative, creatorName = "Creator", creatorAva
               )}
             </div>
           )}
+          {deleteError && <p className="text-xs text-destructive text-center mt-2">{deleteError}</p>}
         </div>
       </div>
     </div>

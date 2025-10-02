@@ -13,6 +13,8 @@ import { useModal } from "@/context/ModalContext";
 import { ShareModal } from './ShareModal';
 import { deleteIdea } from '@/app/actions/ideaActions';
 import { saveScrollPositionForKey } from '@/hooks/useScrollPosition';
+import { useRouter } from 'next/navigation';
+import { createNavigationHandler } from '@/utils/navigation';
 
 // Mock comment data (in a real app, this would come from the database)
 interface Comment {
@@ -32,6 +34,8 @@ interface IdeaCardProps {
 
 export function IdeaCard({ idea, currentUserId, onIdeaDeleted }: IdeaCardProps) {
   const { openCreateInitiativeModal } = useModal();
+  const router = useRouter();
+  const navigationHandler = createNavigationHandler(router);
   
   // --- Likes ---
   const [interestCount, setInterestCount] = useState(0);
@@ -230,9 +234,13 @@ export function IdeaCard({ idea, currentUserId, onIdeaDeleted }: IdeaCardProps) 
   };
 
   return (
-    <Link 
-      href={`/ideas/${idea.id}`}
-      onClick={() => saveScrollPositionForKey('homeFeed')}
+    <div
+      onClick={(e) => {
+        // Only navigate if not clicking interactive elements
+        if (!e.target || !(e.target as HTMLElement).closest('button, [role="button"], input, textarea')) {
+          navigationHandler.handleIdeaClick(idea.id);
+        }
+      }}
       className={cn(
         "relative mb-4 rounded-lg overflow-hidden shadow-lg flex flex-col text-card-foreground cursor-pointer hover:shadow-xl transition-shadow",
         "aspect-[9/12]"
@@ -255,8 +263,7 @@ export function IdeaCard({ idea, currentUserId, onIdeaDeleted }: IdeaCardProps) 
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              saveScrollPositionForKey('homeFeed');
-              window.location.href = `/profile/${idea.creatorId}`;
+              navigationHandler.handleProfileClick(idea.creatorId);
             }}
             className="cursor-pointer hover:opacity-80 transition-opacity"
           >
@@ -270,8 +277,7 @@ export function IdeaCard({ idea, currentUserId, onIdeaDeleted }: IdeaCardProps) 
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                saveScrollPositionForKey('homeFeed');
-              window.location.href = `/profile/${idea.creatorId}`;
+                navigationHandler.handleProfileClick(idea.creatorId);
               }}
               className="text-sm font-semibold cursor-pointer hover:underline"
             >
@@ -460,8 +466,7 @@ export function IdeaCard({ idea, currentUserId, onIdeaDeleted }: IdeaCardProps) 
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    saveScrollPositionForKey('homeFeed');
-              window.location.href = `/profile/${idea.creatorId}`;
+                    navigationHandler.handleProfileClick(idea.creatorId);
                   }}
                   className="text-sm font-medium truncate cursor-pointer hover:underline"
                 >
@@ -494,8 +499,7 @@ export function IdeaCard({ idea, currentUserId, onIdeaDeleted }: IdeaCardProps) 
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        saveScrollPositionForKey('homeFeed');
-                        window.location.href = `/profile/${comment.userId}`;
+                        navigationHandler.handleProfileClick(comment.userId);
                       }}
                       className="cursor-pointer hover:opacity-80 transition-opacity"
                     >
@@ -510,8 +514,7 @@ export function IdeaCard({ idea, currentUserId, onIdeaDeleted }: IdeaCardProps) 
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            saveScrollPositionForKey('homeFeed');
-                        window.location.href = `/profile/${comment.userId}`;
+                            navigationHandler.handleProfileClick(comment.userId);
                           }}
                           className="text-sm font-medium cursor-pointer hover:underline"
                         >
@@ -563,6 +566,6 @@ export function IdeaCard({ idea, currentUserId, onIdeaDeleted }: IdeaCardProps) 
         title="Share Idea"
         defaultMessage={`Check out this idea: ${idea.title}`}
       />
-    </Link>
+    </div>
   );
 } 

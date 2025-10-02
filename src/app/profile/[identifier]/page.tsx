@@ -138,6 +138,36 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
             },
           },
         },
+        createdIssues: {
+          include: {
+            society: {
+              select: {
+                id: true,
+                name: true,
+                image: true,
+              },
+            },
+            media: true,
+          },
+          orderBy: {
+            createdAt: 'desc'
+          }
+        },
+        createdIdeas: {
+          include: {
+            society: {
+              select: {
+                id: true,
+                name: true,
+                image: true,
+              },
+            },
+            media: true,
+          },
+          orderBy: {
+            createdAt: 'desc'
+          }
+        },
       }
     });
   }
@@ -236,6 +266,36 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
             },
           },
         },
+        createdIssues: {
+          include: {
+            society: {
+              select: {
+                id: true,
+                name: true,
+                image: true,
+              },
+            },
+            media: true,
+          },
+          orderBy: {
+            createdAt: 'desc'
+          }
+        },
+        createdIdeas: {
+          include: {
+            society: {
+              select: {
+                id: true,
+                name: true,
+                image: true,
+              },
+            },
+            media: true,
+          },
+          orderBy: {
+            createdAt: 'desc'
+          }
+        },
       }
     } as const;
 
@@ -265,16 +325,7 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
     },
   });
 
-  const userChatMessages = await prisma.chatMessage.findMany({
-    where: { senderId: profileUserId },
-    include: {
-      sender: true,
-      initiative: true,
-    },
-    orderBy: {
-      timestamp: 'desc'
-    },
-  });
+  // Chat messages removed from activity feed for privacy
 
   const transformedUser = {
     ...typedUser,
@@ -330,16 +381,7 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
     });
   });
 
-  userChatMessages.forEach((chatMessage: any) => {
-    activityFeed.push({
-      id: chatMessage.id,
-      type: 'comment',
-      title: `Chat message in ${chatMessage.initiative?.title || chatMessage.initiativeId}`,
-      date: chatMessage.timestamp,
-      details: chatMessage.text,
-      relatedInitiativeId: chatMessage.initiativeId || undefined,
-    });
-  });
+  // Chat messages excluded from activity feed for privacy reasons
 
   activityFeed.sort((a, b) => b.date.getTime() - a.date.getTime());
 

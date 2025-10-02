@@ -13,6 +13,7 @@ import { useModal } from "@/context/ModalContext";
 import { ShareModal } from './ShareModal';
 import { deleteIssue } from '@/app/actions/issueActions';
 import { saveScrollPositionForKey } from '@/hooks/useScrollPosition';
+import { useRouter } from 'next/navigation';
 
 // Mock comment data (in a real app, this would come from the database)
 interface Comment {
@@ -32,6 +33,7 @@ interface IssueCardProps {
 
 export function IssueCard({ issue, currentUserId, onIssueDeleted }: IssueCardProps) {
   const { openCreateInitiativeModal } = useModal();
+  const router = useRouter();
   
   // --- Likes ---
   const [interestCount, setInterestCount] = useState(0);
@@ -230,9 +232,14 @@ export function IssueCard({ issue, currentUserId, onIssueDeleted }: IssueCardPro
   };
 
   return (
-    <Link 
-      href={`/issues/${issue.id}`}
-      onClick={() => saveScrollPositionForKey('homeFeed')}
+    <div
+      onClick={() => {
+        // Save both scroll position and filter state
+        sessionStorage.setItem('scrollY', window.scrollY.toString());
+        const currentFilter = sessionStorage.getItem('feedFilter') || 'all';
+        sessionStorage.setItem('feedFilter', currentFilter);
+        router.push(`/issues/${issue.id}`);
+      }}
       className={cn(
         "relative mb-4 rounded-lg overflow-hidden shadow-lg flex flex-col text-card-foreground cursor-pointer hover:shadow-xl transition-shadow",
         "aspect-[9/12]"
@@ -563,6 +570,6 @@ export function IssueCard({ issue, currentUserId, onIssueDeleted }: IssueCardPro
         title="Share Issue"
         defaultMessage={`Check out this issue: ${issue.title}`}
       />
-    </Link>
+    </div>
   );
 } 

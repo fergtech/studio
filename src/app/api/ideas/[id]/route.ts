@@ -14,7 +14,7 @@ export async function PATCH(
     }
 
     const { id } = await params;
-    const { title, description } = await request.json();
+    const { title, description, mediaUrl } = await request.json();
 
     if (!title?.trim() || !description?.trim()) {
       return NextResponse.json({ error: 'Title and description are required' }, { status: 400 });
@@ -34,12 +34,35 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized: You can only edit your own ideas' }, { status: 403 });
     }
 
+    // Prepare update data
+    const updateData: any = {
+      title: title.trim(),
+      description: description.trim(),
+    };
+
+    // Handle media update if provided in request
+    if (mediaUrl !== undefined) {
+      if (mediaUrl === null) {
+        // Remove existing media
+        updateData.media = { deleteMany: {} };
+      } else if (mediaUrl) {
+        // Add or replace media
+        updateData.media = {
+          deleteMany: {}, // Clear existing media first
+          create: [{
+            type: 'image', // Default to image, could be enhanced to detect type
+            url: mediaUrl,
+          }],
+        };
+      }
+    }
+
     // Update the idea
     const updatedIdea = await prisma.idea.update({
       where: { id },
-      data: {
-        title: title.trim(),
-        description: description.trim(),
+      data: updateData,
+      include: {
+        media: true,
       },
     });
 

@@ -48,6 +48,8 @@ export function GlobalModals() {
     closeCreateDebateTopicModal,
     createBattleResponseModal,
     closeCreateBattleResponseModal,
+    createTopicPostModal,
+    closeCreateTopicPostModal,
   } = useModal();
 
   // Add handler to emit custom event for feed update
@@ -137,6 +139,29 @@ export function GlobalModals() {
               battleId: createBattleResponseModal.battleId!,
               battleTitle: createBattleResponseModal.battleTitle
             }}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Topic Post Modal */}
+      <Dialog open={createTopicPostModal.isOpen} onOpenChange={(isOpen) => !isOpen && closeCreateTopicPostModal()}>
+        <DialogContent className="w-[95vw] max-w-[600px] max-h-[85vh] sm:max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              💬 Create Post
+              {createTopicPostModal.topic && (
+                <span className="block text-sm font-normal text-muted-foreground mt-1">
+                  About: #{createTopicPostModal.topic}
+                </span>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          <CreatePostForm
+            onSuccess={() => {
+              closeCreateTopicPostModal();
+              handleFeedItemCreated({}); // Trigger feed refresh
+            }}
+            initialTopic={createTopicPostModal.topic}
           />
         </DialogContent>
       </Dialog>

@@ -6,7 +6,8 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import PostReactions from '@/components/PostReactions';
 import CommentPanel from '@/components/CommentPanel';
 import React, { useRef, useState, useEffect } from 'react';
-import { Pause, Play, Maximize2, ArrowLeft, Edit, Save, Loader2 } from 'lucide-react';
+import { Pause, Play, Maximize2, ArrowLeft, Edit, Save, Loader2, Paperclip, X, Upload } from 'lucide-react';
+import imageCompression from 'browser-image-compression';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -118,6 +119,10 @@ export default function PostDetailClient({
   const [editMode, setEditMode] = useState(false);
   const [editContent, setEditContent] = useState(content);
   const [editLoading, setEditLoading] = useState(false);
+  const [selectedMedia, setSelectedMedia] = useState<File | null>(null);
+  const [mediaPreview, setMediaPreview] = useState<string | null>(null);
+  const [removeExistingMedia, setRemoveExistingMedia] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Defensive checks for required props
   if (!id || !content || !creatorId || !creatorName || (postType === 'society' && (!society || !society.id))) {
@@ -138,7 +143,79 @@ export default function PostDetailClient({
       window.history.replaceState({}, '', url.pathname);
     }
   }, [searchParams]);
-  
+
+  // Media handling functions
+  const compressFile = async (file: File): Promise<File | null> => {
+    const maxSizeInMB = 25;
+
+    if (file.size <= maxSizeInMB * 1024 * 1024) {
+      return file;
+    }
+
+    try {
+      if (file.type.startsWith('image/')) {
+        const options = {
+          maxSizeMB: maxSizeInMB,
+          maxWidthOrHeight: 1920,
+          useWebWorker: true,
+          fileType: 'image/webp',
+          quality: 0.85,
+          initialQuality: 0.85,
+        };
+        return await imageCompression(file, options);
+      }
+      return file;
+    } catch (error) {
+      console.error('Compression failed:', error);
+      toast({
+        title: "Compression Failed",
+        description: "Could not compress file. Please try a smaller file.",
+        variant: "destructive",
+      });
+      return null;
+    }
+  };
+
+  const handleMediaChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const processedFile = await compressFile(file);
+
+      if (processedFile) {
+        setSelectedMedia(processedFile);
+
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setMediaPreview(reader.result as string);
+        };
+        reader.readAsDataURL(processedFile);
+        setRemoveExistingMedia(false);
+      } else {
+        if (event.target) {
+          event.target.value = '';
+        }
+        setSelectedMedia(null);
+        setMediaPreview(null);
+      }
+    } else {
+      setSelectedMedia(null);
+      setMediaPreview(null);
+    }
+  };
+
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
+  };
+
+  const removeMedia = () => {
+    setSelectedMedia(null);
+    setMediaPreview(null);
+    setRemoveExistingMedia(true);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   // Handle edit submit
   const handleEditSubmit = async () => {
     if (!editContent.trim()) {
@@ -150,18 +227,73 @@ export default function PostDetailClient({
       return;
     }
 
-    if (editContent === content) {
+    const hasChanges = editContent !== content ||
+                      selectedMedia !== null ||
+                      removeExistingMedia;
+
+    if (!hasChanges) {
       setEditMode(false);
       return;
     }
 
     setEditLoading(true);
     try {
-      const result = postType === 'society' 
-        ? await updateSocietyPostContent(id, editContent)
-        : await updateGeneralPostContent(id, editContent);
+      let uploadedMediaUrl: string | null = null;
+
+      // Handle media upload if there's a new file
+      if (selectedMedia) {
+        const uploadFormData = new FormData();
+        uploadFormData.append('file', selectedMedia);
+
+        try {
+          const uploadResponse = await fetch('/api/upload', {
+            method: 'POST',
+            body: uploadFormData,
+          });
+
+          if (!uploadResponse.ok) {
+            throw new Error(`Upload failed: ${uploadResponse.statusText}`);
+          }
+
+          const uploadResult = await uploadResponse.json();
+          if (uploadResult.imageUrl) {
+            uploadedMediaUrl = uploadResult.imageUrl;
+          }
+        } catch (uploadError) {
+          console.error('Media upload failed:', uploadError);
+          toast({
+            title: "Upload Error",
+            description: "Failed to upload media. Please try again.",
+            variant: "destructive",
+          });
+          setEditLoading(false);
+          return;
+        }
+      }
+
+      // Prepare update data
+      const updateData: any = { content: editContent };
+
+      // Handle media changes
+      if (removeExistingMedia && !selectedMedia) {
+        updateData.removeMedia = true;
+      } else if (uploadedMediaUrl) {
+        updateData.mediaUrl = uploadedMediaUrl;
+        updateData.mediaType = selectedMedia?.type.startsWith('video/') ? 'video' : 'image';
+      }
+
+      const result = postType === 'society'
+        ? await updateSocietyPostContent(id, editContent, updateData)
+        : await updateGeneralPostContent(id, editContent, updateData);
+
       if (result.success) {
         setEditMode(false);
+        setSelectedMedia(null);
+        setMediaPreview(null);
+        setRemoveExistingMedia(false);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
         toast({
           title: "Post Updated!",
           description: "Your post has been updated successfully.",
@@ -252,16 +384,18 @@ export default function PostDetailClient({
       
       {/* Main Content - with dynamic left margin based on sidebar state and blur when comment panel open */}
       <div className={`transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'} ${commentPanelOpen ? 'blur-sm pointer-events-none' : ''}`}>
-        {/* Back Button - positioned to avoid mobile sidebar toggle */}
-        <div className="max-w-6xl mx-auto pt-6 lg:pt-2 px-2 flex items-start">
+        {/* Close Button - positioned on the right */}
+        <div className="max-w-6xl mx-auto pt-6 lg:pt-2 px-2 flex items-start justify-end">
           <button
-            className="flex items-center gap-1 text-muted-foreground hover:text-foreground text-sm px-2 py-1 rounded hover:bg-muted/40 transition shadow-none border-none bg-transparent ml-16 lg:ml-0"
-            onClick={() => router.back()}
+            className="flex items-center gap-1 text-muted-foreground hover:text-foreground text-sm px-2 py-1 rounded hover:bg-muted/40 transition shadow-none border-none bg-transparent"
+            onClick={() => {
+              // Navigate to home and let HomeClient restore state
+              router.push('/');
+            }}
             type="button"
-            aria-label="Back"
+            aria-label="Close"
           >
-            <ArrowLeft className="h-4 w-4" />
-            <span className="hidden sm:inline">Back</span>
+            <X className="h-4 w-4" />
           </button>
         </div>
         {/* Main Content */}
@@ -359,6 +493,113 @@ export default function PostDetailClient({
                     className="min-h-[120px] resize-none"
                     placeholder="What's on your mind?"
                   />
+
+                  {/* Media Editing Section */}
+                  <div className="space-y-3 pt-4 border-t">
+                    <h4 className="text-sm font-medium text-muted-foreground">Media</h4>
+
+                    {/* Current media or preview */}
+                    {mediaPreview ? (
+                      <div className="relative rounded-lg overflow-hidden">
+                        {selectedMedia?.type.startsWith('video/') ? (
+                          <video
+                            src={mediaPreview}
+                            className="w-full h-auto max-h-64 object-cover"
+                            controls
+                          />
+                        ) : (
+                          <Image
+                            src={mediaPreview}
+                            alt="Media preview"
+                            width={400}
+                            height={250}
+                            className="w-full h-auto max-h-64 object-cover"
+                          />
+                        )}
+                        <Button
+                          onClick={removeMedia}
+                          variant="destructive"
+                          size="sm"
+                          className="absolute top-2 right-2"
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    ) : (hasImage || hasVideo || hasAudio) && !removeExistingMedia ? (
+                      <div className="relative rounded-lg overflow-hidden">
+                        {hasVideo ? (
+                          <video
+                            src={videoUrl || ''}
+                            className="w-full h-auto max-h-64 object-cover"
+                            controls
+                          />
+                        ) : hasImage ? (
+                          <Image
+                            src={imageUrl || ''}
+                            alt="Current media"
+                            width={400}
+                            height={250}
+                            className="w-full h-auto max-h-64 object-cover"
+                          />
+                        ) : hasAudio ? (
+                          <div className="bg-muted p-4 rounded-lg">
+                            <audio
+                              src={audioUrl || ''}
+                              controls
+                              className="w-full"
+                            />
+                          </div>
+                        ) : null}
+                        <Button
+                          onClick={removeMedia}
+                          variant="destructive"
+                          size="sm"
+                          className="absolute top-2 right-2"
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="border-2 border-dashed border-muted-foreground/20 rounded-lg p-8 text-center">
+                        <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground/40" />
+                        <p className="text-sm text-muted-foreground mb-3">
+                          {(hasImage || hasVideo || hasAudio) && removeExistingMedia ? 'Media will be removed' : 'No media selected'}
+                        </p>
+                        <Button
+                          onClick={triggerFileInput}
+                          variant="outline"
+                          size="sm"
+                          className="flex items-center gap-2"
+                        >
+                          <Paperclip className="w-3 h-3" />
+                          Choose File
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* File input */}
+                    <input
+                      type="file"
+                      accept="image/*,video/*"
+                      ref={fileInputRef}
+                      onChange={handleMediaChange}
+                      className="hidden"
+                    />
+
+                    {/* Upload new media button */}
+                    {!mediaPreview && !((hasImage || hasVideo || hasAudio) && !removeExistingMedia) && (
+                      <Button
+                        onClick={triggerFileInput}
+                        variant="outline"
+                        size="sm"
+                        className="w-full flex items-center gap-2"
+                      >
+                        <Paperclip className="w-3 h-3" />
+                        Add Media
+                      </Button>
+                    )}
+                  </div>
+
                   <div className="flex gap-2">
                     <Button
                       onClick={handleEditSubmit}
@@ -382,6 +623,12 @@ export default function PostDetailClient({
                       onClick={() => {
                         setEditMode(false);
                         setEditContent(content);
+                        setSelectedMedia(null);
+                        setMediaPreview(null);
+                        setRemoveExistingMedia(false);
+                        if (fileInputRef.current) {
+                          fileInputRef.current.value = '';
+                        }
                       }}
                       variant="outline"
                       size="sm"

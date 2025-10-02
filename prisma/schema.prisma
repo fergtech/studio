@@ -202,7 +202,7 @@ model GeneralPost {
   linkedInitiativeId String?
   linkPreviewId      String?
   linkUrl            String?
-  topics             String[]              @default([])
+  topics             String[]              @default([]) // Keep for backward compatibility during migration
   creator            User                  @relation("CreatorOfGeneralPost", fields: [creatorId], references: [id])
   linkPreview        LinkPreview?          @relation(fields: [linkPreviewId], references: [id])
   linkedInitiative   Initiative?           @relation("LinkedInitiativePosts", fields: [linkedInitiativeId], references: [id])
@@ -216,6 +216,7 @@ model GeneralPost {
   userHotTakePost    HotTakeParticipant[]  @relation("UserHotTakePost")
   relatedHotTakes    HotTakeRelatedPost[]  @relation("RelatedHotTakePost")
   media              MediaItem[]
+  postTopics         PostTopic[]           @relation("PostTopics")
 
   @@index([topics])
 }
@@ -710,14 +711,35 @@ model Topic {
   id             String              @id @default(cuid())
   name           String              @unique
   description    String?
+  category       String?             // e.g., "civic", "entertainment", "technology"
+  isSystem       Boolean             @default(false) // True for auto-generated topics
+  confidence     Float?              // Confidence score for auto-generated topics
   createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
   postCount      Int                 @default(0)
   weeklyPosts    Int                 @default(0)
   popularInAreas String[]            @default([])
   userInterests  UserTopicInterest[] @relation("TopicUserInterests")
+  postTopics     PostTopic[]         @relation("TopicPosts")
 
   @@index([name])
   @@index([postCount])
+  @@index([category])
+  @@index([isSystem])
+}
+
+model PostTopic {
+  id         String      @id @default(cuid())
+  postId     String
+  topicId    String
+  confidence Float?      // Confidence score for this topic assignment
+  createdAt  DateTime    @default(now())
+  post       GeneralPost @relation("PostTopics", fields: [postId], references: [id], onDelete: Cascade)
+  topic      Topic       @relation("TopicPosts", fields: [topicId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, topicId])
+  @@index([postId])
+  @@index([topicId])
 }
 
 model UserTopicInterest {

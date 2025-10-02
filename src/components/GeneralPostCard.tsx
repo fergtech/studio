@@ -15,6 +15,7 @@ import { ShareModal } from './ShareModal';
 import { LinkPreview } from '@/components/ui/link-preview';
 import { AudioPlayer } from '@/components/ui/audio-player';
 import { saveScrollPositionForKey } from '@/hooks/useScrollPosition';
+import { useRouter } from 'next/navigation';
 
 // Helper function to detect video files
 const isVideoFile = (url: string) => {
@@ -62,6 +63,7 @@ interface GeneralPostCardProps {
 }
 
 export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralPostCardProps) {
+  const router = useRouter();
   const { openCreateInitiativeModal } = useModal(); // Use modal context
   // Generate deterministic values based on post ID instead of random numbers
   // This ensures the same values are used on both server and client
@@ -183,7 +185,7 @@ export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralP
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ postId: post.id, userId: currentUserId })
       });
-      setInterestCount(c => Math.max(0, c - 1));
+      setInterestCount((c: number) => Math.max(0, c - 1));
       setIsInterested(false);
     } else {
       await fetch('/api/general-posts/likes', {
@@ -191,7 +193,7 @@ export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralP
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ postId: post.id, userId: currentUserId })
       });
-      setInterestCount(c => c + 1);
+      setInterestCount((c: number) => c + 1);
       setIsInterested(true);
     }
   };
@@ -207,7 +209,7 @@ export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralP
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ postId: post.id, userId: currentUserId })
       });
-      setShareCount(c => Math.max(0, c - 1));
+      setShareCount((c: number) => Math.max(0, c - 1));
       setHasShared(false);
     } else {
       await fetch('/api/general-posts/shares', {
@@ -215,7 +217,7 @@ export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralP
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ postId: post.id, userId: currentUserId })
       });
-      setShareCount(c => c + 1);
+      setShareCount((c: number) => c + 1);
       setHasShared(true);
     }
     setIsShareModalOpen(true);
@@ -254,7 +256,7 @@ export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralP
           text: comment.text,
           timestamp: new Date(comment.timestamp)
         }]);
-        setCommentsCount(c => c + 1);
+        setCommentsCount((c: number) => c + 1);
         setNewComment('');
       } else {
         const errorData = await res.json();
@@ -269,7 +271,7 @@ export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralP
     e.preventDefault();
     e.stopPropagation();
     // For general posts, use content as description and empty title
-    const imageUrl = post.imageUrl || undefined;
+    const imageUrl = post.media && post.media.length > 0 ? post.media[0].url : undefined;
     openCreateInitiativeModal("", post.content, imageUrl);
   };
 
@@ -335,13 +337,21 @@ export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralP
     });
   };
 
-  // Add a handler to save scroll position before navigating to detail page
+  // Add a handler to save scroll position and filter state before navigating to detail page
   const handlePostClick = () => {
-    saveScrollPositionForKey('homeFeed');
+    // Save both scroll position and filter state
+    sessionStorage.setItem('scrollY', window.scrollY.toString());
+    const currentFilter = sessionStorage.getItem('feedFilter') || 'all';
+    sessionStorage.setItem('feedFilter', currentFilter);
+  };
+
+  const navigateToPost = () => {
+    handlePostClick();
+    router.push(`/posts/${post.id}`);
   };
 
   return (
-    <div 
+    <div
       className={cn(
         "relative mb-4 rounded-lg overflow-hidden shadow-lg flex flex-col text-card-foreground cursor-pointer",
         "aspect-[9/12] hover:ring-2 hover:ring-primary/60 transition group"
@@ -350,10 +360,9 @@ export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralP
         // Check if clicking on interactive elements
         const target = e.target as HTMLElement;
         const isInteractiveElement = target.closest('button, a, textarea, input, [role="button"]');
-        
+
         if (!isInteractiveElement) {
-          handlePostClick();
-          window.location.href = `/posts/${post.id}`;
+          navigateToPost();
         }
       }}
     >
@@ -509,8 +518,7 @@ export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralP
                 <button 
                   onClick={(e) => {
                     e.stopPropagation();
-                    handlePostClick();
-                    window.location.href = `/posts/${post.id}`;
+                    navigateToPost();
                   }}
                   className="text-xs text-white/80 hover:text-white underline mt-1 px-2"
                 >

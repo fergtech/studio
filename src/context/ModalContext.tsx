@@ -35,6 +35,10 @@ interface ModalContextType {
   createBattleResponseModal: { isOpen: boolean; battleId: string | null; battleTitle?: string };
   openCreateBattleResponseModal: (battleId: string, battleTitle?: string) => void;
   closeCreateBattleResponseModal: () => void;
+  // New for General Post with Topic
+  createTopicPostModal: { isOpen: boolean; topic: string | null };
+  openCreateTopicPostModal: (topic: string) => void;
+  closeCreateTopicPostModal: () => void;
 }
 
 const ModalContext = createContext<ModalContextType | undefined>(undefined);
@@ -53,6 +57,10 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => {
   const [createBattleResponseModal, setCreateBattleResponseModal] = useState<{ isOpen: boolean; battleId: string | null; battleTitle?: string }>({
     isOpen: false,
     battleId: null
+  });
+  const [createTopicPostModal, setCreateTopicPostModal] = useState<{ isOpen: boolean; topic: string | null }>({
+    isOpen: false,
+    topic: null
   });
 
   const openCreateInitiativeModal = (title?: string, description?: string, imageUrl?: string, originatingIssueId?: string, originatingIdeaId?: string) => {
@@ -124,6 +132,20 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
+  const openCreateTopicPostModal = (topic: string) => {
+    setCreateTopicPostModal({
+      isOpen: true,
+      topic
+    });
+  };
+
+  const closeCreateTopicPostModal = () => {
+    setCreateTopicPostModal({
+      isOpen: false,
+      topic: null
+    });
+  };
+
   return (
     <ModalContext.Provider value={{
       createInitiativeModal,
@@ -144,6 +166,9 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => {
       createBattleResponseModal,
       openCreateBattleResponseModal,
       closeCreateBattleResponseModal,
+      createTopicPostModal,
+      openCreateTopicPostModal,
+      closeCreateTopicPostModal,
     }}>
       {children}
     </ModalContext.Provider>

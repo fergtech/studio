@@ -69,8 +69,12 @@ export async function createGeneralPost(formData: FormData) { // Changed signatu
 
     // Use AI to detect semantic topics if we have fewer than 3 manual topics
     if (manualTopics.length < 3) {
+      console.log('🚀 Post Creation: Starting topic detection for content:', content);
+      console.log('📋 Manual topics provided:', manualTopics);
       try {
+        // Use the old system without postId first to get initial topics
         const aiResult = await detectTopicsFromContent(content);
+        console.log('🎯 AI Detection result:', aiResult);
         if (aiResult.confidence > 0.5) {
           // Add AI-detected topics that aren't already in manual topics
           const newAiTopics = aiResult.semanticTopics.filter(
@@ -114,7 +118,7 @@ export async function createGeneralPost(formData: FormData) { // Changed signatu
       creatorAvatar: userAvatar,
       content: content,
       background: postBackground, // Set based on first image or formBackground
-      topics: allTopics, // Add combined manual + AI topics to the post
+      topics: [], // Keep empty - we use the relational system now
     };
 
     if (linkedInitiativeId) {
@@ -134,6 +138,15 @@ export async function createGeneralPost(formData: FormData) { // Changed signatu
         media: true, // Ensure media is included in the returned post
       },
     });
+
+    // Use the new dynamic topic system to assign topics to the post
+    try {
+      console.log('🧠 Applying dynamic topic assignment to post:', newPost.id);
+      const dynamicTopics = await detectTopicsFromContent(content, newPost.id);
+      console.log('✅ Dynamic topics assigned:', dynamicTopics.semanticTopics);
+    } catch (dynamicTopicError) {
+      console.error('Dynamic topic assignment failed (post still created):', dynamicTopicError);
+    }
 
     // If this is a battle response, create the relation
     if (relatedBattleId) {
@@ -243,7 +256,7 @@ export async function deletePostAction(postId: string) {
   }
 }
 
-export async function updateGeneralPostContent(postId: string, newContent: string) {
+export async function updateGeneralPostContent(postId: string, newContent: string, updateData?: any) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return { success: false, error: 'Not authenticated' };
@@ -261,15 +274,36 @@ export async function updateGeneralPostContent(postId: string, newContent: strin
     if (post.creatorId !== currentUserId) {
       return { success: false, error: 'Not authorized' };
     }
+
+    // Prepare update payload
+    const updatePayload: any = { content: newContent };
+
+    // Handle media updates if provided
+    if (updateData) {
+      if (updateData.removeMedia) {
+        // Remove existing media
+        updatePayload.media = { deleteMany: {} };
+      } else if (updateData.mediaUrl) {
+        // Add or replace media
+        updatePayload.media = {
+          deleteMany: {}, // Clear existing media first
+          create: [{
+            type: updateData.mediaType || 'image',
+            url: updateData.mediaUrl,
+          }],
+        };
+      }
+    }
+
     await prisma.generalPost.update({
       where: { id: postId },
-      data: { content: newContent },
+      data: updatePayload,
     });
-    
+
     // Revalidate the post detail page and home page
     revalidatePath(`/posts/${postId}`);
     revalidatePath("/");
-    
+
     return { success: true };
   } catch (error) {
     console.error('Error in updateGeneralPostContent:', error);
@@ -277,7 +311,7 @@ export async function updateGeneralPostContent(postId: string, newContent: strin
   }
 }
 
-export async function updateSocietyPostContent(postId: string, newContent: string) {
+export async function updateSocietyPostContent(postId: string, newContent: string, updateData?: any) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return { success: false, error: 'Not authenticated' };
@@ -295,15 +329,28 @@ export async function updateSocietyPostContent(postId: string, newContent: strin
     if (post.userId !== currentUserId) {
       return { success: false, error: 'Not authorized' };
     }
+
+    // Prepare update payload
+    const updatePayload: any = { content: newContent };
+
+    // Handle media updates if provided - society posts use imageUrl field
+    if (updateData) {
+      if (updateData.removeMedia) {
+        updatePayload.imageUrl = null;
+      } else if (updateData.mediaUrl) {
+        updatePayload.imageUrl = updateData.mediaUrl;
+      }
+    }
+
     await prisma.societyPost.update({
       where: { id: postId },
-      data: { content: newContent },
+      data: updatePayload,
     });
-    
+
     // Revalidate the post detail page and home page
     revalidatePath(`/posts/${postId}`);
     revalidatePath("/");
-    
+
     return { success: true };
   } catch (error) {
     console.error('Error in updateSocietyPostContent:', error);

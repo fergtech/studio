@@ -217,20 +217,8 @@ export function IssueCard({ issue, currentUserId, onIssueDeleted }: IssueCardPro
   };
 
   const handleCreateInitiativeFromIssue = () => {
-    let imageUrl: string | undefined = undefined;
-
-    // Validate URL before passing it
-    if (issue.media && issue.media.length > 0) {
-      try {
-        const url = issue.media[0].url;
-        new URL(url); // Validate URL format
-        imageUrl = url;
-      } catch {
-        console.warn('Invalid media URL in issue, skipping:', issue.media[0].url);
-      }
-    }
-
-    openCreateInitiativeModal(issue.title, issue.description, imageUrl, issue.id, undefined);
+    // Don't pass image - let user choose their own for the initiative
+    openCreateInitiativeModal(issue.title, issue.description, undefined, issue.id, undefined);
   };
 
   const [isDeleting, setIsDeleting] = useState(false);

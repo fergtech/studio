@@ -220,20 +220,8 @@ export function IdeaCard({ idea, currentUserId, onIdeaDeleted }: IdeaCardProps) 
   };
 
   const handleCreateInitiativeFromIdea = () => {
-    let imageUrl: string | undefined = undefined;
-
-    // Validate URL before passing it
-    if (idea.media && idea.media.length > 0) {
-      try {
-        const url = idea.media[0].url;
-        new URL(url); // Validate URL format
-        imageUrl = url;
-      } catch {
-        console.warn('Invalid media URL in idea, skipping:', idea.media[0].url);
-      }
-    }
-
-    openCreateInitiativeModal(idea.title, idea.description, imageUrl, undefined, idea.id);
+    // Don't pass image - let user choose their own for the initiative
+    openCreateInitiativeModal(idea.title, idea.description, undefined, undefined, idea.id);
   };
 
   const [isDeleting, setIsDeleting] = useState(false);

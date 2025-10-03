@@ -243,7 +243,7 @@ export function MetaActionCard({ action, currentUserId }: MetaActionCardProps) {
   const initiativeLink = getInitiativeLink(action);
 
   return (
-    <div className="w-full max-w-[500px] bg-card border rounded-lg p-4 shadow-sm">
+    <div className="w-full bg-card border rounded-lg p-4 shadow-sm">
       <div className="flex items-start space-x-3">
         {/* Primary User Avatar */}
         {primaryUser && (primaryUser.username || primaryUser.id) && (

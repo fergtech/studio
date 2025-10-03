@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react'; // Import React
 import { InitiativeCard } from "@/components/InitiativeCard";
 import { GeneralPostCard } from "@/components/GeneralPostCard";
 import { MetaActionCard } from "@/components/MetaActionCard";
-import CreatePostForm from "@/components/CreatePostForm";
+import { CollapsiblePostComposer } from "@/components/CollapsiblePostComposer";
 import type { Initiative as PrismaInitiative, GeneralPost as PrismaGeneralPost, User as PrismaUser, MediaItem as PrismaMediaItem, Issue as PrismaIssue, Idea as PrismaIdea } from '@prisma/client';
 import type { GeneralPost, Initiative, Role, SkillRoleType, InitiativeStatus, UserForDisplay } from '@/lib/types';
 import { HotTakeStance } from '@prisma/client';
@@ -577,16 +577,14 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
           </div>
         </div>
 
-        {/* Main Layout: Feed + News Column - Centered Container */}
-        <div className="flex justify-center w-full px-2 sm:px-4 lg:px-6">
-          <div className="flex gap-6 w-full max-w-7xl">
-            {/* Main Feed */}
-            <div className="flex-1 max-w-md mx-auto">
-            <div className="flex flex-col space-y-6">
-          <div className="w-full">
-            <CreatePostForm onPostCreated={handlePostCreated} />
-          </div>
+        {/* Main Layout: Feed centered, News pushed to far right */}
+        <div className="flex w-full">
+          {/* Spacer for centering feed */}
+          <div className="hidden xl:block flex-1"></div>
 
+          {/* Main Feed - Centered */}
+          <div className="flex-shrink-0 w-full max-w-2xl px-4 pb-24">
+            <div className="flex flex-col space-y-6">
           {/* Feed Filter Controls - Horizontal Scrollable Tabs */}
           <div className="w-full">
             <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-2">
@@ -1042,23 +1040,32 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
             </div>
           </div>
 
-            {/* News Column - Desktop only with backup news source */}
-            <div className="hidden xl:block flex-shrink-0 w-80">
-              <NewsColumn limit={5} showMore={showMoreNews} onShowMore={() => setShowMoreNews(!showMoreNews)} />
+          {/* Spacer for centering feed */}
+          <div className="hidden xl:block flex-1"></div>
 
-              {/* Local Content Section - Below News */}
-              <div className="mt-6">
-                <LocationBasedWidget />
-              </div>
+          {/* News Column - Far right edge */}
+          <aside className="hidden xl:block flex-shrink-0 w-80 pr-6">
+            <NewsColumn limit={5} showMore={showMoreNews} onShowMore={() => setShowMoreNews(!showMoreNews)} />
 
-              {/* Smart Suggestions Section - Below Local Content */}
-              <div className="mt-6">
-                <SmartSuggestionsWidget />
-              </div>
+            {/* Local Content Section - Below News */}
+            <div className="mt-6">
+              <LocationBasedWidget />
             </div>
-          </div>
+
+            {/* Smart Suggestions Section - Below Local Content */}
+            <div className="mt-6">
+              <SmartSuggestionsWidget />
+            </div>
+          </aside>
         </div>
       </div>
+
+      {/* Collapsible Post Composer - Fixed at bottom */}
+      <CollapsiblePostComposer
+        onPostCreated={handlePostCreated}
+        onSuccess={handlePostCreated}
+        context="general"
+      />
     </div>
   );
 }

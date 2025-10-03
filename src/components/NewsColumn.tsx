@@ -67,7 +67,7 @@ export function NewsColumn({ limit = 5, showMore = false, onShowMore }: NewsColu
 
   if (loading) {
     return (
-      <div className="w-80 bg-card border rounded-lg p-4">
+      <div className="w-full bg-card border rounded-lg p-4">
         <div className="flex items-center gap-2 mb-4">
           <Newspaper className="h-5 w-5" />
           <h2 className="font-semibold text-lg">Local News</h2>
@@ -81,7 +81,7 @@ export function NewsColumn({ limit = 5, showMore = false, onShowMore }: NewsColu
 
   if (error) {
     return (
-      <div className="w-80 bg-card border rounded-lg p-4">
+      <div className="w-full bg-card border rounded-lg p-4">
         <div className="flex items-center gap-2 mb-4">
           <Newspaper className="h-5 w-5" />
           <h2 className="font-semibold text-lg">Local News</h2>
@@ -98,7 +98,7 @@ export function NewsColumn({ limit = 5, showMore = false, onShowMore }: NewsColu
   const otherNews = news.filter(n => n.tier !== 'hyper-local');
 
   return (
-    <div className="w-80 bg-card border rounded-lg p-4">
+    <div className="w-full bg-card border rounded-lg p-4">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Newspaper className="h-5 w-5" />

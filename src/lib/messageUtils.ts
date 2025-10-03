@@ -86,10 +86,21 @@ export function decodeMessage(text: string): RichMessage {
     try {
       const parsed = JSON.parse(text);
       if (parsed.type && ['image', 'video', 'file', 'link', 'mixed'].includes(parsed.type)) {
+        // Validate URLs to prevent URI malformed errors
+        if (parsed.url) {
+          try {
+            // Test if URL is valid
+            new URL(parsed.url);
+          } catch {
+            // Invalid URL, treat as plain text
+            return { type: 'text', text };
+          }
+        }
         return parsed as RichMessage;
       }
-    } catch {
-      // If parsing fails, treat as plain text
+    } catch (error) {
+      // If parsing fails or any error occurs, treat as plain text
+      console.error('Error decoding message:', error);
     }
   }
 

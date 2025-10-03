@@ -9,6 +9,7 @@ import { ModalProvider } from "@/context/ModalContext"; // Import ModalProvider
 import { ThemeProvider } from "next-themes";
 import { SessionProvider } from "next-auth/react";
 import QueryProvider from "@/providers/QueryProvider";
+import { NavigationProgress } from "@/components/NavigationProgress";
 
 // Force dynamic rendering to prevent static generation issues
 export const dynamic = 'force-dynamic';
@@ -32,6 +33,7 @@ export default function RootLayout({
             <QueryProvider>
               <AuthProvider>
                 <ModalProvider>
+                  <NavigationProgress />
                   <ConditionalHeader />
                   <main className="flex-grow overflow-x-hidden"> {/* Removed py-8 padding for pages with AppSidebar */}
                     {children}

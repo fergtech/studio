@@ -217,7 +217,19 @@ export function IssueCard({ issue, currentUserId, onIssueDeleted }: IssueCardPro
   };
 
   const handleCreateInitiativeFromIssue = () => {
-    const imageUrl = issue.media && issue.media.length > 0 ? issue.media[0].url : undefined;
+    let imageUrl: string | undefined = undefined;
+
+    // Validate URL before passing it
+    if (issue.media && issue.media.length > 0) {
+      try {
+        const url = issue.media[0].url;
+        new URL(url); // Validate URL format
+        imageUrl = url;
+      } catch {
+        console.warn('Invalid media URL in issue, skipping:', issue.media[0].url);
+      }
+    }
+
     openCreateInitiativeModal(issue.title, issue.description, imageUrl, issue.id, undefined);
   };
 

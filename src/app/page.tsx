@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth/next"; // Import getServerSession
 import { authOptions } from "@/lib/auth"; // Import authOptions
 import Image from 'next/image';
-import { runStartupTasks } from '@/lib/startup'; // Import startup tasks
+// Removed auto-startup tasks - use /api/admin/backfill-topics endpoint instead
 
 export const dynamic = 'force-dynamic';
 
@@ -155,15 +155,10 @@ export default async function Home() {
   const currentUserId = session?.user?.id; // Extract currentUserId
   const username = (session?.user as any)?.username; // Extract username if available
 
-  // Run startup tasks when a user loads the app (ensures topic backfill happens)
+  // Return HomeClient for logged-in users, LandingPage for guests
   if (currentUserId) {
-    // Run startup tasks in the background (don't block page load)
-    runStartupTasks().catch(error => {
-      console.error('Startup tasks failed but continuing app load:', error);
-    });
-
-    // HomeClient will now be responsible for fetching its own data
-    // Pass any necessary initial props like currentUserId and username
+    // HomeClient will be responsible for fetching its own data
+    // Pass necessary initial props like currentUserId and username
     return <HomeClient currentUserId={currentUserId} username={username} />;
   } else {
     return <LandingPage />;

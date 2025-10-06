@@ -1,4 +1,4 @@
-// h:\Projects\il3\studio\scripts\test-azure-storage.js
+// Test script for Azure Storage connection
 const { BlobServiceClient } = require('@azure/storage-blob');
 const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');

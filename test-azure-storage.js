@@ -1,5 +1,5 @@
 // h:\Projects\il3\studio\test-azure-storage.js
-require('dotenv').config({ path: '.env.local' }); // Load environment variables from .env.local
+require('dotenv').config(); // Load environment variables from .env.local
 const { BlobServiceClient } = require('@azure/storage-blob');
 const { v4: uuidv4 } = require('uuid');
 

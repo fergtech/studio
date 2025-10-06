@@ -1,7 +1,3 @@
-// h:\Projects\il3\studio\scripts\test-azure-storage.js
-const { BlobServiceClient } = require('@azure/storage-blob');
-const { v4: uuidv4 } = require('uuid');
-const fs = require('fs');
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env.local') }); // Adjust path if your .env.local is elsewhere
 

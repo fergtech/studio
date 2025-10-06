@@ -47,3 +47,10 @@ yarn-error.log*
 next-env.d.ts
 
 .genkit/*
+
+# Test files
+test-azure-storage.js
+test-db.js
+test-request.json
+settings.json
+babel.config.js.backup

@@ -31,14 +31,21 @@ export function VideoPlayer({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showControls, setShowControls] = useState(true);
 
-  const togglePlay = () => {
+  const togglePlay = (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+
     if (videoRef.current) {
       if (isPlaying) {
         videoRef.current.pause();
+        setIsPlaying(false);
       } else {
-        videoRef.current.play();
+        videoRef.current.play().catch((error) => {
+          console.error('Video play failed:', error);
+          setIsPlaying(false);
+        });
+        setIsPlaying(true);
       }
-      setIsPlaying(!isPlaying);
     }
   };
 
@@ -112,9 +119,12 @@ export function VideoPlayer({
         poster={poster}
         autoPlay={autoPlay}
         muted={muted}
+        playsInline
         className={`w-full rounded-lg ${className}`}
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
       />
     );
   }
@@ -131,10 +141,12 @@ export function VideoPlayer({
         poster={poster}
         autoPlay={autoPlay}
         muted={isMuted}
+        playsInline
         className="w-full h-full object-contain"
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
-        onClick={togglePlay}
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
       />
       
       {/* Controls Overlay */}

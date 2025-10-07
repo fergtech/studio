@@ -21,6 +21,18 @@ export default async function PostPage({ params }: { params: Promise<{ id: strin
       creatorAvatar: true,
       media: true,
       timestamp: true,
+      postTopics: {
+        include: {
+          topic: {
+            select: {
+              name: true,
+            },
+          },
+        },
+        orderBy: {
+          confidence: 'desc',
+        },
+      },
       linkPreview: {
         select: {
           url: true,
@@ -179,6 +191,7 @@ export default async function PostPage({ params }: { params: Promise<{ id: strin
         timestamp={postData.timestamp}
         currentUserId={currentUserId}
         postType="general"
+        topics={postData.postTopics?.map((pt: any) => pt.topic.name) || []}
         linkPreview={postData.linkPreview ? {
           ...postData.linkPreview,
           title: postData.linkPreview.title || undefined,

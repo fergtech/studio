@@ -3,6 +3,7 @@ import { formatDistanceToNow, parseISO } from 'date-fns';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import PostReactions from '@/components/PostReactions';
 import CommentPanel from '@/components/CommentPanel';
 import React, { useRef, useState, useEffect } from 'react';
@@ -50,6 +51,7 @@ interface PostDetailClientProps {
   timestamp: string | Date;
   currentUserId?: string | null;
   postType?: string;
+  topics?: string[];
   society?: {
     id: string;
     name: string;
@@ -103,6 +105,7 @@ export default function PostDetailClient({
   timestamp,
   currentUserId = null,
   postType,
+  topics,
   society,
   societyPostType,
   linkPreview,
@@ -385,18 +388,10 @@ export default function PostDetailClient({
       {/* Main Content - with dynamic left margin based on sidebar state and blur when comment panel open */}
       <div className={`transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'} ${commentPanelOpen ? 'blur-sm pointer-events-none' : ''}`}>
         {/* Close Button - positioned on the right */}
-        <div className="max-w-6xl mx-auto pt-6 lg:pt-2 px-2 flex items-start justify-end">
-          <button
-            className="flex items-center gap-1 text-muted-foreground hover:text-foreground text-sm px-2 py-1 rounded hover:bg-muted/40 transition shadow-none border-none bg-transparent"
-            onClick={() => {
-              // Navigate to home and let HomeClient restore state
-              router.push('/');
-            }}
-            type="button"
-            aria-label="Close"
-          >
-            <X className="h-4 w-4" />
-          </button>
+        <div className="max-w-6xl mx-auto pt-6 px-4 flex items-center justify-end mb-4">
+          <Button variant="ghost" size="icon" onClick={() => router.push('/')}>
+            <X className="h-5 w-5" />
+          </Button>
         </div>
         {/* Main Content */}
         <div className="flex flex-col lg:flex-row max-w-4xl mx-auto py-4 px-2 gap-6 pb-20 lg:pb-4">
@@ -640,7 +635,27 @@ export default function PostDetailClient({
               ) : (
                 <div className="mt-2 text-foreground whitespace-pre-line">{content}</div>
               )}
-              
+
+              {/* Topics Display */}
+              {topics && topics.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {topics.map((topic) => (
+                    <Link
+                      key={topic}
+                      href={`/topics/${encodeURIComponent(topic)}`}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Badge
+                        variant="secondary"
+                        className="hover:bg-primary hover:text-primary-foreground cursor-pointer transition-colors text-xs"
+                      >
+                        #{topic}
+                      </Badge>
+                    </Link>
+                  ))}
+                </div>
+              )}
+
               {/* Single link preview (backward compatibility) */}
               {linkPreview && !hasImage && !hasVideo && !hasAudio && (!links || links.length === 0) && (
                 <div className="my-4">

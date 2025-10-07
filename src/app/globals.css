@@ -170,3 +170,23 @@ body {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;  /* Safari and Chrome */
 }
+
+/* Mobile touch improvements for Chrome/Safari */
+@layer utilities {
+  .touch-manipulation {
+    touch-action: manipulation;
+  }
+
+  .select-none {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+}
+
+/* Fix for Chrome mobile button tap delays and double-tap zoom */
+button, a, [role="button"], [onclick] {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}

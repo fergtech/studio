@@ -53,7 +53,7 @@ function LandingPage() {
                 Where ideas become <span className="text-primary font-bold">impact</span>
               </h2>
               <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-                Join thousands of changemakers collaborating on real-world solutions. Share ideas, tackle issues, and drive initiatives that matter.
+                Join a new kind of social platform—where communities unite to solve problems, share insight, and shape a better future together.
               </p>
             </div>
 

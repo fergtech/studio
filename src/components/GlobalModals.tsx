@@ -119,7 +119,16 @@ export function GlobalModals() {
 
       {/* Create Battle Response Modal */}
       <Dialog open={createBattleResponseModal.isOpen} onOpenChange={(isOpen) => !isOpen && closeCreateBattleResponseModal()}>
-        <DialogContent className="w-[95vw] max-w-[600px] max-h-[85vh] sm:max-h-[90vh] overflow-y-auto">
+        <DialogContent
+          className="w-[95vw] max-w-[600px] max-h-[85vh] sm:max-h-[90vh] overflow-y-auto"
+          onInteractOutside={(e) => {
+            // Prevent closing when clicking inside Popovers
+            const target = e.target as HTMLElement;
+            if (target.closest('[data-radix-popper-content-wrapper]')) {
+              e.preventDefault();
+            }
+          }}
+        >
           <DialogHeader>
             <DialogTitle>
               🔥 Add Your Take
@@ -145,7 +154,16 @@ export function GlobalModals() {
 
       {/* Create Topic Post Modal */}
       <Dialog open={createTopicPostModal.isOpen} onOpenChange={(isOpen) => !isOpen && closeCreateTopicPostModal()}>
-        <DialogContent className="w-[95vw] max-w-[600px] max-h-[85vh] sm:max-h-[90vh] overflow-y-auto">
+        <DialogContent
+          className="w-[95vw] max-w-[600px] max-h-[85vh] sm:max-h-[90vh] overflow-y-auto"
+          onInteractOutside={(e) => {
+            // Prevent closing when clicking inside Popovers
+            const target = e.target as HTMLElement;
+            if (target.closest('[data-radix-popper-content-wrapper]')) {
+              e.preventDefault();
+            }
+          }}
+        >
           <DialogHeader>
             <DialogTitle>
               💬 Create Post

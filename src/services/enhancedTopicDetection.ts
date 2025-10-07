@@ -1,5 +1,7 @@
-// Enhanced NLP-based topic detection system
-// Uses semantic analysis, entity recognition, and dynamic topic generation
+// Enhanced LLM-based topic detection system
+// Uses Gemini Flash for semantic analysis with fallbacks
+
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export interface EnhancedTopicResult {
   topics: string[];
@@ -9,6 +11,11 @@ export interface EnhancedTopicResult {
   categories: string[];
   dynamicTopics: string[];
 }
+
+// Request queue for rate limiting
+let requestQueue: Promise<any> = Promise.resolve();
+let lastRequestTime = 0;
+const MIN_REQUEST_INTERVAL = 100; // 100ms between requests (10 req/sec max)
 
 // Common topic patterns and their semantic indicators
 const SEMANTIC_PATTERNS = {
@@ -135,25 +142,87 @@ function analyzeSentiment(text: string): 'positive' | 'negative' | 'neutral' {
   return 'neutral';
 }
 
-// Extract key nouns and topics from text
-function extractKeyTopics(text: string): string[] {
-  const words = text.toLowerCase()
-    .replace(/[^\w\s]/g, ' ') // Remove punctuation
-    .split(/\s+/)
-    .filter(word => word.length > 2); // Filter short words
+// Extract hashtags from text
+function extractHashtags(text: string): string[] {
+  const hashtagRegex = /#([a-zA-Z0-9_]+)/g;
+  const matches = text.match(hashtagRegex);
+  if (!matches) return [];
 
-  // Simple frequency analysis
-  const wordFreq: { [key: string]: number } = {};
-  words.forEach(word => {
-    wordFreq[word] = (wordFreq[word] || 0) + 1;
-  });
+  return matches.map(tag => tag.substring(1).toLowerCase());
+}
 
-  // Get most frequent meaningful words
-  return Object.entries(wordFreq)
-    .filter(([word, freq]) => freq >= 1 && !isStopWord(word))
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 5)
-    .map(([word]) => word);
+// LLM-based topic extraction using Gemini Flash
+async function extractKeyTopicsWithLLM(text: string): Promise<string[]> {
+  try {
+    const apiKey = process.env.GOOGLE_AI_API_KEY;
+    if (!apiKey) {
+      console.warn('⚠️ GOOGLE_AI_API_KEY not found, falling back to hashtag-only detection');
+      return [];
+    }
+
+    // Rate limiting - queue requests
+    await requestQueue;
+    const now = Date.now();
+    const timeSinceLastRequest = now - lastRequestTime;
+    if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
+      await new Promise(resolve => setTimeout(resolve, MIN_REQUEST_INTERVAL - timeSinceLastRequest));
+    }
+    lastRequestTime = Date.now();
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+
+    const prompt = `Analyze this social media post and extract 3-5 relevant topic categories that describe what the post is about. Focus on the main subject matter, not individual words.
+
+Post: "${text}"
+
+Return ONLY a JSON array of topic strings (lowercase, hyphenated if multi-word). Example: ["technology", "ai-applications", "community-development"]
+
+Topics:`;
+
+    // Timeout protection (max 5 seconds)
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+
+    const result = await model.generateContent(prompt);
+    clearTimeout(timeout);
+
+    const response = await result.response;
+    const topicsText = response.text().trim();
+
+    console.log('📝 Raw LLM response:', topicsText);
+
+    // Parse JSON response
+    const topics = JSON.parse(topicsText.replace(/```json\n?|\n?```/g, ''));
+
+    console.log('🔍 Parsed topics array:', topics);
+
+    if (Array.isArray(topics)) {
+      const filtered = topics
+        .filter(t => typeof t === 'string' && t.length > 2 && t.length < 30)
+        .slice(0, 5);
+      console.log('✅ Filtered topics:', filtered);
+      return filtered;
+    }
+
+    console.warn('⚠️ LLM response was not an array:', typeof topics);
+    return [];
+  } catch (error: any) {
+    console.error('❌ LLM topic extraction failed:', error.message);
+
+    // Retry once on rate limit
+    if (error.message?.includes('rate limit') || error.message?.includes('429')) {
+      console.log('⏳ Rate limited, retrying in 2 seconds...');
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      try {
+        return await extractKeyTopicsWithLLM(text);
+      } catch (retryError) {
+        console.error('❌ Retry failed, using fallback');
+      }
+    }
+
+    return []; // Return empty array to trigger fallback
+  }
 }
 
 // Basic stop words list
@@ -172,64 +241,53 @@ function isStopWord(word: string): boolean {
   return stopWords.includes(word.toLowerCase());
 }
 
-// Main enhanced topic detection function
-export function detectTopicsEnhanced(content: string): EnhancedTopicResult {
-  console.log('🧠 Enhanced NLP topic detection for:', content.substring(0, 100) + '...');
+// Main enhanced topic detection function (now async for LLM)
+export async function detectTopicsEnhanced(content: string): Promise<EnhancedTopicResult> {
+  console.log('🧠 Enhanced LLM topic detection for:', content.substring(0, 100) + '...');
 
-  const contentLower = content.toLowerCase();
-  const detectedTopics: string[] = [];
-  const confidenceScores: number[] = [];
+  // 1. Extract hashtags first (always reliable)
+  const hashtags = extractHashtags(content);
 
-  // 1. Pattern-based detection
-  for (const [category, patterns] of Object.entries(SEMANTIC_PATTERNS)) {
-    let score = 0;
-
-    // Check keywords
-    const keywordMatches = patterns.keywords.filter(keyword =>
-      contentLower.includes(keyword.toLowerCase())
-    ).length;
-    score += keywordMatches * 3;
-
-    // Check phrases
-    const phraseMatches = patterns.phrases.filter(phrase =>
-      contentLower.includes(phrase.toLowerCase())
-    ).length;
-    score += phraseMatches * 5;
-
-    // Check entities
-    const entityMatches = patterns.entities.filter(entity =>
-      contentLower.includes(entity.toLowerCase())
-    ).length;
-    score += entityMatches * 4;
-
-    if (score > 0) {
-      detectedTopics.push(category);
-      confidenceScores.push(Math.min(0.95, score / content.length * 100));
-    }
+  // 2. Try LLM-based topic extraction
+  let llmTopics: string[] = [];
+  try {
+    llmTopics = await extractKeyTopicsWithLLM(content);
+  } catch (error) {
+    console.error('LLM extraction error:', error);
   }
 
-  // 2. Extract entities
-  const entities = extractEntities(content);
+  // 3. Fallback hierarchy
+  let finalTopics: string[];
+  let confidence: number;
 
-  // 3. Analyze sentiment
+  if (llmTopics.length > 0) {
+    // Primary: LLM topics + hashtags
+    finalTopics = [...new Set([...llmTopics, ...hashtags])].slice(0, 5);
+    confidence = 0.9;
+    console.log('✅ Using LLM-extracted topics:', finalTopics);
+  } else if (hashtags.length > 0) {
+    // Fallback 1: Hashtags only
+    finalTopics = hashtags.slice(0, 5);
+    confidence = 0.7;
+    console.log('⚠️ Using hashtag-only topics:', finalTopics);
+  } else {
+    // Fallback 2: General
+    finalTopics = ['general'];
+    confidence = 0.3;
+    console.log('⚠️ No topics found, using general');
+  }
+
+  // 4. Extract entities and sentiment (lightweight operations)
+  const entities = extractEntities(content);
   const sentiment = analyzeSentiment(content);
 
-  // 4. Extract dynamic topics from content
-  const dynamicTopics = extractKeyTopics(content);
-
-  // 5. Combine results
-  const finalTopics = detectedTopics.length > 0 ? detectedTopics : dynamicTopics.slice(0, 3);
-  const finalConfidence = confidenceScores.length > 0
-    ? Math.max(...confidenceScores)
-    : (dynamicTopics.length > 0 ? 0.6 : 0.1);
-
   const result: EnhancedTopicResult = {
-    topics: finalTopics.slice(0, 5),
-    confidence: finalConfidence,
+    topics: finalTopics,
+    confidence,
     entities: entities.slice(0, 10),
     sentiment,
-    categories: detectedTopics,
-    dynamicTopics: dynamicTopics.slice(0, 5)
+    categories: finalTopics,
+    dynamicTopics: llmTopics
   };
 
   console.log('🎯 Enhanced detection result:', result);

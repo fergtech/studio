@@ -3,6 +3,7 @@
 import { extractHashtags, mergeHashtagsWithTopics } from '@/utils/hashtagUtils';
 import { detectTopicsEnhanced } from './enhancedTopicDetection';
 import { processPostForTopics, getTrendingTopics } from './topicManager';
+import topicConfig from '@/config/topicKeywords.json';
 
 export interface TopicDetectionResult {
   semanticTopics: string[];
@@ -14,7 +15,7 @@ export interface TopicDetectionResult {
 }
 
 // Extract topics from content using keyword matching and hashtag detection
-function extractTopicsFromContent(content: string): TopicDetectionResult {
+async function extractTopicsFromContent(content: string): Promise<TopicDetectionResult> {
   console.log('🧐 extractTopicsFromContent called with:', content);
 
   if (!content || content.trim().length < 10) {
@@ -30,9 +31,9 @@ function extractTopicsFromContent(content: string): TopicDetectionResult {
   const hashtagTopics = extractHashtags(content);
   console.log('🏷️ Extracted hashtags:', hashtagTopics);
 
-  // 2. Run enhanced NLP detection
-  const enhancedResult = detectTopicsEnhanced(content);
-  console.log('🧠 Enhanced NLP result:', enhancedResult);
+  // 2. Run enhanced LLM detection (now async)
+  const enhancedResult = await detectTopicsEnhanced(content);
+  console.log('🧠 Enhanced LLM result:', enhancedResult);
 
   // 3. Traditional keyword matching (for civic topics)
   const contentLower = content.toLowerCase();

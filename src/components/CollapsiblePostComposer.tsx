@@ -33,9 +33,20 @@ export function CollapsiblePostComposer({
     if (!isExpanded) return;
 
     const handleClickOutside = (event: MouseEvent) => {
-      if (composerRef.current && !composerRef.current.contains(event.target as Node)) {
-        setIsExpanded(false);
+      const target = event.target as Node;
+
+      // Don't close if clicking inside the composer
+      if (composerRef.current && composerRef.current.contains(target)) {
+        return;
       }
+
+      // Don't close if clicking inside a Popover (portaled content)
+      if ((target as HTMLElement).closest?.('[data-radix-popper-content-wrapper]')) {
+        return;
+      }
+
+      // Close the composer
+      setIsExpanded(false);
     };
 
     // Add a small delay before attaching the listener to prevent immediate collapse

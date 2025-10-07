@@ -193,8 +193,8 @@ export async function processPostForTopics(
   try {
     console.log(`🧠 Processing post ${postId} for dynamic topic assignment`);
 
-    // Use enhanced NLP detection
-    const enhancedResult = detectTopicsEnhanced(content);
+    // Use enhanced LLM detection (now async)
+    const enhancedResult = await detectTopicsEnhanced(content);
 
     // Combine all detected topics with confidence scores
     const allTopics = [
@@ -211,7 +211,8 @@ export async function processPostForTopics(
           'that', 'this', 'these', 'those', 'they', 'them', 'their', 'there', 'theres',
           'what', 'when', 'where', 'why', 'how', 'who', 'which', 'will', 'would', 'could',
           'should', 'have', 'has', 'had', 'been', 'being', 'are', 'was', 'were', 'is',
-          'the', 'and', 'but', 'for', 'with', 'from', 'into', 'over', 'under', 'about'
+          'the', 'and', 'but', 'for', 'with', 'from', 'into', 'over', 'under', 'about',
+          'food', 'work', 'world', 'real' // Common false positives
         ];
 
         return (

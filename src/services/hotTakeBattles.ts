@@ -54,11 +54,25 @@ export async function checkForHotTakeBattleOpportunity(
   }
 
   try {
-    // Find recent posts with overlapping topics (last 7 days)
+    // Get topic IDs for the new post's topics
+    const topicRecords = await prisma.topic.findMany({
+      where: { name: { in: topics } },
+      select: { id: true, name: true }
+    });
+
+    if (topicRecords.length === 0) {
+      return { shouldCreateBattle: false, confidence: 0 };
+    }
+
+    const topicIds = topicRecords.map(t => t.id);
+
+    // Find recent posts with overlapping topics (last 7 days) using PostTopic relation
     const recentPosts = await prisma.generalPost.findMany({
       where: {
-        topics: {
-          hasSome: topics
+        postTopics: {
+          some: {
+            topicId: { in: topicIds }
+          }
         },
         timestamp: {
           gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Last 7 days
@@ -72,6 +86,15 @@ export async function checkForHotTakeBattleOpportunity(
           { battleAsPost2: { none: {} } }
         ]
       },
+      include: {
+        postTopics: {
+          include: {
+            topic: {
+              select: { name: true }
+            }
+          }
+        }
+      },
       orderBy: {
         timestamp: 'desc'
       },
@@ -84,11 +107,13 @@ export async function checkForHotTakeBattleOpportunity(
 
     // Check each recent post for opposing viewpoints
     for (const candidatePost of recentPosts) {
-      const oppositionResult = await detectOpposingViewpoints(content, candidatePost.content);
+      try {
+        const oppositionResult = await detectOpposingViewpoints(content, candidatePost.content);
 
-      if (oppositionResult.isOpposing && oppositionResult.confidence > 0.3) { // Lowered threshold for testing
-        // Find the shared topic
-        const sharedTopics = topics.filter(topic => candidatePost.topics.includes(topic));
+        if (oppositionResult.isOpposing && oppositionResult.confidence > 0.3) { // Lowered threshold for testing
+        // Find the shared topic using the new relational structure
+        const candidateTopicNames = candidatePost.postTopics.map(pt => pt.topic.name);
+        const sharedTopics = topics.filter(topic => candidateTopicNames.includes(topic));
         const sharedTopic = sharedTopics[0] || topics[0];
 
         return {
@@ -98,6 +123,15 @@ export async function checkForHotTakeBattleOpportunity(
           battleTitle: `${sharedTopic.charAt(0).toUpperCase() + sharedTopic.slice(1)} Hot Take Battle`,
           battleDescription: oppositionResult.summary
         };
+        }
+      } catch (oppositionError: any) {
+        // If rate limited, skip battle detection to save quota
+        if (oppositionError?.message?.includes('429')) {
+          console.warn('⏳ Rate limit hit during battle detection - skipping');
+          return { shouldCreateBattle: false, confidence: 0 };
+        }
+        console.error('Error checking opposition for candidate post:', oppositionError);
+        // Continue checking other posts
       }
     }
 

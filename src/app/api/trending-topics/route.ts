@@ -9,15 +9,14 @@ export async function GET(request: NextRequest) {
     console.log('🔍 Fetching trending topics from database...');
 
     // Get trending topics from the Topic table with latest post that has media
-    const trendingTopics = await prisma.topic.findMany({
+    const allTopics = await prisma.topic.findMany({
       where: {
-        postCount: { gt: 0 } // Only topics with posts
+        postCount: { gte: 2 } // At least 2 posts (changed from gt: 0)
       },
       orderBy: [
         { weeklyPosts: 'desc' },  // Most recent activity first
         { postCount: 'desc' }     // Then total popularity
       ],
-      take: limit,
       select: {
         id: true,
         name: true,
@@ -25,10 +24,9 @@ export async function GET(request: NextRequest) {
         weeklyPosts: true,
         category: true,
         postTopics: {
-          take: 5, // Get multiple posts to find one with media
           orderBy: {
             post: {
-              timestamp: 'desc' // Order by post timestamp, not PostTopic createdAt
+              timestamp: 'desc' // Order by post timestamp
             }
           },
           select: {
@@ -58,6 +56,16 @@ export async function GET(request: NextRequest) {
         }
       }
     });
+
+    console.log(`📊 Found ${allTopics.length} topics with 2+ posts`);
+
+    // Filter topics with 2+ unique creators
+    const trendingTopics = allTopics.filter(topic => {
+      const uniqueCreators = new Set(topic.postTopics.map(pt => pt.post.creatorId));
+      return uniqueCreators.size >= 2;
+    }).slice(0, limit); // Take only the requested limit
+
+    console.log(`✅ Filtered to ${trendingTopics.length} topics with 2+ creators`);
 
     console.log(`📊 Found ${trendingTopics.length} trending topics`);
 

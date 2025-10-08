@@ -202,150 +202,224 @@ export async function getTrendingTopics(limit: number = 10): Promise<Array<{
   }
 }
 
-// Smart topic matching: Check existing topics first, create new ones only if needed
-async function matchToExistingTopicsWithLLM(
-  content: string,
-  detectedTopics: string[]
-): Promise<{ matchedTopics: string[]; newTopics: string[] }> {
-  try {
-    // Get trending/popular topics from the database
-    const existingTopics = await getTrendingTopics(50); // Get top 50 topics
+// Helper function for keyword-based fallback
+function keywordFallbackClassification(content: string): string[] {
+  const contentLower = content.toLowerCase();
 
-    if (existingTopics.length === 0) {
-      // No existing topics, all detected topics are new
-      return { matchedTopics: [], newTopics: detectedTopics };
+  if (contentLower.includes('tech') || contentLower.includes('ai') || contentLower.includes('software') || contentLower.includes('computer')) {
+    return ['technology'];
+  }
+  if (contentLower.includes('food') || contentLower.includes('cook') || contentLower.includes('recipe') || contentLower.includes('eat')) {
+    return ['food-drinks'];
+  }
+  if (contentLower.includes('sport') || contentLower.includes('game') || contentLower.includes('play')) {
+    return ['sports'];
+  }
+  if (contentLower.includes('music') || contentLower.includes('song') || contentLower.includes('band')) {
+    return ['music'];
+  }
+  if (contentLower.includes('movie') || contentLower.includes('film') || contentLower.includes('tv')) {
+    return ['movies-tv'];
+  }
+  if (contentLower.includes('work') || contentLower.includes('remote') || contentLower.includes('office') || contentLower.includes('job')) {
+    return ['education', 'business'];
+  }
+  if (contentLower.includes('travel') || contentLower.includes('vacation') || contentLower.includes('trip')) {
+    return ['travel'];
+  }
+  if (contentLower.includes('health') || contentLower.includes('fitness') || contentLower.includes('exercise')) {
+    return ['health-fitness'];
+  }
+
+  return ['general'];
+}
+
+// Cloudflare Workers AI classification
+async function classifyWithCloudflare(content: string, topicNames: string[]): Promise<string[]> {
+  try {
+    const cfAccountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+    const cfApiToken = process.env.CLOUDFLARE_API_TOKEN;
+
+    if (!cfAccountId || !cfApiToken) {
+      console.warn('⚠️ Cloudflare credentials not found, skipping');
+      return [];
     }
 
-    // Create a list of existing topic names for the LLM to consider
-    const existingTopicNames = existingTopics.map(t => t.name);
+    const modelUrl = `https://api.cloudflare.com/client/v4/accounts/${cfAccountId}/ai/run/@cf/meta/llama-3.1-8b-instruct`;
 
-    console.log(`🔍 Checking if post matches any of ${existingTopicNames.length} existing topics...`);
+    const prompt = `You are a topic classifier. Given a social media post, classify it into 1-3 topics from this list ONLY:
 
-    // Use LLM to match detected topics to existing ones
+${topicNames.join(', ')}
+
+Post: "${content.substring(0, 500)}"
+
+Rules:
+- Return ONLY topic names from the list above
+- Choose 1-3 topics that best match
+- Return as JSON array: ["topic1", "topic2"]
+- If unsure, return ["general"]
+- DO NOT create new topics
+
+Respond with ONLY the JSON array, nothing else.`;
+
+    const response = await fetch(modelUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${cfApiToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a helpful topic classifier. Always respond with valid JSON arrays.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        max_tokens: 100,
+        temperature: 0.1
+      }),
+    });
+
+    if (!response.ok) {
+      console.warn(`⚠️ Cloudflare API error: ${response.status}`);
+      return [];
+    }
+
+    const result = await response.json();
+    const generatedText = result.result?.response || '';
+
+    console.log('☁️ Cloudflare classification:', generatedText);
+
+    const cleaned = generatedText.replace(/```json\n?|\n?```/g, '').trim();
+    const topics = JSON.parse(cleaned);
+
+    if (Array.isArray(topics) && topics.length > 0) {
+      const validTopics = topics.filter(t => topicNames.includes(t));
+      return validTopics.length > 0 ? validTopics : [];
+    }
+
+    return [];
+  } catch (error) {
+    console.error('❌ Cloudflare classification error:', error);
+    return [];
+  }
+}
+
+// NEW SIMPLIFIED: Classify post into curated topics only
+async function classifyIntoCuratedTopics(content: string): Promise<string[]> {
+  try {
+    // Get all curated (system) topics from database
+    const curatedTopics = await prisma.topic.findMany({
+      where: { isSystem: true },
+      select: { name: true }
+    });
+
+    if (curatedTopics.length === 0) {
+      console.warn('⚠️ No curated topics found in database');
+      return ['general'];
+    }
+
+    const topicNames = curatedTopics.map(t => t.name);
+
+    // Try Cloudflare Workers AI first (1M requests/day free)
+    console.log('🔍 Attempting Cloudflare Workers AI classification...');
+    const cfTopics = await classifyWithCloudflare(content, topicNames);
+    if (cfTopics.length > 0) {
+      console.log('✅ Cloudflare classification successful:', cfTopics);
+      return cfTopics;
+    }
+
+    // Fallback to Gemini
+    console.log('🔄 Cloudflare unavailable, trying Gemini...');
     const { GoogleGenerativeAI } = await import('@google/generative-ai');
     const apiKey = process.env.GOOGLE_AI_API_KEY;
 
     if (!apiKey) {
-      console.warn('⚠️ No Google AI API key, skipping smart matching');
-      return { matchedTopics: [], newTopics: detectedTopics };
+      console.warn('⚠️ No Google AI API key, using keyword fallback');
+      return keywordFallbackClassification(content);
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
 
-    const prompt = `You are a topic matching system. Given a post and its detected topics, decide which existing topics it should use (if similar enough) or if new topics should be created.
+    const prompt = `Classify this post into 1-3 topics from this list ONLY:
+
+${topicNames.join(', ')}
 
 Post: "${content.substring(0, 500)}"
 
-Detected topics from content: ${JSON.stringify(detectedTopics)}
+Rules:
+- Return ONLY topic names from the list above
+- Choose 1-3 topics that best match
+- Return as JSON array: ["topic1", "topic2"]
+- If unsure, return ["general"]
+- DO NOT create new topics
 
-Existing topics in the system: ${JSON.stringify(existingTopicNames.slice(0, 30))}
-
-For each detected topic, decide:
-1. If it closely matches an existing topic (similar meaning/theme), use the existing one
-2. If it's distinct and doesn't match well, keep it as a new topic
-
-Return a JSON object with:
-{
-  "matched": ["existing-topic-1", "existing-topic-2"],
-  "new": ["new-topic-1"]
-}
-
-Only match if the topics are truly related. Be conservative - it's better to create a new topic than force a bad match.`;
+Topics:`;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
-    const responseText = response.text().trim();
+    const text = response.text().trim();
 
-    console.log('🤖 LLM topic matching response:', responseText);
+    console.log('🤖 Gemini classification response:', text);
 
-    // Parse the response
-    const parsed = JSON.parse(responseText.replace(/```json\n?|\n?```/g, ''));
+    // Parse JSON response
+    const topics = JSON.parse(text.replace(/```json\n?|\n?```/g, ''));
 
-    return {
-      matchedTopics: Array.isArray(parsed.matched) ? parsed.matched : [],
-      newTopics: Array.isArray(parsed.new) ? parsed.new : detectedTopics
-    };
+    if (Array.isArray(topics) && topics.length > 0) {
+      // Validate topics are in curated list
+      const validTopics = topics.filter(t => topicNames.includes(t));
+      return validTopics.length > 0 ? validTopics : ['general'];
+    }
 
+    return ['general'];
   } catch (error) {
-    console.error('❌ Error in smart topic matching:', error);
-    // Fallback: treat all as new topics
-    return { matchedTopics: [], newTopics: detectedTopics };
+    console.error('❌ Error classifying into curated topics:', error);
+
+    // Use keyword fallback for any error
+    console.warn('⏳ All AI providers failed, using keyword fallback');
+    return keywordFallbackClassification(content);
   }
 }
 
-// Process post content and assign topics dynamically
+// NEW SIMPLIFIED: Process post and assign to curated topics only
 export async function processPostForTopics(
   postId: string,
   content: string
 ): Promise<string[]> {
   try {
-    console.log(`🧠 Processing post ${postId} for dynamic topic assignment`);
+    console.log(`🧠 Processing post ${postId} for topic classification`);
 
-    // Use enhanced LLM detection (now async)
-    const enhancedResult = await detectTopicsEnhanced(content);
-
-    // Combine all detected topics with confidence scores
-    const allTopics = [
-      ...enhancedResult.topics,
-      ...enhancedResult.dynamicTopics.slice(0, 3) // Add top dynamic topics
-    ];
-
-    // Filter out noise words and keep only meaningful topics
-    const meaningfulTopics = [...new Set(allTopics)]
-      .filter(topic => {
-        const t = topic.toLowerCase();
-        // Filter out common words, pronouns, articles, etc.
-        const noiseWords = [
-          'that', 'this', 'these', 'those', 'they', 'them', 'their', 'there', 'theres',
-          'what', 'when', 'where', 'why', 'how', 'who', 'which', 'will', 'would', 'could',
-          'should', 'have', 'has', 'had', 'been', 'being', 'are', 'was', 'were', 'is',
-          'the', 'and', 'but', 'for', 'with', 'from', 'into', 'over', 'under', 'about',
-          'food', 'work', 'world', 'real' // Common false positives
-        ];
-
-        return (
-          topic.length > 2 &&           // At least 3 characters
-          topic.length < 25 &&          // Not too long
-          !noiseWords.includes(t) &&    // Not a noise word
-          !/^\d+$/.test(topic) &&       // Not just numbers
-          /^[a-zA-Z0-9_-]+$/.test(topic) // Only alphanumeric, underscore, dash
-        );
-      })
-      .slice(0, 5); // Limit to 5 topics max
-
-    if (meaningfulTopics.length === 0) {
-      meaningfulTopics.push('general');
+    // Extract hashtags from content (user-defined topics)
+    const hashtagRegex = /#([a-zA-Z0-9_-]+)/g;
+    const hashtags = [];
+    let match;
+    while ((match = hashtagRegex.exec(content)) !== null) {
+      hashtags.push(match[1].toLowerCase());
     }
 
-    // 🆕 Smart matching: Check existing topics first
-    const { matchedTopics, newTopics } = await matchToExistingTopicsWithLLM(content, meaningfulTopics);
+    // Classify into curated topics using AI
+    const curatedTopics = await classifyIntoCuratedTopics(content);
 
-    // Combine matched existing topics with new topics
-    const finalTopics = [...matchedTopics, ...newTopics].slice(0, 5);
-
-    console.log(`📊 Topic assignment result:`, {
-      detected: meaningfulTopics,
-      matched: matchedTopics,
-      new: newTopics,
-      final: finalTopics
+    console.log(`📊 Classification result:`, {
+      curated: curatedTopics,
+      hashtags: hashtags
     });
 
-    // Create confidence scores
+    // For now, only use curated topics
+    // Future: Allow hashtags if user explicitly wants custom topics
+    const finalTopics = curatedTopics.slice(0, 3); // Max 3 topics
+
+    // Assign topics to post
     const confidenceScores: { [key: string]: number } = {};
     finalTopics.forEach(topic => {
-      if (matchedTopics.includes(topic)) {
-        confidenceScores[topic] = 0.95; // High confidence for matched existing topics
-      } else if (enhancedResult.topics.includes(topic)) {
-        confidenceScores[topic] = enhancedResult.confidence;
-      } else if (enhancedResult.dynamicTopics.includes(topic)) {
-        confidenceScores[topic] = 0.6; // Lower confidence for dynamic topics
-      } else {
-        confidenceScores[topic] = 0.1; // Fallback confidence
-      }
+      confidenceScores[topic] = 0.9; // High confidence for AI classification
     });
 
-    // Assign topics to post using the new system
     await assignTopicsToPost(postId, finalTopics, confidenceScores);
 
     console.log(`✅ Assigned topics to post ${postId}:`, finalTopics);
@@ -355,7 +429,7 @@ export async function processPostForTopics(
     console.error(`❌ Error processing post ${postId} for topics:`, error);
 
     // Fallback: assign 'general' topic
-    await assignTopicsToPost(postId, ['general'], { general: 0.1 });
+    await assignTopicsToPost(postId, ['general'], { general: 0.5 });
     return ['general'];
   }
 }

@@ -8,9 +8,10 @@ import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { Initiative as FrontendInitiativeType } from '@/lib/types'; // Removed RoleType as FrontendRoleType
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { generateAIGuidance } from '@/lib/aiHelper'; // Import AI helper with Cloudflare fallback
 
-// Initialize the Google Generative AI model
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY!); // Use non-null assertion as we expect this to be set
+// Initialize the Google Generative AI model (keep for backward compatibility)
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY || 'dummy'); // Fallback to prevent crashes
 const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
 
 interface CreateInitiativeArgs {
@@ -140,16 +141,16 @@ export async function createInitiative(args: CreateInitiativeArgs) {
 
     try { // Inner try for AI generation
       console.log("createInitiative: Inside AI generation try block");
-      // Generate AI guidance based on the initiative's title and description
+      // Generate AI guidance based on the initiative's title and description using AI helper
       const prompt = `Generate helpful getting started guidance for a new initiative titled "${newInitiative.title}" with the description: "${newInitiative.description}". Provide actionable steps or key considerations for someone looking to contribute or get involved. Format the response as a concise, easy-to-read text block.`;
-      console.log("Sending prompt to Gemini:", prompt);
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      aiGuidanceText = response.text();
-      console.log("Received guidance from Gemini:", aiGuidanceText);
 
-      // Update the initiative with the generated AI guidance
-      if (aiGuidanceText) {
+      const aiResult = await generateAIGuidance(prompt, 2); // 2 retries for speed
+
+      if (aiResult.success && aiResult.text) {
+        aiGuidanceText = aiResult.text;
+        console.log(`✅ Received guidance from ${aiResult.provider}:`, aiGuidanceText.substring(0, 100) + '...');
+
+        // Update the initiative with the generated AI guidance
         console.log("createInitiative: Attempting to update initiative with AI guidance...");
         await prisma.initiative.update({
           where: { id: newInitiative.id },
@@ -158,6 +159,8 @@ export async function createInitiative(args: CreateInitiativeArgs) {
           },
         });
         console.log(`Updated initiative ${newInitiative.id} with AI guidance.`);
+      } else {
+        console.warn("AI guidance generation failed, continuing without guidance");
       }
     } catch (aiError) { // Inner catch for AI generation errors
       console.error("Caught error in AI generation try block:", aiError);

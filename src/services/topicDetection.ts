@@ -220,11 +220,54 @@ export async function detectOpposingViewpoints(post1Content: string, post2Conten
   confidence: number;
   summary?: string;
 }> {
-  // This would need its own API endpoint if used client-side
-  // For now, return default values
-  return {
-    isOpposing: false,
-    confidence: 0.0,
-    summary: 'Opposing viewpoint detection not available client-side'
-  };
+  try {
+    const apiKey = process.env.GOOGLE_AI_API_KEY;
+    if (!apiKey) {
+      console.warn('⚠️ No Google AI API key for opposition detection');
+      return { isOpposing: false, confidence: 0.0 };
+    }
+
+    const { GoogleGenerativeAI } = await import('@google/generative-ai');
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+
+    const prompt = `Analyze these two posts and determine if they express opposing viewpoints on the same topic.
+
+Post 1: "${post1Content}"
+
+Post 2: "${post2Content}"
+
+Return a JSON object with:
+{
+  "isOpposing": boolean,
+  "confidence": number (0.0 to 1.0),
+  "summary": "brief explanation of the opposition"
+}
+
+If they clearly disagree on the same topic, set isOpposing to true with high confidence.
+If they're about different topics or agree, set isOpposing to false.`;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text().trim();
+
+    const parsed = JSON.parse(text.replace(/```json\n?|\n?```/g, ''));
+
+    return {
+      isOpposing: parsed.isOpposing || false,
+      confidence: parsed.confidence || 0.0,
+      summary: parsed.summary
+    };
+
+  } catch (error: any) {
+    console.error('Error detecting opposing viewpoints:', error.message);
+
+    // If rate limited, skip battle detection
+    if (error.message?.includes('429') || error.message?.includes('rate limit')) {
+      console.warn('⏳ Rate limited during opposition detection - skipping battle');
+      return { isOpposing: false, confidence: 0.0 };
+    }
+
+    return { isOpposing: false, confidence: 0.0 };
+  }
 }

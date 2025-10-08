@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import PostReactions from '@/components/PostReactions';
 import CommentPanel from '@/components/CommentPanel';
 import React, { useRef, useState, useEffect } from 'react';
-import { Pause, Play, Maximize2, ArrowLeft, Edit, Save, Loader2, Paperclip, X, Upload } from 'lucide-react';
+import { Pause, Play, Maximize2, ArrowLeft, Edit, Save, Loader2, Paperclip, X, Upload, Trash2 } from 'lucide-react';
 import imageCompression from 'browser-image-compression';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,7 @@ import { AudioPlayer } from '@/components/ui/audio-player';
 import { LinkPreview } from '@/components/ui/link-preview';
 import { DocumentPreview } from '@/components/ui/document-preview';
 import AppSidebar, { getDefaultCollapsedState } from '@/components/AppSidebar';
-import { updateGeneralPostContent, updateSocietyPostContent } from '@/app/actions/postActions';
+import { updateGeneralPostContent, updateSocietyPostContent, deletePostAction } from '@/app/actions/postActions';
 
 // Helper function to detect video files
 const isVideoFile = (url: string) => {
@@ -126,6 +126,9 @@ export default function PostDetailClient({
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
   const [removeExistingMedia, setRemoveExistingMedia] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Delete functionality state
+  const [deleteLoading, setDeleteLoading] = useState(false);
   
   // Defensive checks for required props
   if (!id || !content || !creatorId || !creatorName || (postType === 'society' && (!society || !society.id))) {
@@ -321,6 +324,42 @@ export default function PostDetailClient({
       setEditLoading(false);
     }
   };
+
+  // Handle delete post
+  const handleDelete = async () => {
+    if (!confirm('Are you sure you want to delete this post? This action cannot be undone.')) {
+      return;
+    }
+
+    setDeleteLoading(true);
+    try {
+      const result = await deletePostAction(id);
+
+      if (result.success) {
+        toast({
+          title: "Post Deleted",
+          description: "Your post has been deleted successfully.",
+        });
+        // Redirect to home page
+        router.push('/');
+      } else {
+        toast({
+          title: "Delete Failed",
+          description: result.error || 'Failed to delete post',
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error deleting post:', error);
+      toast({
+        title: "Delete Failed",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
   
   // Time-ago formatting
   const postTime = timestamp
@@ -413,16 +452,32 @@ export default function PostDetailClient({
                     <span className="font-semibold text-foreground text-base md:text-lg">{creatorName}</span>
                   </Link>
                 </div>
-                {/* Edit button - only show for post creator */}
+                {/* Edit and Delete buttons - only show for post creator */}
                 {currentUserId === creatorId && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setEditMode(!editMode)}
-                    className="h-8 w-8 p-0"
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setEditMode(!editMode)}
+                      className="h-8 w-8 p-0"
+                      disabled={deleteLoading}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleDelete}
+                      className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      disabled={deleteLoading || editMode}
+                    >
+                      {deleteLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
                 )}
               </div>
               <div className="text-xs text-muted-foreground ml-12 mt-1 md:ml-0 md:mt-0 md:ml-2 md:block">{postTime}</div>

@@ -210,17 +210,13 @@ Topics:`;
   } catch (error: any) {
     console.error('❌ LLM topic extraction failed:', error.message);
 
-    // Retry once on rate limit
+    // Don't retry on rate limit - just fail fast and use fallback
     if (error.message?.includes('rate limit') || error.message?.includes('429')) {
-      console.log('⏳ Rate limited, retrying in 2 seconds...');
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      try {
-        return await extractKeyTopicsWithLLM(text);
-      } catch (retryError) {
-        console.error('❌ Retry failed, using fallback');
-      }
+      console.warn('⏳ Rate limit hit - using keyword fallback (no retry)');
+      return []; // Return empty array to trigger keyword fallback
     }
 
+    console.error('❌ LLM extraction failed, using fallback');
     return []; // Return empty array to trigger fallback
   }
 }

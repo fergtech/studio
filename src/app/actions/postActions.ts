@@ -141,10 +141,12 @@ export async function createGeneralPost(formData: FormData) { // Changed signatu
     });
 
     // Use the new dynamic topic system to assign topics to the post
+    let assignedTopicNames: string[] = [];
     try {
       console.log('🧠 Applying dynamic topic assignment to post:', newPost.id);
       const dynamicTopics = await detectTopicsFromContent(content, newPost.id);
       console.log('✅ Dynamic topics assigned:', dynamicTopics.semanticTopics);
+      assignedTopicNames = dynamicTopics.semanticTopics;
     } catch (dynamicTopicError) {
       console.error('Dynamic topic assignment failed (post still created):', dynamicTopicError);
     }
@@ -167,21 +169,36 @@ export async function createGeneralPost(formData: FormData) { // Changed signatu
     }
 
     // Check for Hot Take Battle opportunities (async, don't block response)
-    if (allTopics.length > 0) {
+    if (assignedTopicNames.length > 0) {
       setImmediate(async () => {
         try {
+          console.log(`🔍 Checking for Hot Take Battle with topics: ${assignedTopicNames.join(', ')}`);
           const battleOpportunity = await checkForHotTakeBattleOpportunity(
             newPost.id,
             content,
-            allTopics,
+            assignedTopicNames,
             undefined // TODO: Add location support
           );
+          console.log(`🎲 Battle opportunity result:`, battleOpportunity);
 
           if (battleOpportunity.shouldCreateBattle && battleOpportunity.sharedTopic) {
-            // Find the opposing post (we need to refactor the detection to return it)
+            console.log(`🔥 Battle detected! Shared topic: ${battleOpportunity.sharedTopic}`);
+            // Get topic IDs for querying
+            const topicRecords = await prisma.topic.findMany({
+              where: { name: { in: assignedTopicNames } },
+              select: { id: true }
+            });
+            const topicIds = topicRecords.map(t => t.id);
+            console.log(`📋 Topic IDs: ${topicIds.join(', ')}`);
+
+            // Find the opposing post using PostTopic relation
             const recentPosts = await prisma.generalPost.findMany({
               where: {
-                topics: { hasSome: allTopics },
+                postTopics: {
+                  some: {
+                    topicId: { in: topicIds }
+                  }
+                },
                 timestamp: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
                 id: { not: newPost.id },
                 AND: [
@@ -195,6 +212,7 @@ export async function createGeneralPost(formData: FormData) { // Changed signatu
 
             if (recentPosts.length > 0) {
               const opposingPost = recentPosts[0];
+              console.log(`⚔️ Creating battle between posts: ${opposingPost.id} vs ${newPost.id}`);
               await createHotTakeBattle({
                 post1Id: opposingPost.id, // Earlier post
                 post2Id: newPost.id,      // New post
@@ -202,7 +220,9 @@ export async function createGeneralPost(formData: FormData) { // Changed signatu
                 title: battleOpportunity.battleTitle || `${battleOpportunity.sharedTopic} Hot Take Battle`,
                 description: battleOpportunity.battleDescription
               });
-              console.log(`🔥 Hot Take Battle created: ${battleOpportunity.battleTitle}`);
+              console.log(`🔥 Hot Take Battle created successfully: ${battleOpportunity.battleTitle}`);
+            } else {
+              console.log(`❌ No opposing posts found for battle detection`);
             }
           }
         } catch (error) {

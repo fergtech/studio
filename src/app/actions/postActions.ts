@@ -244,6 +244,19 @@ export async function deletePostAction(postId: string) {
       return { error: "User not authorized to delete this post." };
     }
 
+    // Delete related records first to avoid foreign key constraint violations
+    await prisma.generalPostComment.deleteMany({
+      where: { postId }
+    });
+
+    await prisma.postTopic.deleteMany({
+      where: { postId }
+    });
+
+    await prisma.hotTakeRelatedPost.deleteMany({
+      where: { postId }
+    });
+
     await prisma.generalPost.delete({
       where: { id: postId },
     });

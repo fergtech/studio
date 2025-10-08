@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from '@/lib/prisma';
 import { detectTopicsFromContent } from '@/services/topicDetection';
 import { checkForHotTakeBattleOpportunity, createHotTakeBattle } from '@/services/hotTakeBattles';
+import { cleanupOrphanedTopics } from '@/services/topicManager';
 
 // CreatePostArgs is no longer needed if we pass FormData directly
 // interface CreatePostArgs {
@@ -257,6 +258,23 @@ export async function deletePostAction(postId: string) {
       where: { postId }
     });
 
+    // Get topic assignments to decrement counts
+    const topicAssignments = await prisma.postTopic.findMany({
+      where: { postId },
+      include: { topic: true }
+    });
+
+    // Decrement topic counts before deleting assignments
+    for (const assignment of topicAssignments) {
+      await prisma.topic.update({
+        where: { id: assignment.topicId },
+        data: {
+          postCount: { decrement: 1 },
+          weeklyPosts: { decrement: 1 }
+        }
+      });
+    }
+
     await prisma.postTopic.deleteMany({
       where: { postId }
     });
@@ -268,6 +286,9 @@ export async function deletePostAction(postId: string) {
     await prisma.generalPost.delete({
       where: { id: postId },
     });
+
+    // Clean up orphaned topics
+    await cleanupOrphanedTopics();
 
     revalidatePath("/"); // Revalidate the home page
     return { success: "Post deleted successfully." };
@@ -320,6 +341,18 @@ export async function updateGeneralPostContent(postId: string, newContent: strin
       where: { id: postId },
       data: updatePayload,
     });
+
+    // Re-run topic detection on the updated content
+    try {
+      console.log('🔄 Re-detecting topics after post edit:', postId);
+      await detectTopicsFromContent(newContent, postId);
+      console.log('✅ Topics updated after edit');
+
+      // Clean up orphaned topics (topics with 0 posts)
+      await cleanupOrphanedTopics();
+    } catch (topicError) {
+      console.error('Topic re-detection failed (post still updated):', topicError);
+    }
 
     // Revalidate the post detail page and home page
     revalidatePath(`/posts/${postId}`);

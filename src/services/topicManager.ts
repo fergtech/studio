@@ -95,6 +95,23 @@ export async function assignTopicsToPost(
   try {
     console.log(`🏷️ Assigning topics to post ${postId}:`, topics);
 
+    // Get existing topic assignments before deleting
+    const existingAssignments = await prisma.postTopic.findMany({
+      where: { postId },
+      include: { topic: true }
+    });
+
+    // Decrement counts for topics being removed
+    for (const assignment of existingAssignments) {
+      await prisma.topic.update({
+        where: { id: assignment.topicId },
+        data: {
+          postCount: { decrement: 1 },
+          weeklyPosts: { decrement: 1 }
+        }
+      });
+    }
+
     // Remove existing topic assignments
     await prisma.postTopic.deleteMany({
       where: { postId }
@@ -383,6 +400,54 @@ export async function migrateOldTopicsToRelational(): Promise<void> {
   } catch (error) {
     console.error('❌ Error during migration:', error);
     throw error;
+  }
+}
+
+// Clean up topics with 0 posts (orphaned topics)
+export async function cleanupOrphanedTopics(): Promise<number> {
+  try {
+    console.log('🧹 Cleaning up orphaned topics (topics with 0 posts)...');
+
+    // Find topics with postCount = 0
+    const orphanedTopics = await prisma.topic.findMany({
+      where: {
+        postCount: { lte: 0 }
+      },
+      select: {
+        id: true,
+        name: true,
+        postCount: true
+      }
+    });
+
+    if (orphanedTopics.length === 0) {
+      console.log('✨ No orphaned topics found');
+      return 0;
+    }
+
+    console.log(`🗑️ Found ${orphanedTopics.length} orphaned topics to delete:`,
+      orphanedTopics.map(t => t.name).join(', '));
+
+    // Delete PostTopic relations first (should already be none, but just in case)
+    for (const topic of orphanedTopics) {
+      await prisma.postTopic.deleteMany({
+        where: { topicId: topic.id }
+      });
+    }
+
+    // Delete the orphaned topics
+    const deleteResult = await prisma.topic.deleteMany({
+      where: {
+        id: { in: orphanedTopics.map(t => t.id) }
+      }
+    });
+
+    console.log(`✅ Deleted ${deleteResult.count} orphaned topics`);
+    return deleteResult.count;
+
+  } catch (error) {
+    console.error('❌ Error cleaning up orphaned topics:', error);
+    return 0;
   }
 }
 

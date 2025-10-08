@@ -249,6 +249,14 @@ export async function deletePostAction(postId: string) {
       where: { postId }
     });
 
+    await prisma.generalPostLike.deleteMany({
+      where: { postId }
+    });
+
+    await prisma.generalPostShare.deleteMany({
+      where: { postId }
+    });
+
     await prisma.postTopic.deleteMany({
       where: { postId }
     });

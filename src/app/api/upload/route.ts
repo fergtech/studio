@@ -9,8 +9,10 @@ import { prisma } from '@/lib/prisma';
 //import { createPipelineFromOptions, Pipeline } from "@azure/core-rest-pipeline";
 //import { DefaultHttpClient } from '@azure/core-http';
 
-// Allow larger file uploads (up to 100MB for videos)
-export const maxRequestBodySize = '100mb';
+// Vercel has a 4.5MB limit for API routes (Hobby/Pro plans)
+// For larger files, use direct client-side upload to Vercel Blob or upgrade to Enterprise
+export const maxDuration = 60; // 60 seconds timeout
+export const maxRequestBodySize = '4.5mb';
 
 export async function POST(request: NextRequest) {
   console.log("Upload API route hit");
@@ -76,12 +78,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
+    // Vercel API route body size limit is 4.5MB for Hobby/Pro plans
+    const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB (conservative to stay under 4.5MB limit)
     if (file.size > MAX_FILE_SIZE) {
-      console.error(`File size exceeds limit: ${file.size}`);
+      console.error(`File size exceeds limit: ${(file.size / 1024 / 1024).toFixed(2)}MB`);
       return NextResponse.json(
-        { success: false, message: 'File size must be less than 100MB' },
-        { status: 400 }
+        {
+          success: false,
+          message: `File size must be less than 4MB. Your file is ${(file.size / 1024 / 1024).toFixed(2)}MB. Please compress it before uploading.`
+        },
+        { status: 413 } // 413 = Payload Too Large
       );
     }
 

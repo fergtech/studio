@@ -97,6 +97,9 @@ interface CreatePostFormProps {
 export default function CreatePostForm({ onPostCreated, onSuccess, societyId, context = 'general', battleContext, initialTopic }: CreatePostFormProps) {
   const { data: session, status } = useSession();
   const { toast } = useToast();
+
+  // Collapsible state - starts collapsed
+  const [isExpanded, setIsExpanded] = useState(false);
   
   // Location configuration
   const locationOptions: LocationOption[] = [
@@ -273,30 +276,53 @@ export default function CreatePostForm({ onPostCreated, onSuccess, societyId, co
 
   // Compress media files if they're too large
   const compressFile = async (file: File): Promise<File | null> => {
-    const maxSizeInMB = 25; // Vercel's effective limit for reliable uploads
+    // Vercel has a 4.5MB limit for API route request bodies in production
+    // We'll target 4MB to be safe, with aggressive compression for larger files
+    const maxSizeInMB = 4;
     const fileSizeMB = file.size / 1024 / 1024;
-    
-    if (file.size <= maxSizeInMB * 1024 * 1024) {
-      return file; // No compression needed
-    }
+
+    console.log(`[compressFile] Original file size: ${fileSizeMB.toFixed(2)}MB`);
 
     try {
       if (file.type.startsWith('image/')) {
+        // Always compress images to ensure they're under the limit
         const options = {
           maxSizeMB: maxSizeInMB,
-          maxWidthOrHeight: 1920,
+          maxWidthOrHeight: fileSizeMB > 10 ? 1280 : 1920, // Smaller dimensions for very large files
           useWebWorker: true,
           fileType: 'image/webp', // Force WebP for better compression
-          quality: 0.85, // High quality with better compression
-          initialQuality: 0.85,
+          quality: fileSizeMB > 10 ? 0.7 : 0.85, // More aggressive compression for large files
+          initialQuality: fileSizeMB > 10 ? 0.7 : 0.85,
         };
-        return await imageCompression(file, options);
+        console.log(`[compressFile] Compressing image with options:`, options);
+        const compressed = await imageCompression(file, options);
+        const compressedSizeMB = compressed.size / 1024 / 1024;
+        console.log(`[compressFile] Compressed size: ${compressedSizeMB.toFixed(2)}MB`);
+
+        if (compressed.size > maxSizeInMB * 1024 * 1024) {
+          toast({
+            title: "File Too Large",
+            description: `Image is still ${compressedSizeMB.toFixed(1)}MB after compression. Please use a smaller image (max 4MB).`,
+            variant: "destructive",
+          });
+          return null;
+        }
+
+        return compressed;
       } else if (file.type.startsWith('video/')) {
-        // For videos, we don't compress - they'll be handled in handleMediaChange
+        // Videos can't be compressed client-side effectively
+        if (fileSizeMB > maxSizeInMB) {
+          toast({
+            title: "Video Too Large",
+            description: `Video is ${fileSizeMB.toFixed(1)}MB. Please compress it to under 4MB before uploading.`,
+            variant: "destructive",
+          });
+          return null;
+        }
         return file;
       }
     } catch (error) {
-      console.error('Compression failed:', error);
+      console.error('[compressFile] Compression failed:', error);
       toast({
         title: "Compression Failed",
         description: "Could not compress file. Please try a smaller file or compress manually.",
@@ -304,7 +330,7 @@ export default function CreatePostForm({ onPostCreated, onSuccess, societyId, co
       });
       return null;
     }
-    
+
     return file;
   };
 
@@ -421,13 +447,26 @@ export default function CreatePostForm({ onPostCreated, onSuccess, societyId, co
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    console.log('[CreatePostForm] handleSubmit called', { postType, contentLength: content.length, titleLength: title.length });
+
     // Validation based on post type
-    if (postType === 'general' && !content.trim()) return;
-    if ((postType === 'issue' || postType === 'idea') && (!title.trim() || !content.trim())) return;
-    
-    if (isSubmitting) return;
+    if (postType === 'general' && !content.trim()) {
+      console.log('[CreatePostForm] Validation failed: empty content for general post');
+      return;
+    }
+    if ((postType === 'issue' || postType === 'idea') && (!title.trim() || !content.trim())) {
+      console.log('[CreatePostForm] Validation failed: empty title or content for issue/idea');
+      return;
+    }
+
+    if (isSubmitting) {
+      console.log('[CreatePostForm] Already submitting, ignoring');
+      return;
+    }
+
     if (!currentUser?.id) {
+      console.error('[CreatePostForm] No user ID found');
       toast({
         title: "Error",
         description: "You must be logged in to create a post.",
@@ -436,6 +475,7 @@ export default function CreatePostForm({ onPostCreated, onSuccess, societyId, co
       return;
     }
 
+    console.log('[CreatePostForm] Starting submission...', { userId: currentUser.id });
     setIsSubmitting(true);
     try {
       // First, upload media files if any
@@ -482,7 +522,7 @@ export default function CreatePostForm({ onPostCreated, onSuccess, societyId, co
 
       // Call appropriate creation function based on post type
       let result: any;
-      
+
       if (postType === 'general') {
         // Create general post with existing logic
         const formData = new FormData();
@@ -512,7 +552,9 @@ export default function CreatePostForm({ onPostCreated, onSuccess, societyId, co
           formData.append('formBackground', selectedBackground);
         }
 
+        console.log('[CreatePostForm] Calling createGeneralPost with formData');
         result = await createGeneralPost(formData);
+        console.log('[CreatePostForm] createGeneralPost result:', result);
       } else {
         // Create issue or idea
         const createData = {

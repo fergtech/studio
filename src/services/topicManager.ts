@@ -185,6 +185,78 @@ export async function getTrendingTopics(limit: number = 10): Promise<Array<{
   }
 }
 
+// Smart topic matching: Check existing topics first, create new ones only if needed
+async function matchToExistingTopicsWithLLM(
+  content: string,
+  detectedTopics: string[]
+): Promise<{ matchedTopics: string[]; newTopics: string[] }> {
+  try {
+    // Get trending/popular topics from the database
+    const existingTopics = await getTrendingTopics(50); // Get top 50 topics
+
+    if (existingTopics.length === 0) {
+      // No existing topics, all detected topics are new
+      return { matchedTopics: [], newTopics: detectedTopics };
+    }
+
+    // Create a list of existing topic names for the LLM to consider
+    const existingTopicNames = existingTopics.map(t => t.name);
+
+    console.log(`🔍 Checking if post matches any of ${existingTopicNames.length} existing topics...`);
+
+    // Use LLM to match detected topics to existing ones
+    const { GoogleGenerativeAI } = await import('@google/generative-ai');
+    const apiKey = process.env.GOOGLE_AI_API_KEY;
+
+    if (!apiKey) {
+      console.warn('⚠️ No Google AI API key, skipping smart matching');
+      return { matchedTopics: [], newTopics: detectedTopics };
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+
+    const prompt = `You are a topic matching system. Given a post and its detected topics, decide which existing topics it should use (if similar enough) or if new topics should be created.
+
+Post: "${content.substring(0, 500)}"
+
+Detected topics from content: ${JSON.stringify(detectedTopics)}
+
+Existing topics in the system: ${JSON.stringify(existingTopicNames.slice(0, 30))}
+
+For each detected topic, decide:
+1. If it closely matches an existing topic (similar meaning/theme), use the existing one
+2. If it's distinct and doesn't match well, keep it as a new topic
+
+Return a JSON object with:
+{
+  "matched": ["existing-topic-1", "existing-topic-2"],
+  "new": ["new-topic-1"]
+}
+
+Only match if the topics are truly related. Be conservative - it's better to create a new topic than force a bad match.`;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const responseText = response.text().trim();
+
+    console.log('🤖 LLM topic matching response:', responseText);
+
+    // Parse the response
+    const parsed = JSON.parse(responseText.replace(/```json\n?|\n?```/g, ''));
+
+    return {
+      matchedTopics: Array.isArray(parsed.matched) ? parsed.matched : [],
+      newTopics: Array.isArray(parsed.new) ? parsed.new : detectedTopics
+    };
+
+  } catch (error) {
+    console.error('❌ Error in smart topic matching:', error);
+    // Fallback: treat all as new topics
+    return { matchedTopics: [], newTopics: detectedTopics };
+  }
+}
+
 // Process post content and assign topics dynamically
 export async function processPostForTopics(
   postId: string,
@@ -229,10 +301,25 @@ export async function processPostForTopics(
       meaningfulTopics.push('general');
     }
 
+    // 🆕 Smart matching: Check existing topics first
+    const { matchedTopics, newTopics } = await matchToExistingTopicsWithLLM(content, meaningfulTopics);
+
+    // Combine matched existing topics with new topics
+    const finalTopics = [...matchedTopics, ...newTopics].slice(0, 5);
+
+    console.log(`📊 Topic assignment result:`, {
+      detected: meaningfulTopics,
+      matched: matchedTopics,
+      new: newTopics,
+      final: finalTopics
+    });
+
     // Create confidence scores
     const confidenceScores: { [key: string]: number } = {};
-    meaningfulTopics.forEach(topic => {
-      if (enhancedResult.topics.includes(topic)) {
+    finalTopics.forEach(topic => {
+      if (matchedTopics.includes(topic)) {
+        confidenceScores[topic] = 0.95; // High confidence for matched existing topics
+      } else if (enhancedResult.topics.includes(topic)) {
         confidenceScores[topic] = enhancedResult.confidence;
       } else if (enhancedResult.dynamicTopics.includes(topic)) {
         confidenceScores[topic] = 0.6; // Lower confidence for dynamic topics
@@ -242,10 +329,10 @@ export async function processPostForTopics(
     });
 
     // Assign topics to post using the new system
-    await assignTopicsToPost(postId, meaningfulTopics, confidenceScores);
+    await assignTopicsToPost(postId, finalTopics, confidenceScores);
 
-    console.log(`✅ Assigned topics to post ${postId}:`, meaningfulTopics);
-    return meaningfulTopics;
+    console.log(`✅ Assigned topics to post ${postId}:`, finalTopics);
+    return finalTopics;
 
   } catch (error) {
     console.error(`❌ Error processing post ${postId} for topics:`, error);

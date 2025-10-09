@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -115,14 +117,22 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const body = await req.json();
-    const { type, content, title, description, userId, imageUrl, linkUrl, linkMetadata, links, documents } = body;
-    
-    // Validate required fields based on post type
-    if (!type || !userId) {
-      return NextResponse.json({ error: 'type and userId are required' }, { status: 400 });
+
+    // Get userId from session (secure)
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
-    
+    const userId = session.user.id;
+
+    const body = await req.json();
+    const { type, content, title, description, imageUrl, linkUrl, linkMetadata, links, documents } = body;
+
+    // Validate required fields based on post type
+    if (!type) {
+      return NextResponse.json({ error: 'type is required' }, { status: 400 });
+    }
+
     // For issues and ideas, require title and description
     if ((type === 'ISSUE' || type === 'IDEA')) {
       if (!title || !description) {

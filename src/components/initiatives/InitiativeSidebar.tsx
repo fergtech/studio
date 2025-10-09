@@ -42,7 +42,7 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
   const [stats, setStats] = useState<InitiativeStats | null>(null);
   const [isAiGuidanceDialogOpen, setIsAiGuidanceDialogOpen] = useState(false);
   const [isGeneratingGuidance, setIsGeneratingGuidance] = useState(false);
-  const [currentGuidance, setCurrentGuidance] = useState<string | null>(initiative.aiGuidance);
+  const [currentGuidance, setCurrentGuidance] = useState<string | null>(initiative.aiGuidance ?? null);
   const [guidanceError, setGuidanceError] = useState<string | null>(null);
   
   // Description truncation logic
@@ -273,15 +273,13 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
         <CardContent>
           <div className="space-y-4">
             {members.slice(0, 5).map((member) => (
-              <div key={member.id} className="flex items-center gap-3">
-                <Avatar className="h-8 w-8">
+              <Link href={`/profile/${member.id}`} key={member.id} className="flex items-center gap-3 group">
+                <Avatar className="h-8 w-8 group-hover:ring-2 group-hover:ring-primary transition-all">
                   <AvatarImage src={member.image ?? undefined} alt={member.name} />
                   <AvatarFallback>{member.name?.[0]?.toUpperCase() || '?'}</AvatarFallback>
                 </Avatar>
                 <div>
-                  <Link href={`/profile/${member.id}`} className="cursor-pointer hover:underline">
-                    <div className="font-medium">{member.name}</div>
-                  </Link>
+                  <div className="font-medium group-hover:underline">{member.name}</div>
                   <div className="flex gap-1">
                     {member.role && (
                       <Badge variant="secondary" className="text-xs">{member.role}</Badge>
@@ -291,7 +289,7 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
                     )}
                   </div>
                 </div>
-              </div>
+              </Link>
             ))}
             {members.length > 5 && (
               <Button variant="link" size="sm" className="text-xs p-0 h-auto">

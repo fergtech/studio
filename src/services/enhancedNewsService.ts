@@ -79,7 +79,7 @@ export async function generateLocationQueries(
   if (hyperLocalQueries.length > 0) {
     tiers.push({
       tier: 'hyper-local',
-      queries: hyperLocalQueries.slice(0, 8), // Limit to 8 locations max
+      queries: hyperLocalQueries.slice(0, 3), // Limit to 3 locations max for performance
       weight: 60 // 60% of articles should be hyper-local
     });
   }
@@ -438,18 +438,24 @@ export async function fetchMultiTierNews(
     targetCount: Math.ceil((tier.weight / 100) * totalArticles * 1.5) // Fetch 1.5x for deduplication
   }));
 
-  // Fetch news from all tiers in parallel
+  // Fetch news from all tiers with batching to avoid rate limiting
   const allArticles: NewsArticle[] = [];
 
   for (const tierTarget of tierTargets) {
     // Distribute articles across queries in this tier
     const articlesPerQuery = Math.ceil(tierTarget.targetCount / tierTarget.queries.length);
 
-    const tierArticles = await Promise.all(
-      tierTarget.queries.map(query =>
-        fetchGoogleNews(query, tierTarget.tier, location)
-      )
-    );
+    // Fetch in batches of 2 queries at a time to reduce load
+    const batchSize = 2;
+    const tierArticles: NewsArticle[][] = [];
+
+    for (let i = 0; i < tierTarget.queries.length; i += batchSize) {
+      const batch = tierTarget.queries.slice(i, i + batchSize);
+      const batchResults = await Promise.all(
+        batch.map(query => fetchGoogleNews(query, tierTarget.tier, location))
+      );
+      tierArticles.push(...batchResults);
+    }
 
     // Flatten and limit
     const flattenedTierArticles = tierArticles

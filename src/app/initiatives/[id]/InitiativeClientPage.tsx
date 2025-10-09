@@ -928,10 +928,11 @@ export function InitiativeClientPage({
         {/* Main Content - Full width with right sidebar space */}
         <div className="space-y-6">
             {/* Mission Progress Banner */}
-            <MissionProgressBanner 
-              initiative={initiative} 
-              milestones={initiative.milestones || []} 
+            <MissionProgressBanner
+              initiative={initiative}
+              milestones={initiative.milestones || []}
               onContributeClick={() => setIsRoleSelectionOpen(true)}
+              isMember={isMember}
             />
 
             {/* Goals Section */}

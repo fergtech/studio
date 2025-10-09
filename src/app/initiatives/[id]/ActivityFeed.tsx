@@ -216,7 +216,7 @@ export function ActivityFeed({ updates: initialUpdates, onLoadMore, hasMore, isM
                       </div>
                     </div>
                   ) : (
-                    <p className="mt-2 text-sm whitespace-pre-wrap">{update.content}</p>
+                    <p className="mt-2 text-sm whitespace-pre-wrap line-clamp-6">{update.content}</p>
                   )}
                   {displayImage && (
                     <div className="mt-3 relative aspect-video w-full max-w-2xl rounded-lg overflow-hidden">

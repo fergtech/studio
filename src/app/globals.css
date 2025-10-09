@@ -185,8 +185,61 @@ body {
   }
 }
 
-/* Fix for Chrome mobile button tap delays and double-tap zoom */
-button, a, [role="button"], [onclick] {
-  -webkit-tap-highlight-color: transparent;
+/* Comprehensive mobile touch optimizations */
+* {
+  /* Disable 300ms tap delay on mobile */
   touch-action: manipulation;
+  /* Remove tap highlight */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Specific touch optimizations for interactive elements */
+button,
+a,
+[role="button"],
+[onclick],
+input[type="button"],
+input[type="submit"],
+input[type="reset"],
+.cursor-pointer {
+  /* Ensure no tap delay */
+  touch-action: manipulation;
+  /* Remove tap highlight color */
+  -webkit-tap-highlight-color: transparent;
+  /* Prevent text selection on touch */
+  -webkit-user-select: none;
+  user-select: none;
+  /* Smooth transitions for touch feedback */
+  transition: transform 0.1s ease;
+}
+
+/* Active state for better mobile feedback */
+button:active,
+a:active,
+[role="button"]:active,
+.cursor-pointer:active {
+  transform: scale(0.98);
+}
+
+/* Prevent iOS auto-zoom on focus while keeping inputs accessible */
+html {
+  -webkit-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Fix for scrolling on iOS */
+body {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: none;
+}
+
+/* Allow text selection in content areas */
+p,
+span:not([role="button"]),
+div[contenteditable],
+textarea,
+input {
+  -webkit-user-select: text;
+  user-select: text;
 }

@@ -214,10 +214,10 @@ export function MainFeedSocietyPostCard({ post }: MainFeedSocietyPostCardProps) 
             {title ? (
               <div className="text-left px-2 bg-black/70 rounded-md py-1 w-fit max-w-[80%] text-white" style={{marginLeft: 0}}>
                 <p className="text-lg font-bold mb-1">{title}</p>
-                <p className="text-sm font-medium whitespace-pre-wrap">{description}</p>
+                <p className="text-sm font-medium whitespace-pre-wrap line-clamp-3">{description}</p>
               </div>
             ) : (
-              <p className="text-base font-medium whitespace-pre-wrap text-left px-2 bg-black/70 rounded-md py-1 w-fit max-w-[80%] text-white" style={{marginLeft: 0}}>{description}</p>
+              <p className="text-base font-medium whitespace-pre-wrap text-left px-2 bg-black/70 rounded-md py-1 w-fit max-w-[80%] text-white line-clamp-6" style={{marginLeft: 0}}>{description}</p>
             )}
           </div>
           

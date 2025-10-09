@@ -6,7 +6,7 @@ import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { PlusCircle, Settings, LogOut, User } from 'lucide-react';
+import { PlusCircle, Settings, LogOut, User, MessageSquare } from 'lucide-react';
 import { useSession, signOut } from 'next-auth/react';
 import { useModal } from '@/context/ModalContext';
 import NotificationBell from '@/components/NotificationBell';
@@ -22,9 +22,10 @@ const mockUserAvatars: Record<string, string | undefined> = {
 
 interface UserControlsWidgetProps {
   collapsed?: boolean;
+  isMobile?: boolean;
 }
 
-export default function UserControlsWidget({ collapsed = false }: UserControlsWidgetProps) {
+export default function UserControlsWidget({ collapsed = false, isMobile = false }: UserControlsWidgetProps) {
   const { data: session, status } = useSession();
   const {
     openCreateInitiativeModal,
@@ -50,6 +51,105 @@ export default function UserControlsWidget({ collapsed = false }: UserControlsWi
   const getAvatarUrl = (userId?: string, sessionImage?: string | null) => {
     return sessionImage || mockUserAvatars[userId || ''] || "https://i.pravatar.cc/40?u=anonymous";
   };
+
+  if (isMobile) {
+    return (
+      <div className="flex items-center justify-end w-full space-x-1">
+        {isLoading ? (
+          <div className="flex items-center space-x-1">
+            <div className="h-10 w-10 bg-muted rounded-full animate-pulse"></div>
+            <div className="h-10 w-10 bg-muted rounded-full animate-pulse"></div>
+            <div className="h-10 w-10 bg-muted rounded-full animate-pulse"></div>
+            <div className="h-10 w-10 bg-muted rounded-full animate-pulse"></div>
+          </div>
+        ) : session?.user ? (
+          <>
+            <ToggleTheme />
+            <NotificationBell />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" title="Create">
+                  <PlusCircle className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="bottom" align="end" className="w-56">
+                <DropdownMenuItem onClick={() => openCreateInitiativeModal()} className="cursor-pointer">
+                  Create Initiative
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openCreateIssueModal()} className="cursor-pointer">
+                  Create Issue
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openCreateIdeaModal()} className="cursor-pointer">
+                  Create Idea
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openCreateSocietyModal()} className="cursor-pointer">
+                  Create Society
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openCreateDebateTopicModal()} className="cursor-pointer">
+                  Create Debate Topic
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-10 w-10 rounded-full p-0 overflow-hidden" title="Account">
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage 
+                      src={getAvatarUrl(session.user.id, session.user.image)} 
+                      alt={session.user.name || 'User'} 
+                    />
+                    <AvatarFallback>{getInitials(session.user.name)}</AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="bottom" align="end" className="w-56">
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">Signed in as</p>
+                    <p className="text-xs leading-none text-muted-foreground">{session.user.email}</p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {session.user && (session.user as any).username ? (
+                  <DropdownMenuItem asChild>
+                    <Link href={`/profile/${(session.user as any).username}`}>
+                      <User className="h-4 w-4 mr-2" />
+                      View Profile
+                    </Link>
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem asChild>
+                    <Link href={`/profile/me`}>
+                      <User className="h-4 w-4 mr-2" />
+                      View Profile
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem asChild>
+                  <Link href={`/messages`}>
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    Messages
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Log out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
+        ) : (
+          <div className="flex items-center space-x-1">
+            <ToggleTheme />
+            <Button variant="outline" asChild>
+              <Link href="/api/auth/signin">Sign In</Link>
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   if (collapsed) {
     return (
@@ -225,6 +325,12 @@ export default function UserControlsWidget({ collapsed = false }: UserControlsWi
                       </Link>
                     </DropdownMenuItem>
                   )}
+                  <DropdownMenuItem asChild>
+                      <Link href={`/messages`}>
+                        <MessageSquare className="h-4 w-4 mr-2" />
+                        Messages
+                      </Link>
+                    </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
                     <LogOut className="h-4 w-4 mr-2" />

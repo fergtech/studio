@@ -14,6 +14,7 @@ export function ConditionalHeader() {
     '/activity',
     '/explore',
     '/chat',
+    '/messages',
     '/profile',
     '/debates',
     '/issues',

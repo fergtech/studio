@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Hash } from 'lucide-react';
 import Link from 'next/link';
 import { getTopicIcons, TopicIconResult } from '@/services/topicIcons';
@@ -136,31 +137,34 @@ export function TrendingTopicsWidget({ limit = 8, showHeader = true }: TrendingT
           </h2>
         </div>
       )}
-      <div className="px-2 relative group">
-        {/* Horizontal scrolling layout for topic cards with thumbnails */}
-        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-          {topics.map((topicStat, index) => (
-            <div key={topicStat.topic} className="flex-shrink-0 w-48">
-              <TopicCard
-                topic={topicStat.topic}
-                count={topicStat.count}
-                category={topicStat.category}
-                latestPost={topicStat.latestPost}
-              />
-            </div>
-          ))}
+      <div className="px-2">
+        <ScrollArea className="w-full">
+          {/* Horizontal scrolling layout for topic cards with thumbnails */}
+          <div className="flex gap-3 pb-4">
+            {topics.map((topicStat, index) => (
+              <div key={topicStat.topic} className="flex-shrink-0 w-48">
+                <TopicCard
+                  topic={topicStat.topic}
+                  count={topicStat.count}
+                  category={topicStat.category}
+                  latestPost={topicStat.latestPost}
+                />
+              </div>
+            ))}
 
-          {/* Browse All Topics Link - Always show at end */}
-          <Link href="/topics/browse" className="flex-shrink-0 w-48">
-            <Card className="h-full hover:shadow-lg hover:ring-2 hover:ring-primary transition-all duration-200 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
-              <CardContent className="p-6 flex flex-col items-center justify-center h-full text-center">
-                <Hash className="h-12 w-12 mb-3 text-primary" />
-                <h3 className="font-semibold text-base mb-1">Browse All Topics</h3>
-                <p className="text-xs text-muted-foreground">Explore all 28 topics</p>
-              </CardContent>
-            </Card>
-          </Link>
-        </div>
+            {/* Browse All Topics Link - Always show at end */}
+            <Link href="/topics/browse" className="flex-shrink-0 w-48">
+              <Card className="h-full hover:shadow-lg hover:ring-2 hover:ring-primary transition-all duration-200 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
+                <CardContent className="p-6 flex flex-col items-center justify-center h-full text-center">
+                  <Hash className="h-12 w-12 mb-3 text-primary" />
+                  <h3 className="font-semibold text-base mb-1">Browse All Topics</h3>
+                  <p className="text-xs text-muted-foreground">Explore all 28 topics</p>
+                </CardContent>
+              </Card>
+            </Link>
+          </div>
+          <ScrollBar orientation="horizontal" />
+        </ScrollArea>
       </div>
     </div>
   );

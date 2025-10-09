@@ -9,10 +9,11 @@ import type { Initiative, Milestone } from "@/lib/types";
 interface MissionProgressBannerProps {
   initiative: Initiative;
   milestones: Milestone[];
-  onContributeClick: () => void;
+  onContributeClick?: () => void;
+  isMember?: boolean;
 }
 
-export function MissionProgressBanner({ initiative, milestones, onContributeClick }: MissionProgressBannerProps) {
+export function MissionProgressBanner({ initiative, milestones, onContributeClick, isMember = false }: MissionProgressBannerProps) {
   const completedMilestones = milestones.filter(m => m.status === 'completed').length;
   const milestoneProgress = milestones.length > 0 ? (completedMilestones / milestones.length) * 100 : 0;
   // Use initiative.progress if available, otherwise fallback to milestone-based progress
@@ -24,7 +25,7 @@ export function MissionProgressBanner({ initiative, milestones, onContributeClic
     <Card className="bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20">
       <CardContent className="p-6">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div className="space-y-2">
+          <div className="space-y-2 flex-1 max-w-3xl">
             <h2 className="text-xl font-semibold">Mission Progress</h2>
             <div className="space-y-1">
               <div className="flex items-center justify-between text-sm">
@@ -37,13 +38,15 @@ export function MissionProgressBanner({ initiative, milestones, onContributeClic
               {completedMilestones} of {milestones.length} milestones completed
             </p>
           </div>
-          <Button 
-            onClick={onContributeClick}
-            className="bg-primary text-white hover:bg-primary/90"
-          >
-            <TrendingUp className="h-4 w-4 mr-2" />
-            Contribute
-          </Button>
+          {!isMember && onContributeClick && (
+            <Button
+              onClick={onContributeClick}
+              className="bg-primary text-white hover:bg-primary/90 flex-shrink-0"
+            >
+              <TrendingUp className="h-4 w-4 mr-2" />
+              Join Initiative
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>

@@ -407,6 +407,10 @@ export async function findNearbyAreasByLocation(
   }
 }
 
+// Cache for nearby areas to prevent repeated Nominatim API calls
+const nearbyAreasCache = new Map<string, { data: ResolvedLocation[], timestamp: number }>();
+const NEARBY_AREAS_CACHE_DURATION = 60 * 60 * 1000; // 1 hour cache
+
 /**
  * Finds neighboring areas/counties within a given radius using Nominatim.
  *
@@ -418,6 +422,16 @@ export async function findNearbyAreas(
   coordinates: Location,
   radiusMiles: number = 25
 ): Promise<ResolvedLocation[]> {
+  // Create cache key from rounded coordinates (to 2 decimal places) and radius
+  const cacheKey = `${coordinates.lat.toFixed(2)},${coordinates.lng.toFixed(2)}-${radiusMiles}`;
+
+  // Check cache first
+  const cached = nearbyAreasCache.get(cacheKey);
+  if (cached && (Date.now() - cached.timestamp) < NEARBY_AREAS_CACHE_DURATION) {
+    console.log(`📦 Using cached nearby areas for coordinates: ${JSON.stringify(coordinates)}`);
+    return cached.data;
+  }
+
   console.log(
     `Finding nearby areas for coordinates: ${JSON.stringify(
       coordinates
@@ -492,11 +506,22 @@ export async function findNearbyAreas(
       .map(({ distance, ...area }) => area); // Remove distance property
 
     console.log(`Found ${uniqueAreas.length} unique nearby areas within ${radiusMiles} miles.`);
-    
+
+    // Cache the results
+    nearbyAreasCache.set(cacheKey, {
+      data: uniqueAreas,
+      timestamp: Date.now()
+    });
+
     return uniqueAreas;
 
   } catch (error) {
     console.error('Error finding nearby areas:', error);
+    // Cache empty result to prevent repeated failures
+    nearbyAreasCache.set(cacheKey, {
+      data: [],
+      timestamp: Date.now()
+    });
     return []; // Return empty array on failure
   }
 }

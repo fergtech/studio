@@ -305,7 +305,7 @@ export default function IssueClient({ issue, currentUserId, initiallyChampioned 
   return (
     <div className="w-full min-w-0 overflow-hidden">
       <AppSidebar 
-        widgets={['userControls', 'navigation', 'suggestions', 'location', 'resources', 'footer']}
+        widgets={['userControls', 'navigation', 'resources', 'footer']}
         context={{ type: 'issue' }}
         onCollapseChange={setSidebarCollapsed}
       />

@@ -1062,7 +1062,7 @@ export function InitiativeClientPage({
             </div>
 
             {/* Updates Section */}
-            <div className="space-y-4" style={{ maxWidth: '700px' }}>
+            <div className="space-y-4 mx-auto" style={{ maxWidth: '700px' }}>
               <h2 className="text-xl font-semibold">Updates</h2>
               {isMember ? (
                 <CreateUpdateForm 

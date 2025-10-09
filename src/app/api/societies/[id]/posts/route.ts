@@ -156,8 +156,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     });
 
     if (!membership) {
-      return NextResponse.json({ error: 'You must be a member of this society to create posts' }, { status: 403 });
+      console.error(`[Society Post] User ${userId} is not a member of society ${id}`);
+      return NextResponse.json({
+        error: 'You must be a member of this society to create posts',
+        details: 'Please join the society first'
+      }, { status: 403 });
     }
+
+    console.log(`[Society Post] User ${userId} creating post in society ${id}`);
 
     let linkPreviewId = undefined;
 

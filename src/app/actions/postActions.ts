@@ -431,3 +431,37 @@ export async function updateSocietyPostContent(postId: string, newContent: strin
     return { success: false, error: (error instanceof Error ? error.message : 'Unknown error') };
   }
 }
+
+export async function deleteSocietyPost(postId: string) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return { success: false, error: 'Not authenticated' };
+  }
+  const currentUserId = session.user.id;
+  try {
+    // Check if the post exists and belongs to the user
+    const post = await prisma.societyPost.findUnique({
+      where: { id: postId },
+      select: { userId: true, societyId: true },
+    });
+    if (!post) {
+      return { success: false, error: 'Post not found' };
+    }
+    if (post.userId !== currentUserId) {
+      return { success: false, error: 'Not authorized' };
+    }
+
+    // Delete the post (cascade will handle related data like comments, likes, etc.)
+    await prisma.societyPost.delete({
+      where: { id: postId },
+    });
+
+    revalidatePath(`/societies/${post.societyId}`);
+    revalidatePath("/");
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error in deleteSocietyPost:', error);
+    return { success: false, error: (error instanceof Error ? error.message : 'Unknown error') };
+  }
+}

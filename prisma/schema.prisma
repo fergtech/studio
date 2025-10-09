@@ -80,6 +80,7 @@ model User {
   userFollowers         UserFollow[]           @relation("UserFollowers")
   userFollowing         UserFollow[]           @relation("UserFollowing")
   topicInterests        UserTopicInterest[]    @relation("UserTopicInterests")
+  chatReactions         ChatMessageReaction[]  @relation("UserChatReactions")
 }
 
 model Initiative {
@@ -149,16 +150,29 @@ model Step {
 }
 
 model ChatMessage {
-  id           String      @id @default(cuid())
+  id           String              @id @default(cuid())
   initiativeId String?
   senderId     String
   senderName   String
-  text         String      // Can contain plain text OR JSON-encoded rich media (images, files, etc)
-  timestamp    DateTime    @default(now())
+  text         String              // Can contain plain text OR JSON-encoded rich media (images, files, etc)
+  timestamp    DateTime            @default(now())
   receiverId   String?
-  initiative   Initiative? @relation(fields: [initiativeId], references: [id])
-  receiver     User?       @relation("ReceiverOfChatMessage", fields: [receiverId], references: [id])
-  sender       User        @relation("SenderOfChatMessage", fields: [senderId], references: [id])
+  initiative   Initiative?         @relation(fields: [initiativeId], references: [id])
+  receiver     User?               @relation("ReceiverOfChatMessage", fields: [receiverId], references: [id])
+  sender       User                @relation("SenderOfChatMessage", fields: [senderId], references: [id])
+  reactions    ChatMessageReaction[]
+}
+
+model ChatMessageReaction {
+  id        String      @id @default(cuid())
+  messageId String
+  userId    String
+  emoji     String
+  createdAt DateTime    @default(now())
+  message   ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User        @relation("UserChatReactions", fields: [userId], references: [id])
+
+  @@unique([messageId, userId, emoji])
 }
 
 model MediaItem {

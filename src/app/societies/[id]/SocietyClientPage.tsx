@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Share2, UserPlus, Menu, X, Edit, Plus, Save, Loader2 } from 'lucide-react';
+import { Share2, UserPlus, Menu, X, Edit, Plus, Save, Loader2, MoreHorizontal, Trash2 } from 'lucide-react';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { SocietySidebar } from './SocietySidebar';
@@ -16,13 +16,19 @@ import { CreateSocietyPostForm } from './CreateSocietyPostForm';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { CreateInitiativeForm } from '@/components/CreateInitiativeForm';
 import { VideoPlayer } from '@/components/ui/video-player';
 import { AudioPlayer } from '@/components/ui/audio-player';
 import { LinkPreview } from '@/components/ui/link-preview';
 import { DocumentPreview } from '@/components/ui/document-preview';
 import AppSidebar, { getDefaultCollapsedState } from '@/components/AppSidebar';
-import { updateSocietyPostContent } from '@/app/actions/postActions';
+import { updateSocietyPostContent, deleteSocietyPost } from '@/app/actions/postActions';
 import { LazySocietyStats } from '@/components/LazySocietyStats';
 import SocietyPostReactions from '@/components/SocietyPostReactions';
 import { formatDistanceToNow } from 'date-fns';
@@ -256,6 +262,23 @@ export function SocietyClientPage({ society: initialSociety, members, posts: ini
     const [editContent, setEditContent] = useState(post.content);
     const [editLoading, setEditLoading] = useState(false);
 
+    const handleDeletePost = async (postId: string) => {
+      const result = await deleteSocietyPost(postId);
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: "Post deleted successfully."
+        });
+        await onPostUpdate();
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to delete post.",
+          variant: "destructive"
+        });
+      }
+    };
+
     const handleEditSubmit = async () => {
       if (!editContent.trim()) {
         toast({
@@ -341,16 +364,25 @@ export function SocietyClientPage({ society: initialSociety, members, posts: ini
               </div>
             </div>
             
-            {/* Edit button - only show for post creator */}
+            {/* Edit/Delete dropdown - only show for post creator */}
             {userId && post.user?.id === userId && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setEditMode(!editMode)}
-                className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-              >
-                <Edit className="h-4 w-4" />
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setEditMode(!editMode)}>
+                    <Edit className="mr-2 h-4 w-4" />
+                    Edit
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleDeletePost(post.id)} className="text-destructive focus:text-destructive">
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
           </div>
           {/* Content - Edit or Display Mode */}

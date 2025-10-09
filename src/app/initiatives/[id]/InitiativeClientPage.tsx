@@ -151,6 +151,9 @@ export function InitiativeClientPage({
   // Initialize main initiative state (Revert type to Initiative)
   const [initiative, setInitiative] = useState<Initiative>(initialInitiative);
 
+  // Local state for updates to enable immediate UI updates
+  const [localUpdates, setLocalUpdates] = useState<Update[]>(initialInitiative.updates || []);
+
   // Log the initiative state right after initialization
   console.log('InitiativeClientPage: Initiative state after useState initialization:', initiative);
 
@@ -1059,7 +1062,7 @@ export function InitiativeClientPage({
             </div>
 
             {/* Updates Section */}
-            <div className="space-y-4">
+            <div className="space-y-4" style={{ maxWidth: '700px' }}>
               <h2 className="text-xl font-semibold">Updates</h2>
               {isMember ? (
                 <CreateUpdateForm 
@@ -1083,7 +1086,10 @@ export function InitiativeClientPage({
                         media: updateData.imageUrl ? [{ url: updateData.imageUrl, type: 'IMAGE' as const }] : undefined,
                       });
 
-                      if (result.success) {
+                      if (result.success && result.update) {
+                        // Immediately add the new update to local state
+                        setLocalUpdates(prev => [result.update, ...prev]);
+
                         toast({
                           title: "Update Posted!",
                           description: "Your update has been added to the initiative.",
@@ -1109,11 +1115,11 @@ export function InitiativeClientPage({
               ) : (
                 <div className="text-xs text-muted-foreground mb-2">Join to post updates or interact!</div>
               )}
-              {initiative.updates && initiative.updates.length > 0 ? (
-                <ActivityFeed 
-                  updates={initiative.updates} 
-                  onLoadMore={() => {}} 
-                  hasMore={false} 
+              {localUpdates && localUpdates.length > 0 ? (
+                <ActivityFeed
+                  updates={localUpdates}
+                  onLoadMore={() => {}}
+                  hasMore={false}
                   isMember={isMember} // Pass isMember to ActivityFeed
                 />
               ) : (

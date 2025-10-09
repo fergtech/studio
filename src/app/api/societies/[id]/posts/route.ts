@@ -154,23 +154,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // Handle backward compatibility - single link
     if (linkUrl && linkMetadata) {
       try {
-        let linkPreview = await prisma.linkPreview.findUnique({
-          where: { url: linkMetadata.url }
+        const linkPreview = await prisma.linkPreview.upsert({
+          where: { url: linkMetadata.url },
+          update: {},
+          create: {
+            url: linkMetadata.url,
+            title: linkMetadata.title,
+            description: linkMetadata.description,
+            image: linkMetadata.image,
+            siteName: linkMetadata.siteName,
+            favicon: linkMetadata.favicon,
+            type: linkMetadata.type,
+          }
         });
-
-        if (!linkPreview) {
-          linkPreview = await prisma.linkPreview.create({
-            data: {
-              url: linkMetadata.url,
-              title: linkMetadata.title,
-              description: linkMetadata.description,
-              image: linkMetadata.image,
-              siteName: linkMetadata.siteName,
-              favicon: linkMetadata.favicon,
-              type: linkMetadata.type,
-            }
-          });
-        }
 
         linkPreviewId = linkPreview.id;
       } catch (linkError) {
@@ -200,91 +196,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const post = await prisma.societyPost.create({
       data: postData,
-      include: { 
-        user: true,
-        linkPreview: true,
-      },
-    });
-
-    // Handle multiple links
-    if (links && Array.isArray(links) && links.length > 0) {
-      for (const linkData of links) {
-        try {
-          // Try to find existing link preview or create new one
-          let linkPreview = await prisma.linkPreview.findUnique({
-            where: { url: linkData.metadata.url }
-          });
-
-          if (!linkPreview) {
-            linkPreview = await prisma.linkPreview.create({
-              data: {
-                url: linkData.metadata.url,
-                title: linkData.metadata.title,
-                description: linkData.metadata.description,
-                image: linkData.metadata.image,
-                siteName: linkData.metadata.siteName,
-                favicon: linkData.metadata.favicon,
-                type: linkData.metadata.type,
-              }
-            });
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            username: true,
+            image: true,
           }
-
-          // Create the post-link relationship
-          await prisma.societyPostLink.create({
-            data: {
-              postId: post.id,
-              linkPreviewId: linkPreview.id,
-              order: linkData.order || 0,
-            }
-          });
-        } catch (linkError) {
-          console.error('Failed to create link for post:', linkError);
-        }
-      }
-    }
-
-    // Handle multiple documents
-    if (documents && Array.isArray(documents) && documents.length > 0) {
-      for (const documentData of documents) {
-        try {
-          // Try to find existing document or create new one
-          let document = await prisma.document.findUnique({
-            where: { url: documentData.metadata.url }
-          });
-
-          if (!document) {
-            document = await prisma.document.create({
-              data: {
-                url: documentData.metadata.url,
-                filename: documentData.metadata.filename,
-                fileType: documentData.metadata.fileType,
-                fileSize: documentData.metadata.fileSize,
-                extension: documentData.metadata.extension,
-                title: documentData.metadata.title,
-                description: documentData.metadata.description,
-              }
-            });
-          }
-
-          // Create the post-document relationship
-          await prisma.societyPostDocument.create({
-            data: {
-              postId: post.id,
-              documentId: document.id,
-              order: documentData.order || 0,
-            }
-          });
-        } catch (documentError) {
-          console.error('Failed to create document for post:', documentError);
-        }
-      }
-    }
-
-    // Fetch the post with all links and documents
-    const postWithLinksAndDocuments = await prisma.societyPost.findUnique({
-      where: { id: post.id },
-      include: { 
-        user: true,
+        },
         linkPreview: true,
         links: {
           include: {
@@ -305,7 +225,73 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       },
     });
 
-    return NextResponse.json(postWithLinksAndDocuments, { status: 201 });
+    // Handle multiple links in parallel
+    if (links && Array.isArray(links) && links.length > 0) {
+      await Promise.all(links.map(async (linkData) => {
+        try {
+          // Upsert link preview (find or create in one operation)
+          const linkPreview = await prisma.linkPreview.upsert({
+            where: { url: linkData.metadata.url },
+            update: {},
+            create: {
+              url: linkData.metadata.url,
+              title: linkData.metadata.title,
+              description: linkData.metadata.description,
+              image: linkData.metadata.image,
+              siteName: linkData.metadata.siteName,
+              favicon: linkData.metadata.favicon,
+              type: linkData.metadata.type,
+            }
+          });
+
+          // Create the post-link relationship
+          await prisma.societyPostLink.create({
+            data: {
+              postId: post.id,
+              linkPreviewId: linkPreview.id,
+              order: linkData.order || 0,
+            }
+          });
+        } catch (linkError) {
+          console.error('Failed to create link for post:', linkError);
+        }
+      }));
+    }
+
+    // Handle multiple documents in parallel
+    if (documents && Array.isArray(documents) && documents.length > 0) {
+      await Promise.all(documents.map(async (documentData) => {
+        try {
+          // Upsert document (find or create in one operation)
+          const document = await prisma.document.upsert({
+            where: { url: documentData.metadata.url },
+            update: {},
+            create: {
+              url: documentData.metadata.url,
+              filename: documentData.metadata.filename,
+              fileType: documentData.metadata.fileType,
+              fileSize: documentData.metadata.fileSize,
+              extension: documentData.metadata.extension,
+              title: documentData.metadata.title,
+              description: documentData.metadata.description,
+            }
+          });
+
+          // Create the post-document relationship
+          await prisma.societyPostDocument.create({
+            data: {
+              postId: post.id,
+              documentId: document.id,
+              order: documentData.order || 0,
+            }
+          });
+        } catch (documentError) {
+          console.error('Failed to create document for post:', documentError);
+        }
+      }));
+    }
+
+    return NextResponse.json(post, { status: 201 });
   } catch (error) {
     return NextResponse.json({ error: 'Failed to create post', details: error }, { status: 500 });
   }

@@ -366,6 +366,8 @@ export function CreateSocietyPostForm({ societyId, userId, isMember, onPostCreat
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!content.trim()) return;
+
+    console.log('[Society Post] Starting submission...', { societyId, userId, type, contentLength: content.length });
     setLoading(true);
     let imageUrl: string | undefined = undefined;
     try {
@@ -424,8 +426,16 @@ export function CreateSocietyPostForm({ societyId, userId, isMember, onPostCreat
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(postData),
       });
-      if (!res.ok) throw new Error("Failed to create post");
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('Failed to create post:', res.status, errorData);
+        throw new Error(errorData.error || errorData.details || `Failed to create post (${res.status})`);
+      }
+
       const post = await res.json();
+      console.log('[Society Post] Post created successfully:', post);
+
       setContent("");
       setTitle("");
       setType("GENERAL");
@@ -441,6 +451,7 @@ export function CreateSocietyPostForm({ societyId, userId, isMember, onPostCreat
       onPostCreated(post);
       toast({ title: "Post created!" });
     } catch (err: any) {
+      console.error('[Society Post] Error:', err);
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
       setLoading(false);

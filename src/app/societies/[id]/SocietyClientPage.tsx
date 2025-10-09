@@ -801,7 +801,7 @@ export function SocietyClientPage({ society: initialSociety, members, posts: ini
           onSave={handleSaveEditSociety}
         />
         {/* Main Content */}
-        <div className="space-y-6">
+        <div className="space-y-6" style={{ maxWidth: '700px' }}>
             {/* Post Form */}
             <CreateSocietyPostForm
               societyId={society.id}

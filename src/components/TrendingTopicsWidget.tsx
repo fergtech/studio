@@ -149,6 +149,17 @@ export function TrendingTopicsWidget({ limit = 8, showHeader = true }: TrendingT
               />
             </div>
           ))}
+
+          {/* Browse All Topics Link - Always show at end */}
+          <Link href="/topics/browse" className="flex-shrink-0 w-48">
+            <Card className="h-full hover:shadow-lg hover:ring-2 hover:ring-primary transition-all duration-200 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
+              <CardContent className="p-6 flex flex-col items-center justify-center h-full text-center">
+                <Hash className="h-12 w-12 mb-3 text-primary" />
+                <h3 className="font-semibold text-base mb-1">Browse All Topics</h3>
+                <p className="text-xs text-muted-foreground">Explore all 28 topics</p>
+              </CardContent>
+            </Card>
+          </Link>
         </div>
       </div>
     </div>

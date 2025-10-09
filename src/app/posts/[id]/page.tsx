@@ -178,6 +178,18 @@ export default async function PostPage({ params }: { params: Promise<{ id: strin
     notFound();
   }
 
+  // Check if user is a member of the society (for society posts)
+  let isSocietyMember = false;
+  if (postType === 'society' && society && currentUserId) {
+    const membership = await prisma.societyMembership.findFirst({
+      where: {
+        societyId: society.id,
+        userId: currentUserId,
+      },
+    });
+    isSocietyMember = !!membership;
+  }
+
   // Pass the correct props depending on post type
   if (postType === 'general') {
     return (
@@ -239,29 +251,29 @@ export default async function PostPage({ params }: { params: Promise<{ id: strin
         media={postData.imageUrl ? [{
           type: (() => {
             const lowerUrl = postData.imageUrl!.toLowerCase();
-            
+
             // Check for audio extensions
-            if (lowerUrl.includes('.mp3') || 
-                lowerUrl.includes('.wav') || 
-                lowerUrl.includes('.m4a') || 
-                lowerUrl.includes('.aac') || 
-                lowerUrl.includes('.ogg') || 
+            if (lowerUrl.includes('.mp3') ||
+                lowerUrl.includes('.wav') ||
+                lowerUrl.includes('.m4a') ||
+                lowerUrl.includes('.aac') ||
+                lowerUrl.includes('.ogg') ||
                 lowerUrl.includes('.flac')) {
               return 'audio';
             }
-            
+
             // Check for video extensions
-            if (lowerUrl.includes('.mp4') || 
-                lowerUrl.includes('.webm') || 
-                lowerUrl.includes('.mov') || 
-                lowerUrl.includes('.avi') || 
-                lowerUrl.includes('.mkv') || 
-                lowerUrl.includes('.wmv') || 
-                lowerUrl.includes('.flv') || 
+            if (lowerUrl.includes('.mp4') ||
+                lowerUrl.includes('.webm') ||
+                lowerUrl.includes('.mov') ||
+                lowerUrl.includes('.avi') ||
+                lowerUrl.includes('.mkv') ||
+                lowerUrl.includes('.wmv') ||
+                lowerUrl.includes('.flv') ||
                 lowerUrl.includes('.m4v')) {
               return 'video';
             }
-            
+
             // Default to image
             return 'image';
           })(),
@@ -272,6 +284,7 @@ export default async function PostPage({ params }: { params: Promise<{ id: strin
         postType="society"
         society={society || undefined}
         societyPostType={postData.type}
+        isSocietyMember={isSocietyMember}
         linkPreview={postData.linkPreview ? {
           ...postData.linkPreview,
           title: postData.linkPreview.title || undefined,

@@ -35,7 +35,7 @@ export default function SocietiesPage() {
     return (
       <div className="w-full min-w-0 overflow-hidden">
         <AppSidebar 
-          widgets={['userControls', 'navigation', 'suggestions', 'location', 'resources', 'footer']}
+          widgets={['userControls', 'navigation', 'resources', 'footer']}
           context={{ type: 'societies' }}
           onCollapseChange={setSidebarCollapsed}
         />
@@ -53,7 +53,7 @@ export default function SocietiesPage() {
   return (
     <div className="w-full min-w-0 overflow-hidden">
       <AppSidebar 
-        widgets={['userControls', 'navigation', 'suggestions', 'location', 'resources', 'footer']}
+        widgets={['userControls', 'navigation', 'resources', 'footer']}
         context={{ type: 'societies' }}
         onCollapseChange={setSidebarCollapsed}
       />

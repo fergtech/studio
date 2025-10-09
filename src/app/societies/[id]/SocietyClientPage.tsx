@@ -218,8 +218,8 @@ export function SocietyClientPage({ society: initialSociety, members, posts: ini
           title: "Left Society",
           description: "You have successfully left the society.",
         });
-        // Refresh the page to update the UI
-        router.refresh();
+        // Navigate away to societies page
+        router.push('/societies');
       } else {
         const error = await response.json();
         toast({

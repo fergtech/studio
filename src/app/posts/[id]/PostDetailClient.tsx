@@ -58,6 +58,7 @@ interface PostDetailClientProps {
     image?: string | null;
   };
   societyPostType?: string;
+  isSocietyMember?: boolean;
   linkPreview?: {
     url: string;
     title?: string;
@@ -108,6 +109,7 @@ export default function PostDetailClient({
   topics,
   society,
   societyPostType,
+  isSocietyMember = false,
   linkPreview,
   links,
   documents,
@@ -418,7 +420,7 @@ export default function PostDetailClient({
       {/* Sidebar - blurred when comment panel is open */}
       <div className={commentPanelOpen ? 'blur-sm pointer-events-none' : ''}>
         <AppSidebar 
-          widgets={['userControls', 'navigation', 'suggestions', 'location', 'resources', 'footer']}
+          widgets={['userControls', 'navigation', 'resources', 'footer']}
           context={{ type: 'post' }}
           onCollapseChange={setSidebarCollapsed}
         />
@@ -428,7 +430,7 @@ export default function PostDetailClient({
       <div className={`transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'} ${commentPanelOpen ? 'blur-sm pointer-events-none' : ''}`}>
         {/* Close Button - positioned on the right */}
         <div className="max-w-6xl mx-auto pt-6 px-4 flex items-center justify-end mb-4">
-          <Button variant="ghost" size="icon" onClick={() => router.push('/')}>
+          <Button variant="ghost" size="icon" onClick={() => router.back()}>
             <X className="h-5 w-5" />
           </Button>
         </div>
@@ -821,6 +823,8 @@ export default function PostDetailClient({
         currentUserId={currentUserId}
         postType={postType}
         societyId={society?.id}
+        isSocietyMember={isSocietyMember}
+        societyName={society?.name}
         isOpen={commentPanelOpen}
         onClose={() => setCommentPanelOpen(false)}
         onCommentUpdate={(newCount) => setCommentCount(newCount)}

@@ -60,6 +60,10 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
   const [currentInterests, setCurrentInterests] = useState<string[]>(user.interests || []);
   const [isUpdating, setIsUpdating] = useState(false);
 
+  // Activity feed pagination
+  const [activityItemsToShow, setActivityItemsToShow] = useState(6);
+  const ACTIVITY_LOAD_MORE_COUNT = 3;
+
   // Fetch initial followers and following for avatar stacks
   useEffect(() => {
     // Fetch initial followers
@@ -224,6 +228,14 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
     closeModal();
     router.push(`/profile/${u.username}`);
   };
+
+  // Activity feed pagination handlers
+  const handleLoadMoreActivity = () => {
+    setActivityItemsToShow(prev => prev + ACTIVITY_LOAD_MORE_COUNT);
+  };
+
+  const visibleActivityItems = activityFeed.slice(0, activityItemsToShow);
+  const hasMoreActivity = activityItemsToShow < activityFeed.length;
 
   // Inline editing handlers
   const handleAddSkill = () => {
@@ -1149,38 +1161,99 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
                   Recent Activity
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-6">
                 {activityFeed.length > 0 ? (
-                  <div className="space-y-4">
-                    {activityFeed.map((item: ContributionItem, index: number) => (
-                      <div key={index} className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                        <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center flex-shrink-0">
-                          <Activity className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-medium text-gray-900 dark:text-white">{item.title}</p>
-                          {item.details && (
-                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{item.details}</p>
-                          )}
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            {new Date(item.date).toLocaleDateString()}
-                          </p>
-                          {item.relatedInitiativeId && (
-                            <Link 
-                              href={`/initiatives/${item.relatedInitiativeId}`} 
-                              className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm mt-1 inline-block"
-                            >
-                              View Initiative →
-                            </Link>
-                          )}
-                        </div>
+                  <div className="space-y-6">
+                    <div className="flow-root">
+                      <ul className="-mb-8">
+                        {visibleActivityItems.map((item: ContributionItem, index: number) => (
+                          <li key={index}>
+                            <div className="relative pb-8">
+                              {index !== visibleActivityItems.length - 1 ? (
+                                <span 
+                                  className="absolute left-4 top-10 -ml-px h-full w-0.5 bg-gray-200 dark:bg-gray-700" 
+                                  aria-hidden="true"
+                                />
+                              ) : null}
+                              <div className="relative flex space-x-3">
+                                <div>
+                                  <Avatar className="h-8 w-8">
+                                    <AvatarImage src={user.image || ''} alt={user.name || 'User'} />
+                                    <AvatarFallback className="bg-blue-500 text-white text-sm">
+                                      {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                </div>
+                                <div className="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5">
+                                  <div>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                                      <span className="font-medium text-gray-900 dark:text-white">
+                                        {user.name || 'You'}
+                                      </span>{' '}
+                                      {item.title.toLowerCase()}
+                                    </p>
+                                    {item.details && (
+                                      <div className="mt-2 text-sm text-gray-700 dark:text-gray-300">
+                                        <p className="line-clamp-2">{item.details}</p>
+                                      </div>
+                                    )}
+                                    {item.relatedInitiativeId && (
+                                      <div className="mt-2">
+                                        <Link 
+                                          href={`/initiatives/${item.relatedInitiativeId}`} 
+                                          className="text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300 text-sm"
+                                        >
+                                          View Initiative →
+                                        </Link>
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="whitespace-nowrap text-right text-sm text-gray-500 dark:text-gray-400">
+                                    <time dateTime={typeof item.date === 'string' ? item.date : item.date.toISOString()}>
+                                      {(() => {
+                                        const now = new Date();
+                                        const itemDate = new Date(item.date);
+                                        const diffInHours = Math.floor((now.getTime() - itemDate.getTime()) / (1000 * 60 * 60));
+                                        const diffInDays = Math.floor(diffInHours / 24);
+                                        
+                                        if (diffInHours < 1) return 'Just now';
+                                        if (diffInHours < 24) return `${diffInHours}h ago`;
+                                        if (diffInDays < 7) return `${diffInDays}d ago`;
+                                        return itemDate.toLocaleDateString('en-US', { 
+                                          month: 'short', 
+                                          day: 'numeric' 
+                                        });
+                                      })()}
+                                    </time>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    
+                    {/* Load More Button */}
+                    {hasMoreActivity && (
+                      <div className="flex justify-center pt-6 border-t border-gray-200 dark:border-gray-700">
+                        <Button 
+                          variant="outline" 
+                          onClick={handleLoadMoreActivity}
+                          className="flex items-center gap-2"
+                        >
+                          <Plus className="w-4 h-4" />
+                          Load More Activity ({activityFeed.length - activityItemsToShow} remaining)
+                        </Button>
                       </div>
-                    ))}
+                    )}
                   </div>
                 ) : (
-                  <p className="text-gray-500 dark:text-gray-400 text-center py-8">
-                    {isOwnProfile ? "You haven't posted any activity yet." : "This user hasn't posted any activity yet."}
-                  </p>
+                  <div className="py-8">
+                    <p className="text-gray-500 dark:text-gray-400 text-center">
+                      {isOwnProfile ? "You haven't posted any activity yet." : "This user hasn't posted any activity yet."}
+                    </p>
+                  </div>
                 )}
               </CardContent>
             </Card>

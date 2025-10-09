@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { BarChart2, Lightbulb, AlertTriangle, Layers } from 'lucide-react';
+import Link from 'next/link';
 
 // Define Member type
 interface Member {
@@ -137,22 +138,22 @@ export function SocietySidebar({ society, members, isMobile, isOpen, onToggle }:
         <CardContent>
           <div className="space-y-4">
             {members.map((member: Member) => (
-              <div key={member.id} className="flex items-center gap-3">
-                <Avatar className="h-8 w-8">
+              <Link href={`/profile/${member.id}`} key={member.id} className="flex items-center gap-3 group">
+                <Avatar className="h-8 w-8 group-hover:ring-2 group-hover:ring-primary transition-all">
                   <AvatarImage src={member.image ?? undefined} alt={member.name} />
                   <AvatarFallback>{member.name?.[0]?.toUpperCase() || '?'}</AvatarFallback>
                 </Avatar>
                 <div>
-                  <div className="font-medium">{member.name}</div>
+                  <div className="font-medium group-hover:underline">{member.name}</div>
                   {member.role && (
                     <Badge variant="secondary" className="text-xs">{member.role}</Badge>
                   )}
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </CardContent>
       </Card>
     </div>
   );
-} 
+}

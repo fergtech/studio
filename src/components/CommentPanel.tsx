@@ -22,19 +22,23 @@ interface CommentPanelProps {
   currentUserId: string | null;
   postType?: string;
   societyId?: string;
+  isSocietyMember?: boolean;
+  societyName?: string;
   isOpen: boolean;
   onClose: () => void;
   onCommentUpdate?: (newCount: number) => void;
 }
 
-export default function CommentPanel({ 
-  postId, 
-  currentUserId, 
-  postType = 'general', 
+export default function CommentPanel({
+  postId,
+  currentUserId,
+  postType = 'general',
   societyId,
+  isSocietyMember = false,
+  societyName,
   isOpen,
   onClose,
-  onCommentUpdate 
+  onCommentUpdate
 }: CommentPanelProps) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [allComments, setAllComments] = useState<Comment[]>([]);
@@ -462,6 +466,19 @@ export default function CommentPanel({
                   </Button>
                 </div>
               </div>
+            ) : postType === 'society' && !isSocietyMember ? (
+              <div className="space-y-3 p-4 bg-muted/50 rounded-lg border border-border">
+                <p className="text-sm text-muted-foreground text-center">
+                  You must be a member of <span className="font-semibold">{societyName || 'this society'}</span> to comment on this post.
+                </p>
+                <div className="flex justify-center">
+                  <Link href={`/societies/${societyId}`}>
+                    <Button size="sm" variant="default">
+                      Join Society
+                    </Button>
+                  </Link>
+                </div>
+              </div>
             ) : (
               <form onSubmit={handleSubmitComment} className="space-y-3">
                 <Textarea
@@ -472,9 +489,9 @@ export default function CommentPanel({
                   rows={3}
                 />
                 <div className="flex justify-end">
-                  <Button 
-                    type="submit" 
-                    size="sm" 
+                  <Button
+                    type="submit"
+                    size="sm"
                     disabled={!newComment.trim() || !currentUserId}
                     className="bg-primary hover:bg-primary/90"
                   >

@@ -15,8 +15,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ post
   }
 }
 
-export async function POST(req: NextRequest, { params }: { params: { postId: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ postId: string }> }) {
   try {
+    const { postId } = await params;
     const body = await req.json();
     const { userId, text, parentCommentId } = body;
     if (!userId || !text) {
@@ -25,7 +26,7 @@ export async function POST(req: NextRequest, { params }: { params: { postId: str
 
     // Get the society ID from the post
     const post = await prisma.societyPost.findUnique({
-      where: { id: params.postId },
+      where: { id: postId },
       select: { societyId: true }
     });
 
@@ -34,12 +35,10 @@ export async function POST(req: NextRequest, { params }: { params: { postId: str
     }
 
     // Check if user is a member of the society
-    const membership = await prisma.societyMembership.findUnique({
+    const membership = await prisma.societyMembership.findFirst({
       where: {
-        userId_societyId: {
-          userId,
-          societyId: post.societyId
-        }
+        userId,
+        societyId: post.societyId
       }
     });
 
@@ -49,7 +48,7 @@ export async function POST(req: NextRequest, { params }: { params: { postId: str
 
     const comment = await prisma.societyPostComment.create({
       data: {
-        postId: params.postId,
+        postId,
         userId,
         text,
         parentCommentId: parentCommentId || null,

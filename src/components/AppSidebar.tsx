@@ -24,7 +24,7 @@ interface AppSidebarProps {
   className?: string;
   children?: React.ReactNode;
   context?: {
-    type?: 'home' | 'profile' | 'society' | 'initiative' | 'initiatives' | 'activity' | 'chat' | 'debate' | 'explore' | 'idea' | 'issue' | 'ideas' | 'issues' | 'societies' | 'profile-edit' | 'topic' | 'goal' | 'post';
+    type?: 'home' | 'profile' | 'society' | 'initiative' | 'initiatives' | 'activity' | 'chat' | 'messages' | 'debate' | 'explore' | 'idea' | 'issue' | 'ideas' | 'issues' | 'societies' | 'profile-edit' | 'topic' | 'goal' | 'post';
     data?: any;
   };
   onCollapseChange?: (collapsed: boolean) => void;
@@ -33,27 +33,27 @@ interface AppSidebarProps {
 // Determine default collapsed state based on page context
 export const getDefaultCollapsedState = (context?: AppSidebarProps['context']): boolean => {
   if (!context?.type) return false; // Default to open if no context
-  
+
   // Utility/Discovery pages - default to open (false = not collapsed)
-  const utilityPages = ['explore', 'profile-edit', 'topic', 'ideas', 'issues', 'societies', 'initiatives', 'post'];
+  const utilityPages = ['explore', 'profile-edit', 'topic', 'ideas', 'issues', 'societies', 'initiatives', 'post', 'messages'];
 
   // Core engagement pages - default to closed (true = collapsed)
   const corePages = ['home', 'profile', 'society', 'initiative', 'activity', 'chat', 'debate', 'idea', 'issue', 'goal'];
-  
+
   if (utilityPages.includes(context.type)) {
     return false; // Open by default
   }
-  
+
   if (corePages.includes(context.type)) {
     return true; // Closed by default
   }
-  
+
   // Default to closed for unknown page types
   return true;
 };
 
 // Widget component mapping
-const getWidgetComponent = (type: SidebarWidgetType, context?: any, collapsed?: boolean) => {
+const getWidgetComponent = (type: SidebarWidgetType, context?: any, collapsed?: boolean, isMobile?: boolean) => {
   switch (type) {
     case 'navigation':
       return <NavigationWidget key={type} />;
@@ -62,7 +62,7 @@ const getWidgetComponent = (type: SidebarWidgetType, context?: any, collapsed?: 
     case 'footer':
       return <FooterLinksWidget key={type} />;
     case 'userControls':
-      return <UserControlsWidget key={type} collapsed={collapsed} />;
+      return <UserControlsWidget key={type} collapsed={collapsed} isMobile={isMobile} />;
     default:
       return null;
   }
@@ -84,10 +84,10 @@ function AppSidebar({
     onCollapseChange?.(newCollapsed);
   };
 
-  const renderWidgets = () => {
+  const renderWidgets = (isMobile = false) => {
     return (
       <>
-        {widgets.map((widgetType) => getWidgetComponent(widgetType, context, desktopCollapsed)).filter(Boolean)}
+        {widgets.map((widgetType) => getWidgetComponent(widgetType, context, isMobile ? false : desktopCollapsed, isMobile)).filter(Boolean)}
         {children}
       </>
     );
@@ -175,7 +175,7 @@ function AppSidebar({
           </div>
           
           <div className="space-y-4 p-4">
-            {renderWidgets()}
+            {renderWidgets(true)}
           </div>
         </SheetContent>
       </Sheet>

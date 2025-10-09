@@ -23,12 +23,10 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     }
 
     // Check if user is a member
-    const membership = await prisma.societyMembership.findUnique({
+    const membership = await prisma.societyMembership.findFirst({
       where: {
-        userId_societyId: {
-          userId,
-          societyId,
-        },
+        userId,
+        societyId,
       },
     });
 
@@ -44,10 +42,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     // Delete membership
     await prisma.societyMembership.delete({
       where: {
-        userId_societyId: {
-          userId,
-          societyId,
-        },
+        id: membership.id,
       },
     });
 

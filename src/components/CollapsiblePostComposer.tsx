@@ -8,10 +8,10 @@ import { User2, X } from 'lucide-react';
 import CreatePostForm from './CreatePostForm';
 
 interface CollapsiblePostComposerProps {
-  onPostCreated?: (post: any) => void;
+  onPostCreated?: () => void;
   onSuccess?: () => void;
   societyId?: string;
-  context?: 'general' | 'society' | 'topic' | 'battle';
+  context?: 'general' | 'society' | 'initiative';
   battleContext?: any;
   initialTopic?: string | null;
 }
@@ -66,10 +66,19 @@ export function CollapsiblePostComposer({
       <div className="fixed bottom-4 left-4 right-4 z-50 flex justify-center pointer-events-none">
         <div ref={composerRef} className="w-full max-w-2xl pointer-events-auto">
           <Card className="bg-background/95 backdrop-blur-sm border border-border shadow-2xl rounded-2xl overflow-hidden">
-            <div className="p-4">
+            <div className="relative p-4">
+              {/* Close button - especially useful on mobile */}
+              <button
+                onClick={() => setIsExpanded(false)}
+                className="absolute top-3 right-3 z-10 p-2 rounded-full bg-muted hover:bg-muted/80 shadow-sm hover:shadow-md transition-all"
+                aria-label="Close composer"
+              >
+                <X className="h-5 w-5 text-foreground" />
+              </button>
+
               <CreatePostForm
-                onPostCreated={(post) => {
-                  onPostCreated?.(post);
+                onPostCreated={() => {
+                  onPostCreated?.();
                   setIsExpanded(false); // Collapse after posting
                 }}
                 onSuccess={() => {

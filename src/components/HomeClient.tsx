@@ -2,7 +2,9 @@
 
 import React, { useState, useEffect, useCallback } from 'react'; // Import React hooks
 import { InitiativeCard } from "@/components/InitiativeCard";
+import { CompactInitiativeCard } from "@/components/CompactInitiativeCard";
 import { GeneralPostCard } from "@/components/GeneralPostCard";
+import { CompactPostCard } from "@/components/CompactPostCard";
 import { MetaActionCard } from "@/components/MetaActionCard";
 import { CollapsiblePostComposer } from "@/components/CollapsiblePostComposer";
 import type { Initiative as PrismaInitiative, GeneralPost as PrismaGeneralPost, User as PrismaUser, MediaItem as PrismaMediaItem, Issue as PrismaIssue, Idea as PrismaIdea } from '@prisma/client';
@@ -17,6 +19,8 @@ import { Star, Loader2, Target, Filter } from "lucide-react";
 import { PostActions } from '@/components/PostActions';
 import { IdeaCard } from "@/components/IdeaCard";
 import { IssueCard } from "@/components/IssueCard";
+import { CompactIdeaCard } from "@/components/CompactIdeaCard";
+import { CompactIssueCard } from "@/components/CompactIssueCard";
 import ActivityFeed from "@/components/ActivityFeed";
 import AppSidebar, { getDefaultCollapsedState } from "@/components/AppSidebar";
 import { useToast } from "@/hooks/use-toast";
@@ -24,9 +28,11 @@ import { useWindowScrollPosition } from "@/hooks/useScrollPosition";
 import { restoreScrollPosition } from "@/utils/navigation";
 // import { io, Socket } from 'socket.io-client'; // Temporarily disabled for Vercel deployment
 import { MainFeedSocietyPostCard } from './MainFeedSocietyPostCard';
+import { CompactSocietyPostCard } from './CompactSocietyPostCard';
 import { DebateTopicCard } from './DebateTopicCard';
 import { TrendingTopicsWidget } from './TrendingTopicsWidget';
 import { HotTakeBattleCard } from './HotTakeBattleCard';
+import { CompactHotTakeBattleCard } from './CompactHotTakeBattleCard';
 import { NewsPostCard } from './NewsPostCard';
 import { useModal } from '@/context/ModalContext';
 import { NewsColumn } from './NewsColumn';
@@ -578,12 +584,9 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
         </div>
 
         {/* Main Layout: Feed centered, News pushed to far right */}
-        <div className="flex w-full">
-          {/* Spacer for centering feed */}
-          <div className="hidden xl:block flex-1"></div>
-
+        <div className="flex w-full justify-center">
           {/* Main Feed - Centered */}
-          <div className="flex-shrink-0 w-full max-w-2xl px-4 pb-24">
+          <div className="flex-shrink-0 w-full max-w-3xl px-4 pb-24">
             <div className="flex flex-col space-y-6">
           {/* Feed Filter Controls - Horizontal Scrollable Tabs */}
           <div className="w-full">
@@ -684,7 +687,7 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
 
               if (item.type === 'societyPost' && isSocietyPost(item.data)) {
                 return (
-                  <MainFeedSocietyPostCard key={`${item.type}-${itemKey}`} post={item.data as SocietyPostWithUserAndSociety} />
+                  <CompactSocietyPostCard key={`${item.type}-${itemKey}`} post={item.data as SocietyPostWithUserAndSociety} showTimeline={true} />
                 );
               } else if (item.type === 'hotTakeBattle') {
                 const battleItem = contentData as HotTakeBattleWithCreator;
@@ -787,7 +790,7 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
                 };
                 return (
                   <div key={`${item.type}-${itemKey}`} className="w-full">
-                    <GeneralPostCard post={displayPost} currentUserId={currentUserId} onPostDeleted={handlePostDeleted} />
+                    <CompactPostCard post={displayPost} currentUserId={currentUserId} showTimeline={true} />
                   </div>
                 );
               } else if (contentData && isInitiative(contentData)) {
@@ -832,11 +835,12 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
 
                 return (
                   <div key={`${item.type}-${itemKey}`} className="w-full">
-                    <InitiativeCard
+                    <CompactInitiativeCard
                       initiative={initiativeForCard}
                       creatorName={initiativeCreatorName}
                       creatorAvatarUrl={initiativeCreatorAvatar}
                       currentUserId={currentUserId}
+                      showTimeline={true}
                     />
                   </div>
                 );
@@ -924,15 +928,10 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
 
                   return (
                     <div key={`issue-${itemKey}`} className="w-full">
-                      <IssueCard
+                      <CompactIssueCard
                         issue={issueData}
                         currentUserId={currentUserId}
-                        onIssueDeleted={(issueId) => {
-                          // Remove the issue from the feed
-                          setAllFeedItems(prev => prev.filter(item =>
-                            !(item.type === 'issue' && item.data.id === issueId)
-                          ));
-                        }}
+                        showTimeline={true}
                       />
                     </div>
                   );
@@ -966,15 +965,10 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
 
                   return (
                     <div key={`idea-${itemKey}`} className="w-full">
-                      <IdeaCard
+                      <CompactIdeaCard
                         idea={ideaData}
                         currentUserId={currentUserId}
-                        onIdeaDeleted={(ideaId) => {
-                          // Remove the idea from the feed
-                          setAllFeedItems(prev => prev.filter(item =>
-                            !(item.type === 'idea' && item.data.id === ideaId)
-                          ));
-                        }}
+                        showTimeline={true}
                       />
                     </div>
                   );
@@ -1040,19 +1034,17 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
             </div>
           </div>
 
-          {/* Spacer for centering feed */}
-          <div className="hidden xl:block flex-1"></div>
+          {/* Right Sidebar - Local Content & Smart Suggestions */}
+          <aside className="hidden xl:block flex-shrink-0 w-80 xl:w-96 pl-6 pr-6">
+            {/* NewsColumn TEMPORARILY DISABLED - Will be re-enabled with improved MVP news (actionable local/global news) */}
+            {/* <NewsColumn limit={5} showMore={showMoreNews} onShowMore={() => setShowMoreNews(!showMoreNews)} /> */}
 
-          {/* News Column - Far right edge */}
-          <aside className="hidden xl:block flex-shrink-0 w-80 pr-6">
-            <NewsColumn limit={5} showMore={showMoreNews} onShowMore={() => setShowMoreNews(!showMoreNews)} />
-
-            {/* Local Content Section - Below News */}
-            <div className="mt-6">
+            {/* Local Content Section */}
+            <div>
               <LocationBasedWidget />
             </div>
 
-            {/* Smart Suggestions Section - Below Local Content */}
+            {/* Smart Suggestions Section */}
             <div className="mt-6">
               <SmartSuggestionsWidget />
             </div>

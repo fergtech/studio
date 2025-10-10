@@ -15,7 +15,7 @@ import { createIdea } from '@/app/actions/ideaActions';
 import { useToast } from '@/hooks/use-toast';
 import imageCompression from 'browser-image-compression';
 import { ResolvedLocation } from '@/services/location';
-import { extractHashtags, mergeHashtagsWithTopics, analyzeContent } from '@/utils/hashtagUtils';
+// Hashtags are now just text in posts - no special processing needed
 
 // Define some background options
 const backgroundOptions = [
@@ -172,70 +172,11 @@ export default function CreatePostForm({ onPostCreated, onSuccess, societyId, co
   const [isLocationDropdownOpen, setIsLocationDropdownOpen] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<LocationScope>('user');
   const [customLocation, setCustomLocation] = useState<ResolvedLocation | null>(null);
-  const [topics, setTopics] = useState<string[]>([]);
-  const [topicInput, setTopicInput] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-detect hashtags from content and merge with topics
-  // Only runs when user hits space or enters new line
-  const updateTopicsFromContent = (content: string, title: string = '') => {
-    const combinedText = `${title} ${content}`;
-    const detectedHashtags = extractHashtags(combinedText);
-
-    if (detectedHashtags.length > 0) {
-      setTopics(prevTopics => {
-        const mergedTopics = mergeHashtagsWithTopics(prevTopics, detectedHashtags);
-        return mergedTopics.slice(0, 5); // Limit to 5 topics
-      });
-    }
-  };
-
-  // Detect hashtags only when user hits space or Enter
-  const handleKeyPress = (e: React.KeyboardEvent, fieldContent: string, isTitle: boolean = false) => {
-    if (e.key === ' ' || e.key === 'Enter') {
-      if (isTitle) {
-        updateTopicsFromContent(content, fieldContent);
-      } else {
-        updateTopicsFromContent(fieldContent, title);
-      }
-    }
-  };
-
-  // Check for topic URL parameter or initialTopic prop and pre-fill
-  useEffect(() => {
-    const topicsToAdd: string[] = [];
-
-    // Handle initialTopic prop first
-    if (initialTopic && !topics.includes(initialTopic)) {
-      topicsToAdd.push(initialTopic);
-    }
-
-    // Handle URL parameter for home page usage (only if no initialTopic)
-    if (!initialTopic && typeof window !== 'undefined') {
-      const urlParams = new URLSearchParams(window.location.search);
-      const topicParam = urlParams.get('topic');
-      if (topicParam && !topics.includes(topicParam) && !topicsToAdd.includes(topicParam)) {
-        topicsToAdd.push(topicParam);
-        // Clear the URL parameter after using it
-        const url = new URL(window.location.href);
-        url.searchParams.delete('topic');
-        window.history.replaceState({}, '', url.pathname);
-      }
-    }
-
-    // Add all new topics at once
-    if (topicsToAdd.length > 0) {
-      setTopics(prev => {
-        const newTopics = [...prev];
-        topicsToAdd.forEach(topic => {
-          if (!newTopics.includes(topic)) {
-            newTopics.push(topic);
-          }
-        });
-        return newTopics;
-      });
-    }
-  }, [initialTopic]);
+  // Hashtags are now just displayed as text in posts
+  // AI automatically assigns posts to one of the 28 core topics based on semantic understanding
+  // No manual topic selection needed - hashtags in content are just text for search
 
   // Get current location option
   const currentLocationOption = locationOptions.find(opt => opt.scope === selectedLocation) || locationOptions[0];
@@ -426,25 +367,6 @@ export default function CreatePostForm({ onPostCreated, onSuccess, societyId, co
     fileInputRef.current?.click();
   };
 
-  const handleTopicInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' || e.key === ',' || e.key === ' ') {
-      e.preventDefault();
-      addTopic();
-    }
-  };
-
-  const addTopic = () => {
-    const topic = topicInput.trim().toLowerCase().replace(/^#/, ''); // Remove # prefix if exists
-    if (topic && !topics.includes(topic) && topics.length < 5) { // Limit to 5 topics
-      setTopics([...topics, topic]);
-      setTopicInput('');
-    }
-  };
-
-  const removeTopic = (topicToRemove: string) => {
-    setTopics(topics.filter(topic => topic !== topicToRemove));
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -528,10 +450,8 @@ export default function CreatePostForm({ onPostCreated, onSuccess, societyId, co
         const formData = new FormData();
         formData.append('content', content);
 
-        // Add topics to form data
-        topics.forEach(topic => {
-          formData.append('topics', topic);
-        });
+        // Topics are now auto-assigned by AI based on content
+        // No manual topics sent from form
 
         // Add battle context if provided
         if (battleContext) {
@@ -581,8 +501,6 @@ export default function CreatePostForm({ onPostCreated, onSuccess, societyId, co
         // Reset form
         setTitle('');
         setContent('');
-        setTopics([]);
-        setTopicInput('');
         setSelectedMedia(null);
         setMediaPreview(null);
         setSelectedBackground(currentConfig.background);
@@ -716,7 +634,6 @@ export default function CreatePostForm({ onPostCreated, onSuccess, societyId, co
                   placeholder={currentConfig.titlePlaceholder}
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  onKeyDown={(e) => handleKeyPress(e, e.currentTarget.value, true)}
                   className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent text-lg font-medium placeholder:text-muted-foreground/70"
                 />
               )}
@@ -724,48 +641,11 @@ export default function CreatePostForm({ onPostCreated, onSuccess, societyId, co
                 placeholder={battleContext ? "Share your unique perspective on this Hot Take Battle..." : currentConfig.placeholder}
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                onKeyDown={(e) => handleKeyPress(e, e.currentTarget.value, false)}
                 className="resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent min-h-[80px] sm:min-h-[60px] placeholder:text-muted-foreground/70"
                 rows={3}
               />
 
-              {/* Topics Input */}
-              <div className="space-y-2">
-                {/* Display selected topics */}
-                {topics.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {topics.map((topic, index) => (
-                      <span
-                        key={`${topic}-${index}`}
-                        className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 text-primary rounded-full text-xs font-medium"
-                      >
-                        #{topic}
-                        <button
-                          type="button"
-                          onClick={() => removeTopic(topic)}
-                          className="hover:text-primary/70 ml-1"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                {/* Topic input field */}
-                <Input
-                  placeholder="Add topics (#housing, #climate, #education...)"
-                  value={topicInput}
-                  onChange={(e) => setTopicInput(e.target.value)}
-                  onKeyDown={handleTopicInputKeyDown}
-                  onBlur={addTopic}
-                  className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent text-sm placeholder:text-muted-foreground/60"
-                  disabled={topics.length >= 5}
-                />
-                {topics.length >= 5 && (
-                  <p className="text-xs text-muted-foreground/60">Maximum 5 topics</p>
-                )}
-              </div>
+              {/* Hashtags are now just text in the content - AI will auto-categorize posts into topics */}
             </div>
           </div>
           <div className="flex justify-between items-center mt-3 pt-3 border-t border-border/50">

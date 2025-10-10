@@ -178,7 +178,7 @@ export default function DirectMessageClient({
         {/* Header */}
         <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
           <div className="container mx-auto px-4 py-4">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 pl-20 lg:pl-0">
               <Button
                 variant="ghost"
                 size="sm"
@@ -187,14 +187,14 @@ export default function DirectMessageClient({
               >
                 <ArrowLeft className="h-4 w-4" />
               </Button>
-              
+
               <Avatar className="h-10 w-10">
                 <AvatarImage src={otherUser.image || undefined} />
                 <AvatarFallback>
                   {otherUser.name ? otherUser.name.charAt(0).toUpperCase() : <User2 className="h-4 w-4" />}
                 </AvatarFallback>
               </Avatar>
-              
+
               <div>
                 <h1 className="font-semibold text-gray-900 dark:text-white">
                   {otherUser.name || 'Anonymous User'}

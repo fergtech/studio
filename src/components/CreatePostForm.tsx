@@ -15,6 +15,7 @@ import { createIdea } from '@/app/actions/ideaActions';
 import { useToast } from '@/hooks/use-toast';
 import imageCompression from 'browser-image-compression';
 import { ResolvedLocation } from '@/services/location';
+import LocationInput from '@/components/LocationInput';
 // Hashtags are now just text in posts - no special processing needed
 
 // Define some background options
@@ -92,9 +93,10 @@ interface CreatePostFormProps {
     battleTitle?: string;
   };
   initialTopic?: string | null;
+  initialContentType?: 'idea' | 'issue' | 'post' | null;
 }
 
-export default function CreatePostForm({ onPostCreated, onSuccess, societyId, context = 'general', battleContext, initialTopic }: CreatePostFormProps) {
+export default function CreatePostForm({ onPostCreated, onSuccess, societyId, context = 'general', battleContext, initialTopic, initialContentType }: CreatePostFormProps) {
   const { data: session, status } = useSession();
   const { toast } = useToast();
 
@@ -161,7 +163,13 @@ export default function CreatePostForm({ onPostCreated, onSuccess, societyId, co
     }
   };
   
-  const [postType, setPostType] = useState<PostType>('general');
+  const [postType, setPostType] = useState<PostType>(() => {
+    // Map initialContentType to PostType
+    if (initialContentType === 'idea') return 'idea';
+    if (initialContentType === 'issue') return 'issue';
+    if (initialContentType === 'post') return 'general';
+    return 'general';
+  });
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -477,11 +485,18 @@ export default function CreatePostForm({ onPostCreated, onSuccess, societyId, co
         console.log('[CreatePostForm] createGeneralPost result:', result);
       } else {
         // Create issue or idea
+        // Get location data with coordinates
+        const effectiveLocationData = selectedLocation === 'user' ? userLocation :
+                                      selectedLocation === 'custom' ? customLocation :
+                                      null;
+
         const createData = {
           title: title.trim(),
           description: content.trim(),
           tags: [], // Could be enhanced with tag input later
           location: getEffectiveLocation(),
+          latitude: effectiveLocationData?.coordinates.lat,
+          longitude: effectiveLocationData?.coordinates.lng,
           mediaUrl: uploadedMediaUrls.length > 0 ? uploadedMediaUrls[0] : null,
           societyId: societyId || null,
         };
@@ -646,6 +661,19 @@ export default function CreatePostForm({ onPostCreated, onSuccess, societyId, co
               />
 
               {/* Hashtags are now just text in the content - AI will auto-categorize posts into topics */}
+
+              {/* Custom Location Input - Only show for Issue/Idea when custom location is selected */}
+              {(postType === 'issue' || postType === 'idea') && selectedLocation === 'custom' && (
+                <div className="mt-3 pt-3 border-t border-border/50">
+                  <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                    Custom Location
+                  </label>
+                  <LocationInput
+                    initialLocation={customLocation}
+                    onLocationChange={(location) => setCustomLocation(location)}
+                  />
+                </div>
+              )}
             </div>
           </div>
           <div className="flex justify-between items-center mt-3 pt-3 border-t border-border/50">

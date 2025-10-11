@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { calculateDistance } from '@/services/location';
+import { Prisma } from '@prisma/client';
 
 interface LocalContentQuery {
   location?: string;
@@ -11,54 +11,16 @@ interface LocalContentQuery {
   offset?: number;
 }
 
-// Helper function to parse coordinates from location string
-function parseLocationCoordinates(location: string): { lat: number; lng: number } | null {
-  // This is a simplified parser - in production you'd want a more robust solution
-  // For now, we'll use some known locations as examples
-  const locationMap: { [key: string]: { lat: number; lng: number } } = {
-    'harford county': { lat: 39.5965, lng: -76.3897 },
-    'baltimore county': { lat: 39.4403, lng: -76.6186 },
-    'cecil county': { lat: 39.6059, lng: -75.9442 },
-    'york county': { lat: 39.9777, lng: -76.7260 },
-    'anne arundel county': { lat: 39.1634062, lng: -76.5993106 },
-    'anne arundel county, maryland': { lat: 39.1634062, lng: -76.5993106 },
-    'montgomery county': { lat: 39.1547, lng: -77.2405 },
-    'prince george\'s county': { lat: 38.7849, lng: -76.8721 },
-    'howard county': { lat: 39.3043, lng: -76.8595 },
-    'carroll county': { lat: 39.4967, lng: -77.0316 },
-  };
-
-  const normalizedLocation = location.toLowerCase().replace(/,.*$/, '').trim();
-  return locationMap[normalizedLocation] || null;
-}
-
-// Helper function to filter content by proximity
-function filterByProximity<T extends { location?: string | null }>(
-  items: T[],
-  centerCoords: { lat: number; lng: number },
-  radiusMiles: number
-): T[] {
-  return items.filter(item => {
-    if (!item.location) return false;
-    
-    const itemCoords = parseLocationCoordinates(item.location);
-    if (!itemCoords) return false;
-    
-    const distance = calculateDistance(centerCoords, itemCoords);
-    return distance <= radiusMiles;
-  });
-}
-
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    
+
     const query: LocalContentQuery = {
       location: searchParams.get('location') || undefined,
-      coordinates: searchParams.get('lat') && searchParams.get('lng') 
-        ? { 
-            lat: parseFloat(searchParams.get('lat')!), 
-            lng: parseFloat(searchParams.get('lng')!) 
+      coordinates: searchParams.get('lat') && searchParams.get('lng')
+        ? {
+            lat: parseFloat(searchParams.get('lat')!),
+            lng: parseFloat(searchParams.get('lng')!)
           }
         : undefined,
       radius: parseInt(searchParams.get('radius') || '25'),
@@ -69,36 +31,42 @@ export async function GET(request: NextRequest) {
 
     // Determine center coordinates for proximity filtering
     let centerCoords: { lat: number; lng: number } | null = null;
-    
+
     if (query.coordinates) {
       centerCoords = query.coordinates;
       console.log('🗺️ Using provided coordinates:', centerCoords);
-    } else if (query.location) {
-      centerCoords = parseLocationCoordinates(query.location);
-      console.log('🗺️ Parsed location coordinates:', { location: query.location, coords: centerCoords });
     }
 
     if (!centerCoords) {
-      console.log('🗺️ No valid coordinates found for location:', query.location);
+      console.log('🗺️ No valid coordinates provided');
       return NextResponse.json(
-        { error: 'Location or coordinates required' },
+        { error: 'Coordinates (lat/lng) required' },
         { status: 400 }
       );
     }
 
+    const radiusMiles = query.radius!;
+
+    // Haversine formula SQL for distance calculation in miles
+    // Earth radius = 3959 miles
+    const distanceFormula = Prisma.sql`
+      (3959 * acos(
+        cos(radians(${centerCoords.lat})) *
+        cos(radians(latitude)) *
+        cos(radians(longitude) - radians(${centerCoords.lng})) +
+        sin(radians(${centerCoords.lat})) *
+        sin(radians(latitude))
+      ))
+    `;
+
     // Base query options
-    const baseQuery = {
-      take: query.limit,
-      skip: query.offset,
-      orderBy: { createdAt: 'desc' as const },
-      include: {
-        creator: {
-          select: {
-            id: true,
-            name: true,
-            image: true,
-            username: true,
-          },
+    const baseInclude = {
+      creator: {
+        select: {
+          id: true,
+          name: true,
+          image: true,
+          username: true,
         },
       },
     };
@@ -107,45 +75,120 @@ export async function GET(request: NextRequest) {
     let issues: any[] = [];
     let initiatives: any[] = [];
 
-    // Fetch content based on type
+    // Fetch content based on type using raw SQL for geo-filtering
     if (query.type === 'ideas' || query.type === 'all') {
-      const allIdeas = await prisma.idea.findMany({
-        ...baseQuery,
-        where: {
-          location: { not: null },
-        },
-      });
-      ideas = filterByProximity(allIdeas, centerCoords, query.radius!);
+      ideas = await prisma.$queryRaw`
+        SELECT
+          i.*,
+          (3959 * acos(
+            cos(radians(${centerCoords.lat})) *
+            cos(radians(i.latitude)) *
+            cos(radians(i.longitude) - radians(${centerCoords.lng})) +
+            sin(radians(${centerCoords.lat})) *
+            sin(radians(i.latitude))
+          )) as distance
+        FROM "Idea" i
+        WHERE i.latitude IS NOT NULL
+          AND i.longitude IS NOT NULL
+          AND (3959 * acos(
+            cos(radians(${centerCoords.lat})) *
+            cos(radians(i.latitude)) *
+            cos(radians(i.longitude) - radians(${centerCoords.lng})) +
+            sin(radians(${centerCoords.lat})) *
+            sin(radians(i.latitude))
+          )) <= ${radiusMiles}
+        ORDER BY i."createdAt" DESC
+        LIMIT ${query.limit}
+        OFFSET ${query.offset}
+      `;
+
+      // Fetch creators for ideas
+      const ideaIds = ideas.map(i => i.id);
+      if (ideaIds.length > 0) {
+        const creators = await prisma.user.findMany({
+          where: { id: { in: ideas.map(i => i.creatorId) } },
+          select: { id: true, name: true, image: true, username: true },
+        });
+        const creatorMap = new Map(creators.map(c => [c.id, c]));
+        ideas = ideas.map(i => ({ ...i, creator: creatorMap.get(i.creatorId) }));
+      }
     }
 
     if (query.type === 'issues' || query.type === 'all') {
-      const allIssues = await prisma.issue.findMany({
-        ...baseQuery,
-        where: {
-          location: { not: null },
-        },
-      });
-      issues = filterByProximity(allIssues, centerCoords, query.radius!);
+      issues = await prisma.$queryRaw`
+        SELECT
+          i.*,
+          (3959 * acos(
+            cos(radians(${centerCoords.lat})) *
+            cos(radians(i.latitude)) *
+            cos(radians(i.longitude) - radians(${centerCoords.lng})) +
+            sin(radians(${centerCoords.lat})) *
+            sin(radians(i.latitude))
+          )) as distance
+        FROM "Issue" i
+        WHERE i.latitude IS NOT NULL
+          AND i.longitude IS NOT NULL
+          AND (3959 * acos(
+            cos(radians(${centerCoords.lat})) *
+            cos(radians(i.latitude)) *
+            cos(radians(i.longitude) - radians(${centerCoords.lng})) +
+            sin(radians(${centerCoords.lat})) *
+            sin(radians(i.latitude))
+          )) <= ${radiusMiles}
+        ORDER BY i."createdAt" DESC
+        LIMIT ${query.limit}
+        OFFSET ${query.offset}
+      `;
+
+      // Fetch creators for issues
+      const issueIds = issues.map(i => i.id);
+      if (issueIds.length > 0) {
+        const creators = await prisma.user.findMany({
+          where: { id: { in: issues.map(i => i.creatorId) } },
+          select: { id: true, name: true, image: true, username: true },
+        });
+        const creatorMap = new Map(creators.map(c => [c.id, c]));
+        issues = issues.map(i => ({ ...i, creator: creatorMap.get(i.creatorId) }));
+      }
     }
 
     if (query.type === 'initiatives' || query.type === 'all') {
-      const allInitiatives = await prisma.initiative.findMany({
-        ...baseQuery,
-        where: {
-          location: { not: null },
-        },
-      });
-      initiatives = filterByProximity(allInitiatives, centerCoords, query.radius!);
-    }
+      initiatives = await prisma.$queryRaw`
+        SELECT
+          i.*,
+          (3959 * acos(
+            cos(radians(${centerCoords.lat})) *
+            cos(radians(i.latitude)) *
+            cos(radians(i.longitude) - radians(${centerCoords.lng})) +
+            sin(radians(${centerCoords.lat})) *
+            sin(radians(i.latitude))
+          )) as distance
+        FROM "Initiative" i
+        WHERE i.latitude IS NOT NULL
+          AND i.longitude IS NOT NULL
+          AND (3959 * acos(
+            cos(radians(${centerCoords.lat})) *
+            cos(radians(i.latitude)) *
+            cos(radians(i.longitude) - radians(${centerCoords.lng})) +
+            sin(radians(${centerCoords.lat})) *
+            sin(radians(i.latitude))
+          )) <= ${radiusMiles}
+        ORDER BY i."createdAt" DESC
+        LIMIT ${query.limit}
+        OFFSET ${query.offset}
+      `;
 
-    // Calculate distances and add to items
-    const addDistanceInfo = (items: any[]) => 
-      items.map(item => ({
-        ...item,
-        distance: item.location 
-          ? calculateDistance(centerCoords!, parseLocationCoordinates(item.location) || centerCoords!)
-          : null,
-      }));
+      // Fetch creators for initiatives
+      const initiativeIds = initiatives.map(i => i.id);
+      if (initiativeIds.length > 0) {
+        const creators = await prisma.user.findMany({
+          where: { id: { in: initiatives.map(i => i.creatorId) } },
+          select: { id: true, name: true, image: true, username: true },
+        });
+        const creatorMap = new Map(creators.map(c => [c.id, c]));
+        initiatives = initiatives.map(i => ({ ...i, creator: creatorMap.get(i.creatorId) }));
+      }
+    }
 
     const result = {
       location: query.location || `${centerCoords.lat}, ${centerCoords.lng}`,
@@ -158,9 +201,9 @@ export async function GET(request: NextRequest) {
         total: ideas.length + issues.length + initiatives.length,
       },
       content: {
-        ideas: addDistanceInfo(ideas),
-        issues: addDistanceInfo(issues),
-        initiatives: addDistanceInfo(initiatives),
+        ideas,
+        issues,
+        initiatives,
       },
     };
 

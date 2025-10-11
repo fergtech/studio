@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
+import { lookupByPostalCode } from '@/services/location';
 
 // GET: List all societies
 export async function GET(req: NextRequest) {
@@ -30,10 +31,30 @@ export async function POST(req: NextRequest) {
     const userId = session.user.id;
 
     const body = await req.json();
-    const { name, description, image } = body;
+    const { name, description, image, location, latitude, longitude } = body;
 
     if (!name) {
       return NextResponse.json({ error: 'Name is required' }, { status: 400 });
+    }
+
+    // Use provided coordinates or geocode if needed
+    let coordinates: { lat: number; lng: number } | null = null;
+
+    if (latitude && longitude) {
+      // Frontend already provided coordinates
+      coordinates = { lat: latitude, lng: longitude };
+    } else if (location) {
+      // Fallback: try to geocode the location string
+      try {
+        // Check if it's a zip code (5 digits)
+        if (/^\d{5}$/.test(location.trim())) {
+          const resolved = await lookupByPostalCode(location.trim());
+          coordinates = resolved.coordinates;
+        }
+      } catch (error) {
+        console.log('Geocoding failed for society location:', location, error);
+        // Continue without coordinates if geocoding fails
+      }
     }
 
     // Create society and automatically add creator as a member in a transaction
@@ -43,6 +64,9 @@ export async function POST(req: NextRequest) {
           name,
           description,
           image,
+          location,
+          latitude: coordinates?.lat,
+          longitude: coordinates?.lng,
           creatorId: userId,
         },
       });

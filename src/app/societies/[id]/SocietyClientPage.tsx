@@ -63,6 +63,7 @@ export function SocietyClientPage({ society: initialSociety, members, posts: ini
   const [feedFilter, setFeedFilter] = useState<'ALL' | 'GENERAL' | 'ISSUE' | 'IDEA' | 'INITIATIVES'>('ALL');
   const [isJoining, setIsJoining] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [currentMembers, setCurrentMembers] = useState(members);
   const { toast } = useToast();
   const router = useRouter();
@@ -237,6 +238,55 @@ export function SocietyClientPage({ society: initialSociety, members, posts: ini
       });
     } finally {
       setIsLeaving(false);
+    }
+  };
+
+  const handleDeleteSociety = async () => {
+    if (!userId || !isCreator) {
+      toast({
+        title: "Unauthorized",
+        description: "Only the society creator can delete it.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Confirm deletion
+    if (!confirm(`Are you sure you want to delete "${society.name}"? This action cannot be undone and will delete all posts, initiatives, and content.`)) {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/societies/${society.id}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Society Deleted",
+          description: "The society has been permanently deleted.",
+        });
+        // Navigate away to societies page
+        router.push('/societies');
+        router.refresh(); // Refresh to update lists
+      } else {
+        const error = await response.json();
+        toast({
+          title: "Error Deleting Society",
+          description: error.error || "Failed to delete the society.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error deleting society:", error);
+      toast({
+        title: "Unexpected Error",
+        description: "An unexpected error occurred while deleting.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -783,8 +833,13 @@ export function SocietyClientPage({ society: initialSociety, members, posts: ini
                       {isJoining ? "Joining..." : "Join Society"}
                     </Button>
                   )}
-                  {/* Only show Leave Society if user is a member */}
-                  {userId && isMember && (
+                  {/* Show Delete for creator, Leave for regular members */}
+                  {userId && isCreator && (
+                    <Button variant="destructive" size="sm" className="h-8 text-xs" onClick={handleDeleteSociety} disabled={isDeleting}>
+                      {isDeleting ? "Deleting..." : "Delete Society"}
+                    </Button>
+                  )}
+                  {userId && isMember && !isCreator && (
                     <Button variant="destructive" size="sm" className="h-8 text-xs" onClick={handleLeaveSociety} disabled={isLeaving}>
                       {isLeaving ? "Leaving..." : "Leave Society"}
                     </Button>

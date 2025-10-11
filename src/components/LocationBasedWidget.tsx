@@ -108,24 +108,28 @@ export default function LocationBasedWidget() {
           return;
         }
 
-        // Fetch local content data
+        // Fetch local content data including societies
         // Use coordinates if available, otherwise fall back to location string
-        const contentUrl = userCoordinates 
+        const contentUrl = userCoordinates
           ? `/api/content/local?lat=${userCoordinates.lat}&lng=${userCoordinates.lng}&radius=25`
           : `/api/content/local?location=${encodeURIComponent(userLocation)}&radius=25`;
-        
+
         const contentResponse = await fetch(contentUrl);
-        
+
         if (!contentResponse.ok) {
           throw new Error('Failed to fetch local content');
         }
-        
+
         const contentData = await contentResponse.json();
-        
-        // For societies, we need a separate call since they're not location-filtered yet
-        const societiesResponse = await fetch('/api/societies');
-        const societiesCount = societiesResponse.ok 
-          ? (await societiesResponse.json()).length || 0 
+
+        // Fetch geo-filtered societies
+        const societiesUrl = userCoordinates
+          ? `/api/content/local/societies?lat=${userCoordinates.lat}&lng=${userCoordinates.lng}&radius=25`
+          : `/api/content/local/societies?location=${encodeURIComponent(userLocation)}&radius=25`;
+
+        const societiesResponse = await fetch(societiesUrl);
+        const societiesCount = societiesResponse.ok
+          ? (await societiesResponse.json()).count || 0
           : 0;
 
         // Format neighboring areas - only if we have coordinates

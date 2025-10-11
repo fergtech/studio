@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from 'next/dynamic';
+import { useRouter } from 'next/navigation';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useModal } from '@/context/ModalContext';
 
@@ -35,6 +36,7 @@ const CreatePostForm = dynamic(() => import('@/components/CreatePostForm'), {
 });
 
 export function GlobalModals() {
+  const router = useRouter();
   const {
     createInitiativeModal,
     closeCreateInitiativeModal,
@@ -52,9 +54,10 @@ export function GlobalModals() {
     closeCreateTopicPostModal,
   } = useModal();
 
-  // Add handler to emit custom event for feed update
+  // Add handler to emit custom event for feed update AND refresh server data
   const handleFeedItemCreated = (item: any) => {
     window.dispatchEvent(new CustomEvent('feed:itemCreated', { detail: item }));
+    router.refresh(); // Refresh server data for widgets and counts
   };
 
   return (

@@ -6,6 +6,7 @@ import { authOptions } from "@/lib/auth";
 import { Idea, MediaItem, User } from "@/lib/types";
 import { revalidatePath } from 'next/cache';
 import { MediaType } from "@prisma/client";
+import { lookupByPostalCode, ResolvedLocation } from "@/services/location";
 
 // Define a type that includes media and creator for Idea
 type IdeaWithMediaAndCreator = Idea & {
@@ -22,6 +23,8 @@ interface CreateIdeaData {
   description: string;
   tags: string[];
   location?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   mediaUrl?: string | null;
   societyId?: string | null;
   addressingIssueId?: string | null;
@@ -88,12 +91,32 @@ export async function createIdea(data: CreateIdeaData): Promise<CreateIdeaResult
   }
 
   try {
+    // Use provided coordinates or geocode if needed
+    let coordinates: { lat: number; lng: number } | null = null;
+
+    if (data.latitude && data.longitude) {
+      // Frontend already provided coordinates
+      coordinates = { lat: data.latitude, lng: data.longitude };
+    } else if (data.location) {
+      // Fallback: try to geocode the location string
+      try {
+        if (/^\d{5}$/.test(data.location.trim())) {
+          const resolved = await lookupByPostalCode(data.location.trim());
+          coordinates = resolved.coordinates;
+        }
+      } catch (error) {
+        console.log('Geocoding failed for location:', data.location, error);
+      }
+    }
+
     const result = await prisma.$transaction(async (tx: any) => {
       const createData: any = {
         title: data.title,
         description: data.description,
         tags: data.tags || [],
         location: data.location,
+        latitude: coordinates?.lat,
+        longitude: coordinates?.lng,
         creator: {
           connect: {
             id: session.user.id,

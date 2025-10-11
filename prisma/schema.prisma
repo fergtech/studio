@@ -95,6 +95,8 @@ model Initiative {
   aiGuidance         String?
   updatedAt          DateTime?              @updatedAt
   location           String?
+  latitude           Float?
+  longitude          Float?
   progress           Int?
   showLocation       Boolean                @default(true)
   societyId          String?
@@ -373,6 +375,8 @@ model Issue {
   createdAt                DateTime       @default(now())
   tags                     String[]       @default([])
   location                 String?
+  latitude                 Float?
+  longitude                Float?
   championedByInitiativeId String?        @unique
   championCount            Int            @default(0)
   championedById           String?
@@ -398,6 +402,8 @@ model Idea {
   createdAt                 DateTime      @default(now())
   tags                      String[]      @default([])
   location                  String?
+  latitude                  Float?
+  longitude                 Float?
   championedByInitiativeId  String?       @unique
   championCount             Int           @default(0)
   championedById            String?
@@ -506,6 +512,9 @@ model Society {
   image       String?
   createdAt   DateTime            @default(now())
   creatorId   String
+  location    String?
+  latitude    Float?
+  longitude   Float?
   ideas       Idea[]              @relation("SocietyIdeas")
   initiatives Initiative[]
   issues      Issue[]             @relation("SocietyIssues")

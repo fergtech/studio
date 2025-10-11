@@ -15,10 +15,12 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { useToast } from "@/hooks/use-toast";
 // Use Prisma's InitiativeStatus for type safety with the server action & Zod schema
 import { InitiativeStatus as PrismaInitiativeStatus } from '@prisma/client';
-import { Upload, X, Plus, Tag, AlertCircle, Palette } from 'lucide-react';
+import { Upload, X, Plus, Tag, AlertCircle, Palette, MapPin, Globe, Users } from 'lucide-react';
 import { createInitiative } from '@/app/actions/initiativeActions'; // Import the server action
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import imageCompression from 'browser-image-compression';
+import LocationInput from '@/components/LocationInput';
+import { ResolvedLocation } from '@/services/location';
 
 // Define fallback enum values in case Prisma client is not available during build
 const FALLBACK_INITIATIVE_STATUS = {
@@ -57,10 +59,9 @@ const formSchema = z.object({
   imageFile: z.any().optional(), // Accept file or undefined
   backgroundColor: z.string().optional(),
   roles: z.array(z.string().max(30)).optional().default([]),
-  status: z.enum(Object.values(InitiativeStatusEnum) as [string, ...string[]], { 
+  status: z.enum(Object.values(InitiativeStatusEnum) as [string, ...string[]], {
     errorMap: (issue, ctx) => ({ message: "Please select a valid status." })
   }),
-  location: z.string().max(100, 'Location must be 100 characters or less').optional().or(z.literal('')),
 });
 
 type InitiativeFormData = z.infer<typeof formSchema>;
@@ -96,6 +97,9 @@ export function CreateInitiativeForm({
   const [selectedMedia, setSelectedMedia] = useState<File | null>(null);
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
   const [selectedBackground, setSelectedBackground] = useState<string>(backgroundOptions[1]);
+  const [selectedLocation, setSelectedLocation] = useState<'user' | 'global' | 'custom'>('user');
+  const [userLocation, setUserLocation] = useState<ResolvedLocation | null>(null);
+  const [customLocation, setCustomLocation] = useState<ResolvedLocation | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Get values from props or URL query params
@@ -111,9 +115,30 @@ export function CreateInitiativeForm({
       backgroundColor: selectedBackground,
       roles: [],
       status: PrismaInitiativeStatus.PLANNING,
-      location: "",
     },
   });
+
+  // Fetch user's location data
+  useEffect(() => {
+    const fetchUserLocation = async () => {
+      if (session?.user?.id) {
+        try {
+          const response = await fetch('/api/auth/me');
+          if (response.ok) {
+            const userData = await response.json();
+            if (userData.location) {
+              const parsedLocation: ResolvedLocation = JSON.parse(userData.location);
+              setUserLocation(parsedLocation);
+            }
+          }
+        } catch (error) {
+          console.error('Failed to fetch user location:', error);
+        }
+      }
+    };
+
+    fetchUserLocation();
+  }, [session?.user?.id]);
 
   // Set initial image if provided
   useEffect(() => {
@@ -273,11 +298,18 @@ export function CreateInitiativeForm({
       backgroundColor = selectedBackground;
     }
 
+    // Get effective location data with coordinates
+    const effectiveLocationData = selectedLocation === 'user' ? userLocation :
+                                  selectedLocation === 'custom' ? customLocation :
+                                  null;
+
     try {
       const result = await createInitiative({
         ...values,
         imageUrl: imageUrl || undefined,
-        location: values.location || undefined,
+        location: effectiveLocationData?.displayName || undefined,
+        latitude: effectiveLocationData?.coordinates.lat || undefined,
+        longitude: effectiveLocationData?.coordinates.lng || undefined,
         societyId: societyId || undefined,
         originatingIssueId: originatingIssueId || undefined,
         originatingIdeaId: originatingIdeaId || undefined,
@@ -303,6 +335,8 @@ export function CreateInitiativeForm({
         setSelectedMedia(null);
         setMediaPreview(null);
         setSelectedBackground(backgroundOptions[1]);
+        setCustomLocation(null);
+        setSelectedLocation('user');
         if (fileInputRef.current) {
           fileInputRef.current.value = "";
         }
@@ -494,20 +528,49 @@ export function CreateInitiativeForm({
           )}
         />
 
-        <FormField
-          control={form.control}
-          name="location"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Location (Optional)</FormLabel>
-              <FormControl>
-                <Input placeholder="e.g., Downtown Cityville, New York" {...field} />
-              </FormControl>
-              <FormDescription>Specify a location if this initiative is geographically specific.</FormDescription>
-              <FormMessage />
-            </FormItem>
+        <FormItem>
+          <FormLabel>Share Location (Optional)</FormLabel>
+          <Select onValueChange={(value) => setSelectedLocation(value as 'user' | 'global' | 'custom')} value={selectedLocation}>
+            <FormControl>
+              <SelectTrigger>
+                <SelectValue placeholder="Select location scope" />
+              </SelectTrigger>
+            </FormControl>
+            <SelectContent>
+              <SelectItem value="user" disabled={!userLocation}>
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-4 w-4" />
+                  <div>
+                    <div>My Location</div>
+                    {userLocation && <div className="text-xs text-muted-foreground">{userLocation.displayName}</div>}
+                    {!userLocation && <div className="text-xs text-orange-600">Set in profile</div>}
+                  </div>
+                </div>
+              </SelectItem>
+              <SelectItem value="global">
+                <div className="flex items-center gap-2">
+                  <Globe className="h-4 w-4" />
+                  <div>Everywhere</div>
+                </div>
+              </SelectItem>
+              <SelectItem value="custom">
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  <div>Other Location</div>
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          {selectedLocation === 'custom' && (
+            <div className="mt-2">
+              <LocationInput
+                initialLocation={customLocation}
+                onLocationChange={setCustomLocation}
+              />
+            </div>
           )}
-        />
+          <FormDescription>Specify a location if this initiative is geographically specific.</FormDescription>
+        </FormItem>
 
         <Button type="submit" className="w-full min-h-[44px]" disabled={isSubmitting}>
           {isSubmitting ? "Creating Initiative..." : "Create Initiative"}

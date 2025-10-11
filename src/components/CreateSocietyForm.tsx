@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,8 +6,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, X } from 'lucide-react';
+import { Upload, X, MapPin, Globe, Users } from 'lucide-react';
 import imageCompression from 'browser-image-compression';
+import LocationInput from '@/components/LocationInput';
+import { ResolvedLocation } from '@/services/location';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface CreateSocietyFormProps {
   setOpen: (open: boolean) => void;
@@ -17,6 +20,9 @@ interface CreateSocietyFormProps {
 export function CreateSocietyForm({ setOpen, onCreated }: CreateSocietyFormProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [selectedLocation, setSelectedLocation] = useState<'user' | 'global' | 'custom'>('user');
+  const [userLocation, setUserLocation] = useState<ResolvedLocation | null>(null);
+  const [customLocation, setCustomLocation] = useState<ResolvedLocation | null>(null);
   const [image, setImage] = useState('');
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -27,17 +33,35 @@ export function CreateSocietyForm({ setOpen, onCreated }: CreateSocietyFormProps
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Fetch user's location data
+  useEffect(() => {
+    const fetchUserLocation = async () => {
+      if (session?.user?.id) {
+        try {
+          const response = await fetch('/api/auth/me');
+          if (response.ok) {
+            const userData = await response.json();
+            if (userData.location) {
+              const parsedLocation: ResolvedLocation = JSON.parse(userData.location);
+              setUserLocation(parsedLocation);
+            }
+          }
+        } catch (error) {
+          console.error('Failed to fetch user location:', error);
+        }
+      }
+    };
+
+    fetchUserLocation();
+  }, [session?.user?.id]);
+
   const compressImage = async (file: File): Promise<File | null> => {
-    const maxSizeInMB = 10;
-    
-    if (file.size <= maxSizeInMB * 1024 * 1024) {
-      return file;
-    }
+    const maxSizeInMB = 3.5; // Must be under 4MB for Vercel
 
     try {
       const options = {
         maxSizeMB: maxSizeInMB,
-        maxWidthOrHeight: 1024,
+        maxWidthOrHeight: 1920,
         useWebWorker: true,
         fileType: file.type,
       };
@@ -100,6 +124,7 @@ export function CreateSocietyForm({ setOpen, onCreated }: CreateSocietyFormProps
   const uploadImage = async (file: File): Promise<string> => {
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('filePath', 'societies/banners');
 
     const response = await fetch('/api/upload', {
       method: 'POST',
@@ -111,7 +136,7 @@ export function CreateSocietyForm({ setOpen, onCreated }: CreateSocietyFormProps
     }
 
     const data = await response.json();
-    return data.url;
+    return data.imageUrl;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -142,12 +167,20 @@ export function CreateSocietyForm({ setOpen, onCreated }: CreateSocietyFormProps
         imageUrl = await uploadImage(selectedImage);
       }
 
+      // Get effective location data with coordinates
+      const effectiveLocationData = selectedLocation === 'user' ? userLocation :
+                                    selectedLocation === 'custom' ? customLocation :
+                                    null;
+
       const res = await fetch('/api/societies', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: name.trim(),
           description: description.trim(),
+          location: effectiveLocationData?.displayName || undefined,
+          latitude: effectiveLocationData?.coordinates.lat || undefined,
+          longitude: effectiveLocationData?.coordinates.lng || undefined,
           image: imageUrl,
           userId: session.user.id,
         }),
@@ -169,6 +202,8 @@ export function CreateSocietyForm({ setOpen, onCreated }: CreateSocietyFormProps
       setOpen(false);
       setName('');
       setDescription('');
+      setCustomLocation(null);
+      setSelectedLocation('user');
       setImage('');
       removeImage();
       
@@ -201,6 +236,46 @@ export function CreateSocietyForm({ setOpen, onCreated }: CreateSocietyFormProps
         disabled={isSubmitting}
         className="min-h-[80px] sm:min-h-[60px]"
       />
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Share Location (optional)</label>
+        <Select onValueChange={(value) => setSelectedLocation(value as 'user' | 'global' | 'custom')} value={selectedLocation}>
+          <SelectTrigger className="min-h-[44px]">
+            <SelectValue placeholder="Select location scope" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="user" disabled={!userLocation}>
+              <div className="flex items-center gap-2">
+                <MapPin className="h-4 w-4" />
+                <div>
+                  <div>My Location</div>
+                  {userLocation && <div className="text-xs text-muted-foreground">{userLocation.displayName}</div>}
+                  {!userLocation && <div className="text-xs text-orange-600">Set in profile</div>}
+                </div>
+              </div>
+            </SelectItem>
+            <SelectItem value="global">
+              <div className="flex items-center gap-2">
+                <Globe className="h-4 w-4" />
+                <div>Everywhere</div>
+              </div>
+            </SelectItem>
+            <SelectItem value="custom">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                <div>Other Location</div>
+              </div>
+            </SelectItem>
+          </SelectContent>
+        </Select>
+        {selectedLocation === 'custom' && (
+          <div className="mt-2">
+            <LocationInput
+              initialLocation={customLocation}
+              onLocationChange={setCustomLocation}
+            />
+          </div>
+        )}
+      </div>
       {/* Image Upload Section */}
       <div className="space-y-3">
         <label className="text-sm font-medium">Society Image (optional)</label>

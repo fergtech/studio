@@ -9,6 +9,7 @@ import { Prisma } from '@prisma/client';
 import { Initiative as FrontendInitiativeType } from '@/lib/types'; // Removed RoleType as FrontendRoleType
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { generateAIGuidance } from '@/lib/aiHelper'; // Import AI helper with Cloudflare fallback
+import { lookupByPostalCode } from "@/services/location";
 
 // Initialize the Google Generative AI model (keep for backward compatibility)
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY || 'dummy'); // Fallback to prevent crashes
@@ -21,6 +22,8 @@ interface CreateInitiativeArgs {
   roles: string[]; // These are tags/skills, not user roles
   status: InitiativeStatus;
   location?: string; // Optional location for MVP
+  latitude?: number; // Coordinates from frontend
+  longitude?: number; // Coordinates from frontend
   societyId?: string; // Optional: link initiative to a society
   originatingIssueId?: string; // Optional: issue that this initiative addresses
   originatingIdeaId?: string; // Optional: idea that this initiative implements
@@ -100,6 +103,26 @@ export async function createInitiative(args: CreateInitiativeArgs) {
       }
     }
 
+    // Use provided coordinates or geocode if needed
+    let coordinates: { lat: number; lng: number } | null = null;
+
+    if (args.latitude && args.longitude) {
+      // Frontend already provided coordinates
+      coordinates = { lat: args.latitude, lng: args.longitude };
+    } else if (args.location) {
+      // Fallback: try to geocode the location string
+      try {
+        // Check if it's a zip code (5 digits)
+        if (/^\d{5}$/.test(args.location.trim())) {
+          const resolved = await lookupByPostalCode(args.location.trim());
+          coordinates = resolved.coordinates;
+        }
+      } catch (error) {
+        console.log('Geocoding failed for location:', args.location, error);
+        // Continue without coordinates if geocoding fails
+      }
+    }
+
     const newInitiative = await prisma.initiative.create({
       data: {
         creatorId: userId,
@@ -111,6 +134,8 @@ export async function createInitiative(args: CreateInitiativeArgs) {
         originatingIdeaId: args.originatingIdeaId,
         status: args.status,
         location: args.location || null, // Add the missing location field
+        latitude: coordinates?.lat,
+        longitude: coordinates?.lng,
         societyId: args.societyId || null, // Link initiative to society if provided
         memberships: {
           create: [

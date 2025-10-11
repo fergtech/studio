@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react'; // Import React hooks
+import { useRouter } from 'next/navigation';
 import { InitiativeCard } from "@/components/InitiativeCard";
 import { CompactInitiativeCard } from "@/components/CompactInitiativeCard";
 import { GeneralPostCard } from "@/components/GeneralPostCard";
@@ -15,7 +16,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import Link from 'next/link';
 import { Button } from "@/components/ui/button";
-import { Star, Loader2, Target, Filter } from "lucide-react";
+import { Star, Loader2, Target, Filter, Users } from "lucide-react";
 import { PostActions } from '@/components/PostActions';
 import { IdeaCard } from "@/components/IdeaCard";
 import { IssueCard } from "@/components/IssueCard";
@@ -29,6 +30,7 @@ import { restoreScrollPosition } from "@/utils/navigation";
 // import { io, Socket } from 'socket.io-client'; // Temporarily disabled for Vercel deployment
 import { MainFeedSocietyPostCard } from './MainFeedSocietyPostCard';
 import { CompactSocietyPostCard } from './CompactSocietyPostCard';
+import { CompactSocietyCard } from './CompactSocietyCard';
 import { DebateTopicCard } from './DebateTopicCard';
 import { TrendingTopicsWidget } from './TrendingTopicsWidget';
 import { HotTakeBattleCard } from './HotTakeBattleCard';
@@ -138,7 +140,7 @@ interface InitiativeMembershipWithUserAndInitiative {
 }
 
 // Unified feed item types
-type FeedItemType = 'initiative' | 'generalPost' | 'societyPost' | 'issue' | 'idea' | 'debate' | 'hotTakeBattle' | 'update' | 'follow' | 'initiativeJoin' | 'live-news';
+type FeedItemType = 'initiative' | 'generalPost' | 'societyPost' | 'issue' | 'idea' | 'debate' | 'hotTakeBattle' | 'update' | 'follow' | 'initiativeJoin' | 'societyCreate' | 'live-news';
 
 interface SocietyPostWithUserAndSociety {
   id: string;
@@ -262,8 +264,8 @@ function isMetaAction(item: UnifiedFeedItem): item is UnifiedFeedItem & { type: 
   return ['update', 'follow', 'initiativeJoin'].includes(item.type);
 }
 
-function isContentItem(item: UnifiedFeedItem): item is UnifiedFeedItem & { type: 'initiative' | 'generalPost' | 'societyPost' | 'issue' | 'idea' | 'debate' | 'hotTakeBattle' } {
-  return ['initiative', 'generalPost', 'societyPost', 'issue', 'idea', 'debate', 'hotTakeBattle'].includes(item.type);
+function isContentItem(item: UnifiedFeedItem): item is UnifiedFeedItem & { type: 'initiative' | 'generalPost' | 'societyPost' | 'societyCreate' | 'issue' | 'idea' | 'debate' | 'hotTakeBattle' } {
+  return ['initiative', 'generalPost', 'societyPost', 'societyCreate', 'issue', 'idea', 'debate', 'hotTakeBattle'].includes(item.type);
 }
 
 function isSocietyPost(item: any): item is SocietyPostWithUserAndSociety {
@@ -315,9 +317,10 @@ interface HomeClientProps {
 }
 
 
-type FeedFilterType = 'all' | 'initiatives' | 'generalPosts' | 'ideas' | 'issues' | 'community';
+type FeedFilterType = 'all' | 'initiatives' | 'societies' | 'generalPosts' | 'ideas' | 'issues' | 'community';
 
 export function HomeClient({ currentUserId, username }: HomeClientProps) {
+  const router = useRouter();
   const [allFeedItems, setAllFeedItems] = useState<UnifiedFeedItem[]>([]);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -329,7 +332,7 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
     // Restore filter state if returning from a post
     if (typeof window !== 'undefined') {
       const savedFilter = sessionStorage.getItem('feedFilter');
-      if (savedFilter && ['all', 'initiatives', 'generalPosts', 'ideas', 'issues', 'community'].includes(savedFilter)) {
+      if (savedFilter && ['all', 'initiatives', 'societies', 'generalPosts', 'ideas', 'issues', 'community'].includes(savedFilter)) {
         return savedFilter as FeedFilterType;
       }
     }
@@ -337,7 +340,7 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
   });
   const [filterSwitching, setFilterSwitching] = useState(false);
   const { toast } = useToast();
-  const { openCreateBattleResponseModal } = useModal();
+  const { openCreateBattleResponseModal, openCreateSocietyModal, openCreateInitiativeModal } = useModal();
   const [showMoreNews, setShowMoreNews] = useState(false);
 
 
@@ -346,14 +349,19 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
     switch (feedFilter) {
       case 'initiatives':
         return item.type === 'initiative' || (isMetaAction(item) && (item.type === 'update' || item.type === 'initiativeJoin'));
+      case 'societies':
+        return item.type === 'societyPost' || item.type === 'societyCreate';
       case 'generalPosts':
-        return item.type === 'generalPost' || item.type === 'societyPost' || item.type === 'debate' || item.type === 'hotTakeBattle';
+        return item.type === 'generalPost' || item.type === 'debate' || item.type === 'hotTakeBattle';
       case 'ideas':
         return item.type === 'idea';
       case 'issues':
         return item.type === 'issue';
       case 'community':
-        return isMetaAction(item) && (item.type === 'follow' || item.type === 'initiativeJoin');
+        // Show all social/community activities: follows, joins, updates, and creations
+        return (isMetaAction(item) && (item.type === 'follow' || item.type === 'initiativeJoin' || item.type === 'update'))
+          || item.type === 'societyCreate'
+          || item.type === 'initiative';
       case 'all':
       default:
         return true;
@@ -385,8 +393,8 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
       try {
         setIsInitialLoading(true);
 
-        // Always fetch 'all' content including news for initial load
-        const response = await fetch(`/api/feed?unified=true&limit=20&type=all`);
+        // Fetch all content but exclude news (news column is disabled)
+        const response = await fetch(`/api/feed?unified=true&limit=20&type=content`);
         if (!response.ok) {
           throw new Error(`Failed to fetch feed items: ${response.statusText}`);
         }
@@ -500,8 +508,8 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
 
     setLoadingMore(true);
     try {
-      // Always load from 'all' since we filter client-side
-      const url = `/api/feed?unified=true&limit=20&cursor=${nextCursor}&type=all`;
+      // Load content without news since we filter client-side
+      const url = `/api/feed?unified=true&limit=20&cursor=${nextCursor}&type=content`;
       const response = await fetch(url);
 
       if (response.ok) {
@@ -551,8 +559,8 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
 
 
   const handlePostCreated = async () => {
-    // This will be handled by the server action in CreatePostForm
-    window.location.reload(); // Simple refresh for now
+    // Use Next.js router.refresh() for modern, smooth updates
+    router.refresh();
   };
 
   if (isInitialLoading) {
@@ -588,9 +596,34 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
           {/* Main Feed - Centered */}
           <div className="flex-shrink-0 w-full max-w-3xl px-4 pb-24">
             <div className="flex flex-col space-y-6">
+              {/* Hero Section - Within feed column */}
+              <div className="w-full mb-2">
+                <div className="relative isolate overflow-hidden rounded-3xl px-6 py-12 sm:py-16 text-center shadow-2xl">
+                  {/* Background Image with reduced opacity */}
+                  <div
+                    className="absolute inset-0 -z-20 bg-cover bg-center opacity-30"
+                    style={{ backgroundImage: "url('/brooke-cagle-xcgh5_-QIXc-unsplash.jpg')" }}
+                  />
+
+                  {/* Gradient Overlay */}
+                  <div className="absolute inset-0 -z-10 bg-gradient-to-br from-primary/40 via-purple-500/30 to-blue-500/40" />
+
+                  {/* Animated gradient blobs for extra depth */}
+                  <div className="absolute inset-0 -z-10 transform-gpu overflow-hidden blur-3xl" aria-hidden="true">
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[48rem] aspect-[1155/678] bg-gradient-to-tr from-primary to-purple-500 opacity-20"></div>
+                  </div>
+
+                  <div className="mx-auto max-w-2xl relative z-10">
+                    <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-white drop-shadow-lg">Turn Ideas into Real Impact</h1>
+                    <p className="mt-3 sm:mt-4 text-sm sm:text-base leading-6 sm:leading-7 text-white/90 max-w-xl mx-auto drop-shadow-md">
+                      Connect with neighbors, solve local problems, and build stronger communities together - virtually or in person. Share ideas, raise issues, and create real change.
+                    </p>
+                  </div>
+                </div>
+              </div>
           {/* Feed Filter Controls - Horizontal Scrollable Tabs */}
           <div className="w-full">
-            <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-2">
+            <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent hover:scrollbar-thumb-primary/50">
               <Filter className="h-4 w-4 text-muted-foreground flex-shrink-0" />
               <button
                 onClick={() => handleTabSwitch('all')}
@@ -614,6 +647,18 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
               >
                 <Target className="h-3.5 w-3.5" />
                 Initiatives
+              </button>
+              <button
+                onClick={() => handleTabSwitch('societies')}
+                disabled={filterSwitching}
+                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 flex items-center gap-2 flex-shrink-0 ${
+                  feedFilter === 'societies'
+                    ? 'bg-purple-500/10 text-purple-600 border border-purple-500/20 shadow-sm'
+                    : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-border/50'
+                }`}
+              >
+                <Users className="h-3.5 w-3.5" />
+                Societies
               </button>
               <button
                 onClick={() => handleTabSwitch('generalPosts')}
@@ -688,6 +733,16 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
               if (item.type === 'societyPost' && isSocietyPost(item.data)) {
                 return (
                   <CompactSocietyPostCard key={`${item.type}-${itemKey}`} post={item.data as SocietyPostWithUserAndSociety} showTimeline={true} />
+                );
+              } else if (item.type === 'societyCreate') {
+                // Handle society creation events
+                const societyData = item.data as any; // Type from API: SocietyWithCreator
+                return (
+                  <CompactSocietyCard
+                    key={`${item.type}-${itemKey}`}
+                    society={societyData}
+                    showTimeline={true}
+                  />
                 );
               } else if (item.type === 'hotTakeBattle') {
                 const battleItem = contentData as HotTakeBattleWithCreator;
@@ -993,6 +1048,7 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
               <div className="text-muted-foreground mb-2">
                 {feedFilter === 'all' && "No activity yet. Be the first to create something!"}
                 {feedFilter === 'initiatives' && "No initiatives found. Create your first initiative!"}
+                {feedFilter === 'societies' && "No society activity found. Create your first society!"}
                 {feedFilter === 'generalPosts' && "No posts found. Share something with the community!"}
                 {feedFilter === 'ideas' && "No ideas found. Submit your first idea!"}
                 {feedFilter === 'issues' && "No issues found. Report your first issue!"}
@@ -1057,6 +1113,8 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
         onPostCreated={handlePostCreated}
         onSuccess={handlePostCreated}
         context="general"
+        onOpenSocietyModal={openCreateSocietyModal}
+        onOpenInitiativeModal={() => openCreateInitiativeModal()}
       />
     </div>
   );

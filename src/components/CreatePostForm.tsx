@@ -676,8 +676,9 @@ export default function CreatePostForm({ onPostCreated, onSuccess, societyId, co
               )}
             </div>
           </div>
-          <div className="flex justify-between items-center mt-3 pt-3 border-t border-border/50">
-            <div className="flex items-center gap-2">
+          <div className="flex justify-between items-center gap-3 mt-3 pt-3 border-t border-border/50">
+            {/* Scrollable action buttons on left */}
+            <div className="flex items-center gap-1.5 flex-1 overflow-x-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent hover:scrollbar-thumb-primary/50">
               {/* Hidden File Input */}
               <input
                 type="file"
@@ -687,7 +688,7 @@ export default function CreatePostForm({ onPostCreated, onSuccess, societyId, co
                 className="hidden"
               />
               {/* Attachment Button */}
-              <Button variant="ghost" size="icon" type="button" onClick={triggerFileInput} className="text-muted-foreground hover:text-primary min-h-[44px] min-w-[44px]">
+              <Button variant="ghost" size="icon" type="button" onClick={triggerFileInput} className="text-muted-foreground hover:text-primary min-h-[44px] min-w-[44px] flex-shrink-0">
                 <Paperclip className="h-5 w-5" />
                 <span className="sr-only">Attach media</span>
               </Button>
@@ -696,7 +697,7 @@ export default function CreatePostForm({ onPostCreated, onSuccess, societyId, co
               {!selectedMedia && (
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="ghost" size="icon" type="button" className="text-muted-foreground hover:text-primary min-h-[44px] min-w-[44px]">
+                    <Button variant="ghost" size="icon" type="button" className="text-muted-foreground hover:text-primary min-h-[44px] min-w-[44px] flex-shrink-0">
                       <Palette className="h-5 w-5" />
                       <span className="sr-only">Choose background</span>
                     </Button>
@@ -716,15 +717,15 @@ export default function CreatePostForm({ onPostCreated, onSuccess, societyId, co
                   </PopoverContent>
                 </Popover>
               )}
-              
+
               {/* Post Type Pill Selector */}
               <Popover open={isTypeDropdownOpen} onOpenChange={setIsTypeDropdownOpen}>
                 <PopoverTrigger asChild>
-                  <Button 
-                    variant="secondary" 
-                    size="sm" 
-                    type="button" 
-                    className="flex items-center gap-1.5 px-3 py-1.5 h-8 bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 rounded-full"
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    type="button"
+                    className="flex items-center gap-1.5 px-3 py-1.5 h-8 bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 rounded-full flex-shrink-0"
                   >
                     {currentConfig.icon}
                     <span className="text-sm font-medium">{currentConfig.label}</span>
@@ -742,8 +743,8 @@ export default function CreatePostForm({ onPostCreated, onSuccess, societyId, co
                           setIsTypeDropdownOpen(false);
                         }}
                         className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors text-left ${
-                          postType === type 
-                            ? 'bg-primary/10 text-primary' 
+                          postType === type
+                            ? 'bg-primary/10 text-primary'
                             : 'text-muted-foreground hover:text-foreground hover:bg-accent'
                         }`}
                       >
@@ -758,11 +759,11 @@ export default function CreatePostForm({ onPostCreated, onSuccess, societyId, co
               {/* Location Selector */}
               <Popover open={isLocationDropdownOpen} onOpenChange={setIsLocationDropdownOpen}>
                 <PopoverTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    type="button" 
-                    className="text-muted-foreground hover:text-primary min-h-[44px] min-w-[44px] relative"
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    type="button"
+                    className="text-muted-foreground hover:text-primary min-h-[44px] min-w-[44px] relative flex-shrink-0"
                     title={`Sharing to: ${currentLocationOption.label}`}
                   >
                     {currentLocationOption.icon}
@@ -787,8 +788,8 @@ export default function CreatePostForm({ onPostCreated, onSuccess, societyId, co
                         }}
                         disabled={option.scope === 'user' && !userLocation}
                         className={`w-full flex items-start gap-3 px-3 py-2 rounded-md text-sm transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed ${
-                          selectedLocation === option.scope 
-                            ? 'bg-primary/10 text-primary border border-primary/20' 
+                          selectedLocation === option.scope
+                            ? 'bg-primary/10 text-primary border border-primary/20'
                             : 'text-muted-foreground hover:text-foreground hover:bg-accent'
                         }`}
                       >
@@ -810,15 +811,16 @@ export default function CreatePostForm({ onPostCreated, onSuccess, societyId, co
               </Popover>
             </div>
 
-            <Button 
-              type="submit" 
+            {/* Fixed submit button on right */}
+            <Button
+              type="submit"
               disabled={
-                isSubmitting || 
+                isSubmitting ||
                 (postType === 'general' && !content.trim()) ||
                 ((postType === 'issue' || postType === 'idea') && (!title.trim() || !content.trim()))
-              } 
-              size="sm" 
-              className="min-h-[44px] px-4"
+              }
+              size="sm"
+              className="min-h-[44px] px-4 flex-shrink-0"
             >
               {isSubmitting ?
                 (battleContext ? "Adding Take..." : `${currentConfig.buttonText}ing...`) :

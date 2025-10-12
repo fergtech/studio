@@ -134,17 +134,17 @@ export function CollapsiblePostComposer({
     <div className="fixed bottom-4 left-4 right-4 z-40 flex justify-center pointer-events-none" data-composer>
       <div className="w-full max-w-4xl pointer-events-auto">
         <Card className="bg-background/95 backdrop-blur-sm border border-border shadow-lg rounded-full overflow-hidden">
-          <div className="p-3 flex items-center justify-between gap-2">
-            {/* Primary Action Buttons */}
-            <div className="flex items-center gap-2 flex-1 flex-wrap">
+          <div className="p-2 sm:p-3 flex items-center justify-between gap-1 sm:gap-2">
+            {/* Primary Action Buttons - Horizontally scrollable on small screens */}
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-1 overflow-x-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent hover:scrollbar-thumb-primary/50">
               {/* Share Idea Button */}
               <Button
                 onClick={() => handleActionClick('idea')}
                 className={cn(
-                  "flex items-center gap-2 rounded-full font-medium transition-all",
+                  "flex items-center gap-1.5 sm:gap-2 rounded-full font-medium transition-all flex-shrink-0",
                   "bg-yellow-500/10 border-2 border-yellow-500/30 text-yellow-700 dark:text-yellow-400",
                   "hover:bg-yellow-500/20 hover:scale-105 active:scale-95",
-                  "px-4 py-2.5 h-auto"
+                  "px-3 sm:px-4 py-2 sm:py-2.5 h-auto"
                 )}
                 variant="ghost"
               >
@@ -157,10 +157,10 @@ export function CollapsiblePostComposer({
               <Button
                 onClick={() => handleActionClick('issue')}
                 className={cn(
-                  "flex items-center gap-2 rounded-full font-medium transition-all",
+                  "flex items-center gap-1.5 sm:gap-2 rounded-full font-medium transition-all flex-shrink-0",
                   "bg-red-500/10 border-2 border-red-500/30 text-red-700 dark:text-red-300",
                   "hover:bg-red-500/20 hover:scale-105 active:scale-95",
-                  "px-4 py-2.5 h-auto"
+                  "px-3 sm:px-4 py-2 sm:py-2.5 h-auto"
                 )}
                 variant="ghost"
               >
@@ -173,10 +173,10 @@ export function CollapsiblePostComposer({
               <Button
                 onClick={() => handleActionClick('post')}
                 className={cn(
-                  "flex items-center gap-2 rounded-full font-medium transition-all",
+                  "flex items-center gap-1.5 sm:gap-2 rounded-full font-medium transition-all flex-shrink-0",
                   "bg-green-500/10 border-2 border-green-500/30 text-green-700 dark:text-green-300",
                   "hover:bg-green-500/20 hover:scale-105 active:scale-95",
-                  "px-4 py-2.5 h-auto"
+                  "px-3 sm:px-4 py-2 sm:py-2.5 h-auto"
                 )}
                 variant="ghost"
               >

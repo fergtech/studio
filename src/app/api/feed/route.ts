@@ -19,6 +19,14 @@ interface InitiativeWithCreator extends Prisma.InitiativeGetPayload<{
   };
 }> {}
 
+interface SocietyWithCreator extends Prisma.SocietyGetPayload<{
+  include: {
+    creator: {
+      select: { id: true, name: true, image: true };
+    };
+  };
+}> {}
+
 interface GeneralPostWithCreatorAndMedia extends Prisma.GeneralPostGetPayload<{
   include: {
     creator: {
@@ -156,7 +164,7 @@ interface LiveNewsPost {
 }
 
 // Unified feed item types
-type FeedItemType = 'initiative' | 'generalPost' | 'societyPost' | 'issue' | 'idea' | 'update' | 'follow' | 'initiativeJoin' | 'debate' | 'hotTakeBattle' | 'live-news';
+type FeedItemType = 'initiative' | 'generalPost' | 'societyPost' | 'issue' | 'idea' | 'update' | 'follow' | 'initiativeJoin' | 'societyCreate' | 'debate' | 'hotTakeBattle' | 'live-news';
 
 interface SocietyPostWithUserAndSociety {
   id: string;
@@ -166,35 +174,35 @@ interface SocietyPostWithUserAndSociety {
   imageUrl?: string;
   linkPreview?: {
     url: string;
-    title?: string;
-    description?: string;
-    image?: string;
-    siteName?: string;
-    favicon?: string;
-    type?: string;
+    title?: string | null;
+    description?: string | null;
+    image?: string | null;
+    siteName?: string | null;
+    favicon?: string | null;
+    type?: string | null;
   } | null;
   links?: {
     id: string;
     order: number;
     linkPreview: {
       url: string;
-      title?: string;
-      description?: string;
-      image?: string;
-      siteName?: string;
-      favicon?: string;
-      type?: string;
+      title?: string | null;
+      description?: string | null;
+      image?: string | null;
+      siteName?: string | null;
+      favicon?: string | null;
+      type?: string | null;
     };
   }[];
   user: {
     id: string;
     name: string;
-    image?: string;
+    image: string | null;
   };
   society: {
     id: string;
     name: string;
-    image?: string;
+    image: string | null;
   };
 }
 
@@ -202,7 +210,7 @@ interface UnifiedFeedItem {
   type: FeedItemType;
   id: string;
   timestamp: Date;
-  data: InitiativeWithCreator | GeneralPostWithCreatorAndMedia | SocietyPostWithUserAndSociety | IssueWithCreator | IdeaWithCreator | DebateTopicWithCreatorAndStats | HotTakeBattleWithPosts | UpdateWithUserAndInitiative | UserFollowWithUsers | InitiativeMembershipWithUserAndInitiative | LiveNewsPost;
+  data: InitiativeWithCreator | GeneralPostWithCreatorAndMedia | SocietyPostWithUserAndSociety | SocietyWithCreator | IssueWithCreator | IdeaWithCreator | DebateTopicWithCreatorAndStats | HotTakeBattleWithPosts | UpdateWithUserAndInitiative | UserFollowWithUsers | InitiativeMembershipWithUserAndInitiative | LiveNewsPost;
 }
 
 // Legacy type for backward compatibility
@@ -545,7 +553,7 @@ async function getUnifiedFeedItems(cursor?: string, pageSize: number = 20, inclu
   const cursorDate = cursor ? new Date(cursor) : new Date();
 
   // Fetch all content and meta actions in parallel with proper cursor-based pagination
-  const [initiatives, generalPosts, societyPosts, issues, ideas, debates, hotTakeBattles, updates, follows, joins] = await Promise.all([
+  const [initiatives, generalPosts, societyPosts, societies, issues, ideas, debates, hotTakeBattles, updates, follows, joins] = await Promise.all([
     prisma.initiative.findMany({
       include: {
         creator: {
@@ -653,6 +661,7 @@ async function getUnifiedFeedItems(cursor?: string, pageSize: number = 20, inclu
         timestamp: {
           lt: cursorDate,
         },
+        moderationStatus: 'approved', // Only show approved posts
       },
       orderBy: {
         timestamp: 'desc',
@@ -723,6 +732,24 @@ async function getUnifiedFeedItems(cursor?: string, pageSize: number = 20, inclu
       orderBy: { createdAt: 'desc' },
       take: Math.ceil(pageSize / 4),
     }),
+    prisma.society.findMany({
+      include: {
+        creator: {
+          select: {
+            id: true,
+            name: true,
+            image: true,
+          },
+        },
+      },
+      where: {
+        createdAt: {
+          lt: cursorDate,
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: Math.ceil(pageSize / 4), // Show societies alongside other content chronologically
+    }),
     prisma.issue.findMany({
       include: {
         creator: {
@@ -752,6 +779,7 @@ async function getUnifiedFeedItems(cursor?: string, pageSize: number = 20, inclu
         createdAt: {
           lt: cursorDate,
         },
+        moderationStatus: 'approved', // Only show approved issues
       },
       orderBy: {
         createdAt: 'desc',
@@ -787,6 +815,7 @@ async function getUnifiedFeedItems(cursor?: string, pageSize: number = 20, inclu
         createdAt: {
           lt: cursorDate,
         },
+        moderationStatus: 'approved', // Only show approved ideas
       },
       orderBy: {
         createdAt: 'desc',
@@ -1006,6 +1035,12 @@ async function getUnifiedFeedItems(cursor?: string, pageSize: number = 20, inclu
         }] : []
       }
     })),
+    ...societies.map(s => ({
+      type: 'societyCreate' as const,
+      id: s.id,
+      timestamp: s.createdAt,
+      data: s
+    })),
     ...issues.map(i => ({
       type: 'issue' as const,
       id: i.id,
@@ -1066,7 +1101,7 @@ async function getUnifiedFeedItems(cursor?: string, pageSize: number = 20, inclu
 
         if (user) {
           const newsArticles = await fetchLiveNews(user, newsLimit);
-          const newsItems = newsArticles.map(article => ({
+          const newsItems = newsArticles.map((article: any) => ({
             type: 'live-news' as const,
             id: article.id,
             timestamp: new Date(article.publishedAt),

@@ -8,6 +8,7 @@ import { prisma } from '@/lib/prisma';
 import { detectTopicsFromContent } from '@/services/topicDetection';
 import { checkForHotTakeBattleOpportunity, createHotTakeBattle } from '@/services/hotTakeBattles';
 import { cleanupOrphanedTopics } from '@/services/topicManager';
+import { contentModerationService } from '@/services/contentModeration';
 
 // CreatePostArgs is no longer needed if we pass FormData directly
 // interface CreatePostArgs {
@@ -50,6 +51,37 @@ export async function createGeneralPost(formData: FormData) { // Changed signatu
   }
 
   try {
+    // ========================================
+    // STEP 1: Content Moderation
+    // ========================================
+    console.log('🛡️ Running content moderation...');
+    const moderationResult = await contentModerationService.moderateContent({
+      content,
+      imageUrl: mediaUrls[0], // Check first media item
+      userId,
+      contentType: 'post'
+    });
+
+    console.log('📊 Moderation result:', {
+      approved: moderationResult.approved,
+      confidence: moderationResult.confidence,
+      flags: moderationResult.flags,
+      requiresHumanReview: moderationResult.requiresHumanReview
+    });
+
+    // Handle rejected content
+    if (!moderationResult.approved && !moderationResult.requiresHumanReview) {
+      console.log('❌ Content auto-rejected by moderation');
+      return {
+        error: `Content violates community guidelines: ${moderationResult.flags.join(', ')}`,
+        success: false,
+        moderationReason: moderationResult.reasoning
+      };
+    }
+
+    // ========================================
+    // STEP 2: Topic Detection
+    // ========================================
     // AI topic detection
     let allTopics = [...manualTopics]; // Start with manual topics
 
@@ -120,6 +152,11 @@ export async function createGeneralPost(formData: FormData) { // Changed signatu
       content: content,
       background: postBackground, // Set based on first image or formBackground
       topics: [], // Keep empty - we use the relational system now
+      // Moderation fields
+      moderationStatus: moderationResult.requiresHumanReview ? 'pending_review' : 'approved',
+      moderationFlags: moderationResult.flags,
+      moderationScore: moderationResult.confidence,
+      moderationReasoning: moderationResult.reasoning
     };
 
     if (linkedInitiativeId) {
@@ -139,6 +176,17 @@ export async function createGeneralPost(formData: FormData) { // Changed signatu
         media: true, // Ensure media is included in the returned post
       },
     });
+
+    // If post requires human review, return special success message
+    if (moderationResult.requiresHumanReview) {
+      console.log('⏳ Post submitted for human review');
+      return {
+        success: true,
+        post: newPost,
+        message: 'Post submitted for review by moderators',
+        status: 'pending_review'
+      };
+    }
 
     // Use the new dynamic topic system to assign topics to the post
     let assignedTopicNames: string[] = [];

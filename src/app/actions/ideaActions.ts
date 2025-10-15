@@ -7,6 +7,7 @@ import { Idea, MediaItem, User } from "@/lib/types";
 import { revalidatePath } from 'next/cache';
 import { MediaType } from "@prisma/client";
 import { lookupByPostalCode, ResolvedLocation } from "@/services/location";
+import { contentModerationService } from '@/services/contentModeration';
 
 // Define a type that includes media and creator for Idea
 type IdeaWithMediaAndCreator = Idea & {
@@ -91,6 +92,23 @@ export async function createIdea(data: CreateIdeaData): Promise<CreateIdeaResult
   }
 
   try {
+    // Content moderation
+    console.log('🛡️ Running moderation for Idea...');
+    const moderationResult = await contentModerationService.moderateContent({
+      content: `${data.title}\n\n${data.description}`,
+      imageUrl: data.mediaUrl || undefined,
+      userId: session.user.id,
+      contentType: 'idea'
+    });
+
+    // Handle rejected content
+    if (!moderationResult.approved && !moderationResult.requiresHumanReview) {
+      return {
+        success: false,
+        error: `Content violates community guidelines: ${moderationResult.flags.join(', ')}`
+      };
+    }
+
     // Use provided coordinates or geocode if needed
     let coordinates: { lat: number; lng: number } | null = null;
 
@@ -117,6 +135,10 @@ export async function createIdea(data: CreateIdeaData): Promise<CreateIdeaResult
         location: data.location,
         latitude: coordinates?.lat,
         longitude: coordinates?.lng,
+        moderationStatus: moderationResult.requiresHumanReview ? 'pending_review' : 'approved',
+        moderationFlags: moderationResult.flags,
+        moderationScore: moderationResult.confidence,
+        moderationReasoning: moderationResult.reasoning,
         creator: {
           connect: {
             id: session.user.id,

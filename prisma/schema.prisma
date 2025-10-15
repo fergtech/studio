@@ -36,6 +36,8 @@ model User {
   enableLocalNews       Boolean                @default(true)
   newsRadius            Int?                   @default(25)
   newsTypes             String[]               @default(["local", "community", "government"])
+  isModerator           Boolean                @default(false)
+  isAdmin               Boolean                @default(false)
   assignedActions       Action[]               @relation("AssigneeOfAction")
   completedActionsBy    Action[]               @relation("CompleterOfAction")
   createdActions        Action[]               @relation("CreatorOfAction")
@@ -208,33 +210,38 @@ model Update {
 }
 
 model GeneralPost {
-  id                 String                @id @default(cuid())
-  creatorId          String
-  creatorName        String
-  creatorAvatar      String?
-  content            String
-  background         String?
-  timestamp          DateTime              @default(now())
-  linkedInitiativeId String?
-  linkPreviewId      String?
-  linkUrl            String?
-  topics             String[]              @default([]) // Keep for backward compatibility during migration
-  creator            User                  @relation("CreatorOfGeneralPost", fields: [creatorId], references: [id])
-  linkPreview        LinkPreview?          @relation(fields: [linkPreviewId], references: [id])
-  linkedInitiative   Initiative?           @relation("LinkedInitiativePosts", fields: [linkedInitiativeId], references: [id])
-  comments           GeneralPostComment[]
-  documents          GeneralPostDocument[]
-  likes              GeneralPostLike[]
-  links              GeneralPostLink[]
-  shares             GeneralPostShare[]
-  battleAsPost1      HotTakeBattle[]       @relation("BattlePost1")
-  battleAsPost2      HotTakeBattle[]       @relation("BattlePost2")
-  userHotTakePost    HotTakeParticipant[]  @relation("UserHotTakePost")
-  relatedHotTakes    HotTakeRelatedPost[]  @relation("RelatedHotTakePost")
-  media              MediaItem[]
-  postTopics         PostTopic[]           @relation("PostTopics")
+  id                  String                @id @default(cuid())
+  creatorId           String
+  creatorName         String
+  creatorAvatar       String?
+  content             String
+  background          String?
+  timestamp           DateTime              @default(now())
+  linkedInitiativeId  String?
+  linkPreviewId       String?
+  linkUrl             String?
+  topics              String[]              @default([]) // Keep for backward compatibility during migration
+  moderationStatus    String?               @default("approved") // 'approved', 'rejected', 'pending_review'
+  moderationFlags     String[]              @default([])
+  moderationScore     Float?
+  moderationReasoning String?
+  creator             User                  @relation("CreatorOfGeneralPost", fields: [creatorId], references: [id])
+  linkPreview         LinkPreview?          @relation(fields: [linkPreviewId], references: [id])
+  linkedInitiative    Initiative?           @relation("LinkedInitiativePosts", fields: [linkedInitiativeId], references: [id])
+  comments            GeneralPostComment[]
+  documents           GeneralPostDocument[]
+  likes               GeneralPostLike[]
+  links               GeneralPostLink[]
+  shares              GeneralPostShare[]
+  battleAsPost1       HotTakeBattle[]       @relation("BattlePost1")
+  battleAsPost2       HotTakeBattle[]       @relation("BattlePost2")
+  userHotTakePost     HotTakeParticipant[]  @relation("UserHotTakePost")
+  relatedHotTakes     HotTakeRelatedPost[]  @relation("RelatedHotTakePost")
+  media               MediaItem[]
+  postTopics          PostTopic[]           @relation("PostTopics")
 
   @@index([topics])
+  @@index([moderationStatus])
 }
 
 model GeneralPostLike {
@@ -382,6 +389,10 @@ model Issue {
   championedById           String?
   addressedByInitiativeId  String?        @unique
   societyId                String?
+  moderationStatus         String?        @default("approved") // 'approved', 'rejected', 'pending_review'
+  moderationFlags          String[]       @default([])
+  moderationScore          Float?
+  moderationReasoning      String?
   relatedIdeas             Idea[]         @relation("IssueIdeas")
   addressedByInitiative    Initiative?    @relation("InitiativeAddressingIssue", fields: [addressedByInitiativeId], references: [id])
   championedBy             User?          @relation("ChampionedIssueBy", fields: [championedById], references: [id])
@@ -392,6 +403,8 @@ model Issue {
   likes                    IssueLike[]
   shares                   IssueShare[]
   media                    MediaItem[]    @relation("IssueMedia")
+
+  @@index([moderationStatus])
 }
 
 model Idea {
@@ -410,6 +423,10 @@ model Idea {
   addressingIssueId         String?
   implementedAsInitiativeId String?       @unique
   societyId                 String?
+  moderationStatus          String?       @default("approved") // 'approved', 'rejected', 'pending_review'
+  moderationFlags           String[]      @default([])
+  moderationScore           Float?
+  moderationReasoning       String?
   addressingIssue           Issue?        @relation("IssueIdeas", fields: [addressingIssueId], references: [id])
   championedBy              User?         @relation("ChampionedIdeaBy", fields: [championedById], references: [id])
   championedByInitiative    Initiative?   @relation("ChampionedIdea", fields: [championedByInitiativeId], references: [id])
@@ -420,6 +437,8 @@ model Idea {
   likes                     IdeaLike[]
   shares                    IdeaShare[]
   media                     MediaItem[]   @relation("IdeaMedia")
+
+  @@index([moderationStatus])
 }
 
 model IssueLike {

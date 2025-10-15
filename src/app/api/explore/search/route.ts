@@ -78,6 +78,7 @@ export async function GET(req: NextRequest) {
   const generalPosts = await prisma.generalPost.findMany({
     where: {
       content: { contains: q, mode: 'insensitive' },
+      moderationStatus: 'approved',
     },
     select: {
       id: true,

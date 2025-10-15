@@ -4,6 +4,9 @@ import { prisma } from '@/lib/prisma';
 export async function GET(req: NextRequest) {
   try {
     const ideas = await prisma.idea.findMany({
+      where: {
+        moderationStatus: 'approved',
+      },
       include: {
         creator: {
           select: {

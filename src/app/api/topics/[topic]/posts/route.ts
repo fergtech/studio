@@ -13,6 +13,7 @@ export async function GET(
     // Fetch posts using the new relational system
     const posts = await prisma.generalPost.findMany({
       where: {
+        moderationStatus: 'approved',
         OR: [
           // New relational system
           {

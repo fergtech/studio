@@ -6,7 +6,7 @@ import { cachedFetch } from '@/lib/cache';
 
 export interface ActivityFeedItem {
   id: string;
-  type: 'post' | 'follow' | 'initiative_join' | 'initiative_create' | 'goal_complete' | 'milestone_reach' | 'comment' | 'like';
+  type: 'post' | 'follow' | 'initiative_join' | 'initiative_create' | 'society_create' | 'goal_complete' | 'milestone_reach' | 'comment' | 'like';
   title: string;
   description: string;
   userId: string;
@@ -19,6 +19,7 @@ export interface ActivityFeedItem {
   data?: any;
   relatedInitiativeId?: string;
   relatedPostId?: string;
+  relatedSocietyId?: string;
 }
 
 export async function GET(req: NextRequest) {
@@ -60,6 +61,7 @@ export async function GET(req: NextRequest) {
     const posts = await prisma.generalPost.findMany({
       where: {
         creatorId: { in: relevantUserIds },
+        moderationStatus: 'approved',
       },
       include: {
         creator: {
@@ -228,7 +230,51 @@ export async function GET(req: NextRequest) {
       });
     });
 
-    // 5. Goal Completions
+    // 5. Society Creation
+    const newSocieties = await prisma.society.findMany({
+      where: {
+        creatorId: { in: relevantUserIds },
+        createdAt: {
+          gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // Last 7 days
+        },
+      },
+      include: {
+        creator: {
+          select: {
+            id: true,
+            name: true,
+            image: true,
+            username: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: limit,
+    });
+
+    newSocieties.forEach(society => {
+      activities.push({
+        id: society.id,
+        type: 'society_create',
+        title: 'Created Society',
+        description: `${society.creator.name} created ${society.name}`,
+        userId: society.creatorId,
+        user: society.creator,
+        timestamp: society.createdAt,
+        relatedSocietyId: society.id,
+        data: {
+          society: {
+            id: society.id,
+            name: society.name,
+            description: society.description,
+            image: society.image,
+          },
+        },
+      });
+    });
+
+    // 6. Goal Completions
     const completedGoals = await prisma.goal.findMany({
       where: {
         ownerId: { in: relevantUserIds },

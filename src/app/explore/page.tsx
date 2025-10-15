@@ -178,6 +178,48 @@ function ExplorePageInner() {
     if (post.type === 'general') href = `/posts/${post.id}`;
     if (post.type === 'issue') href = `/issues/${post.id}`;
     if (post.type === 'idea') href = `/ideas/${post.id}`;
+    
+    // Check if post has visual media
+    const hasVisualMedia = post.mediaUrl && (
+      post.mediaType === 'image' || 
+      post.mediaType?.startsWith('image/') ||
+      !post.mediaType // Assume image if no type specified but URL exists
+    );
+    
+    if (hasVisualMedia) {
+      // Visual post card with image
+      return (
+        <Link href={href} passHref className="block h-[180px] cursor-pointer">
+          <div className="relative cursor-pointer hover:shadow-lg transition-shadow overflow-hidden group h-full rounded-lg">
+            <div
+              className="absolute inset-0 bg-cover bg-center transition-transform duration-300 group-hover:scale-105"
+              style={{ backgroundImage: `url(${post.mediaUrl})` }}
+            >
+              <div className="absolute inset-0 bg-black/50" />
+            </div>
+            <div className="relative z-10 flex flex-col h-full justify-between">
+              <div className="p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Badge variant="secondary" className="text-xs bg-white/20 text-white border-white/30">
+                    {post.type.charAt(0).toUpperCase() + post.type.slice(1)}
+                  </Badge>
+                </div>
+                <div className="text-white font-semibold text-sm line-clamp-2 mb-1">
+                  {post.title || post.content?.slice(0, 50) + '...' || 'Untitled'}
+                </div>
+                {(post.description || post.content) && (
+                  <div className="text-gray-200 text-xs line-clamp-2">
+                    {post.description || post.content}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </Link>
+      );
+    }
+    
+    // Text-only post card
     return (
       <Link href={href} passHref className="block">
         <div className="bg-card rounded-lg shadow p-4 flex flex-col hover:ring-2 hover:ring-primary transition cursor-pointer">
@@ -216,7 +258,7 @@ function ExplorePageInner() {
   return (
     <div className="w-full min-w-0 overflow-hidden">
       <AppSidebar 
-        widgets={['userControls', 'navigation', 'suggestions', 'location', 'resources', 'footer']}
+        widgets={['userControls', 'navigation', 'resources', 'footer']}
         context={{ type: 'explore' }}
         onCollapseChange={setSidebarCollapsed}
       />
@@ -240,6 +282,7 @@ function ExplorePageInner() {
           placeholder="Search users, initiatives, posts..."
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
+          suppressHydrationWarning
         />
         <Button type="submit" className="rounded-l-none">Search</Button>
       </form>
@@ -323,7 +366,7 @@ function ExplorePageInner() {
             {results.posts.length > 0 ? (
               <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide min-w-0">
                 {results.posts.map((post: SearchPost) => (
-                  <div key={post.id} className="flex-shrink-0 w-72">
+                  <div key={post.id} className="flex-shrink-0 w-80">
                     <PostCard {...post} />
                   </div>
                 ))}

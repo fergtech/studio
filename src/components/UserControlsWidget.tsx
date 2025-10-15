@@ -6,7 +6,7 @@ import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { PlusCircle, Settings, LogOut, User, MessageSquare } from 'lucide-react';
+import { PlusCircle, Settings, LogOut, User, MessageSquare, Edit } from 'lucide-react';
 import { useSession, signOut } from 'next-auth/react';
 import { useModal } from '@/context/ModalContext';
 import NotificationBell from '@/components/NotificationBell';
@@ -126,6 +126,12 @@ export default function UserControlsWidget({ collapsed = false, isMobile = false
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem asChild>
+                  <Link href={`/profile/${session.user.id}/edit`}>
+                    <Edit className="h-4 w-4 mr-2" />
+                    Edit Profile
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
                   <Link href={`/messages`}>
                     <MessageSquare className="h-4 w-4 mr-2" />
                     Messages
@@ -211,14 +217,39 @@ export default function UserControlsWidget({ collapsed = false, isMobile = false
               <DropdownMenuSeparator />
               {session.user && (session.user as any).username && (
                 <DropdownMenuItem asChild>
-                  <Link href={`/profile/${(session.user as any).username}`}>Profile</Link>
+                  <Link href={`/profile/${(session.user as any).username}`}>
+                    <User className="h-4 w-4 mr-2" />
+                    Profile
+                  </Link>
                 </DropdownMenuItem>
               )}
+              {session.user && !(session.user as any).username && (
+                <DropdownMenuItem asChild>
+                  <Link href={`/profile/me`}>
+                    <User className="h-4 w-4 mr-2" />
+                    Profile
+                  </Link>
+                </DropdownMenuItem>
+              )}
+              {/* Profile (Legacy) - commented out
               {session.user && !(session.user as any).username && (
                 <DropdownMenuItem asChild>
                   <Link href={`/profile/me`}>Profile (Legacy)</Link>
                 </DropdownMenuItem>
               )}
+              */}
+              <DropdownMenuItem asChild>
+                <Link href={`/profile/${session.user.id}/edit`}>
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit Profile
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href={`/messages`}>
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  Messages
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">Log out</DropdownMenuItem>
             </DropdownMenuContent>
@@ -289,19 +320,24 @@ export default function UserControlsWidget({ collapsed = false, isMobile = false
           <div className="space-y-3">
             {/* User Info & Profile */}
             <div className="flex items-center gap-3">
-              <div className="relative">
-                <Avatar className="h-10 w-10">
-                  <AvatarImage 
-                    src={getAvatarUrl(session.user.id, session.user.image)} 
-                    alt={session.user.name || 'User'} 
-                  />
-                  <AvatarFallback>{getInitials(session.user.name)}</AvatarFallback>
-                </Avatar>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{session.user.name || 'User'}</p>
-                <p className="text-xs text-muted-foreground truncate">{session.user.email}</p>
-              </div>
+              <Link 
+                href={session.user && (session.user as any).username ? `/profile/${(session.user as any).username}` : '/profile/me'}
+                className="flex items-center gap-3 flex-1 min-w-0 hover:bg-muted/50 rounded-lg p-1 -m-1 transition-colors"
+              >
+                <div className="relative">
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage 
+                      src={getAvatarUrl(session.user.id, session.user.image)} 
+                      alt={session.user.name || 'User'} 
+                    />
+                    <AvatarFallback>{getInitials(session.user.name)}</AvatarFallback>
+                  </Avatar>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{session.user.name || 'User'}</p>
+                  <p className="text-xs text-muted-foreground truncate">{session.user.email}</p>
+                </div>
+              </Link>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
@@ -321,10 +357,26 @@ export default function UserControlsWidget({ collapsed = false, isMobile = false
                     <DropdownMenuItem asChild>
                       <Link href={`/profile/me`}>
                         <User className="h-4 w-4 mr-2" />
+                        Profile
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+                  {/* Profile (Legacy) - commented out
+                  {session.user && !(session.user as any).username && (
+                    <DropdownMenuItem asChild>
+                      <Link href={`/profile/me`}>
+                        <User className="h-4 w-4 mr-2" />
                         Profile (Legacy)
                       </Link>
                     </DropdownMenuItem>
                   )}
+                  */}
+                  <DropdownMenuItem asChild>
+                    <Link href={`/profile/${session.user.id}/edit`}>
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit Profile
+                    </Link>
+                  </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                       <Link href={`/messages`}>
                         <MessageSquare className="h-4 w-4 mr-2" />

@@ -31,6 +31,15 @@ export async function GET(req: NextRequest) {
       take: 8,
     });
 
+    // Transform societies to match expected format
+    const transformedSocieties = featuredSocieties.map((society: any) => ({
+      id: society.id,
+      name: society.name,
+      description: society.description,
+      imageUrl: society.image, // Map image to imageUrl
+      memberCount: 0, // TODO: Add member count if needed
+    }));
+
     // Get recent posts
     const featuredPosts = await prisma.generalPost.findMany({
       select: {
@@ -40,24 +49,32 @@ export async function GET(req: NextRequest) {
         creatorName: true,
         creatorAvatar: true,
         creatorId: true,
+        media: true,
       },
       orderBy: { timestamp: 'desc' },
       take: 8,
     });
 
     // Transform posts to match expected format
-    const transformedPosts = featuredPosts.map((post: any) => ({
-      id: post.id,
-      content: post.content,
-      type: 'general' as const,
-      userId: post.creatorId,
-      user: {
-        name: post.creatorName || 'Anonymous',
-        username: '', // Not available in this schema
-        image: post.creatorAvatar,
-      },
-      createdAt: post.timestamp,
-    }));
+    const transformedPosts = featuredPosts.map((post: any) => {
+      // Extract first media item for display
+      const firstMedia = post.media && post.media.length > 0 ? post.media[0] : null;
+      
+      return {
+        id: post.id,
+        content: post.content,
+        type: 'general' as const,
+        userId: post.creatorId,
+        user: {
+          name: post.creatorName || 'Anonymous',
+          username: '', // Not available in this schema
+          image: post.creatorAvatar,
+        },
+        mediaUrl: firstMedia?.url,
+        mediaType: firstMedia?.type,
+        createdAt: post.timestamp,
+      };
+    });
 
     // Get featured users (simplified)
     const featuredUsers = await prisma.user.findMany({
@@ -87,7 +104,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       initiatives: featuredInitiatives,
-      societies: featuredSocieties,
+      societies: transformedSocieties,
       posts: transformedPosts,
       users: transformedUsers,
     });

@@ -65,6 +65,15 @@ export async function GET(req: NextRequest) {
     take: 20,
   });
 
+  // Transform societies to match expected format
+  const transformedSocieties = societies.map((society: any) => ({
+    id: society.id,
+    name: society.name,
+    description: society.description,
+    imageUrl: society.image, // Map image to imageUrl
+    memberCount: 0, // TODO: Add member count if needed
+  }));
+
   // General posts: content
   const generalPosts = await prisma.generalPost.findMany({
     where: {
@@ -73,16 +82,40 @@ export async function GET(req: NextRequest) {
     select: {
       id: true,
       content: true,
-      // createdAt: true, // Removed because it does not exist in your schema
+      creatorName: true,
+      creatorAvatar: true,
+      creatorId: true,
+      media: true,
+      timestamp: true,
     },
     take: 20,
   });
-  const generalPostsWithType = generalPosts.map(post => ({ ...post, type: 'general' }));
+  
+  // Transform posts to match expected format
+  const transformedPosts = generalPosts.map((post: any) => {
+    // Extract first media item for display
+    const firstMedia = post.media && post.media.length > 0 ? post.media[0] : null;
+    
+    return {
+      id: post.id,
+      content: post.content,
+      type: 'general' as const,
+      userId: post.creatorId,
+      user: {
+        name: post.creatorName || 'Anonymous',
+        username: '', // Not available in this schema
+        image: post.creatorAvatar,
+      },
+      mediaUrl: firstMedia?.url,
+      mediaType: firstMedia?.type,
+      createdAt: post.timestamp,
+    };
+  });
 
   return NextResponse.json({
     users,
     initiatives,
-    posts: generalPostsWithType,
-    societies,
+    posts: transformedPosts,
+    societies: transformedSocieties,
   });
 } 

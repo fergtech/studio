@@ -113,10 +113,11 @@ export default function LocationInput({ initialLocation, onLocationChange }: Loc
           }}
           placeholder="Enter City, Zip, or County"
           className="flex-1"
+          suppressHydrationWarning
         />
         {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
         {inputValue && !isLoading && (
-          <Button type="button" variant="ghost" size="sm" onClick={handleClear}>
+          <Button type="button" variant="ghost" size="sm" onClick={handleClear} suppressHydrationWarning>
             <X className="h-4 w-4" />
           </Button>
         )}

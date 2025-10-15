@@ -448,16 +448,6 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
           ) : (
             <div className="w-full h-full bg-gradient-to-r from-blue-500 via-blue-600 to-green-500" />
           )}
-          {isOwnProfile && (
-            <Button
-              size="sm"
-              variant="ghost"
-              className="absolute right-4 top-4 z-10 border border-gray-300 bg-white/60 hover:bg-gray-200 text-gray-700 shadow-sm"
-              onClick={() => user.username && router.push(`/profile/${user.username}/edit?banner=1`)}
-            >
-              Edit Cover Photo
-            </Button>
-          )}
         </div>
         
         {/* Profile Info Card */}
@@ -500,6 +490,9 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
                     <div className="flex items-center gap-1">
                       <MapPinIcon className="w-4 h-4" />
                       {(() => {
+                        // Check if user has a location set (either structured or city)
+                        const hasLocationSet = user.location || user.city;
+                        
                         if (user.showLocation) {
                           // Try to parse structured location first
                           if (user.location) {
@@ -515,7 +508,12 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
                           if (user.city) {
                             return user.city;
                           }
+                        } else if (hasLocationSet) {
+                          // User has location but chose to hide it
+                          return 'Location hidden';
                         }
+                        
+                        // No location set yet
                         return 'Location not set';
                       })()}
                     </div>

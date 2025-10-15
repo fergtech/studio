@@ -9,9 +9,9 @@ const saltRounds = 10;
 const registerSchema = z.object({
   email: z.string().email({ message: "Invalid email address" }),
   password: z.string().min(6, { message: "Password must be at least 6 characters long" }),
-  name: z.string().min(2, { message: "Name must be at least 2 characters" }).optional(),
-  username: z.string().min(3, { message: "Username must be at least 3 characters" }).optional(),
-  bio: z.string().max(500, { message: "Bio must be less than 500 characters" }).optional(),
+  name: z.preprocess((val) => val === "" ? undefined : val, z.string().min(2, { message: "Name must be at least 2 characters" }).optional()),
+  username: z.preprocess((val) => val === "" ? undefined : val, z.string().min(3, { message: "Username must be at least 3 characters" }).optional()),
+  bio: z.preprocess((val) => val === "" ? undefined : val, z.string().max(500, { message: "Bio must be less than 500 characters" }).optional()),
   skills: z.array(z.string()).optional(),
   interests: z.array(z.string()).optional(),
   primaryIntent: z.enum(['spot_issues', 'share_ideas', 'join_initiatives', 'learn_skills', 'organize_communities']).optional(),

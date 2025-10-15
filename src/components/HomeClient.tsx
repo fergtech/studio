@@ -596,8 +596,8 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
           {/* Main Feed - Centered */}
           <div className="flex-shrink-0 w-full max-w-3xl px-4 pb-24">
             <div className="flex flex-col space-y-6">
-              {/* Hero Section - Within feed column */}
-              <div className="w-full mb-2">
+              {/* Hero Section - Within feed column - HIDDEN */}
+              <div className="w-full mb-2 hidden">
                 <div className="relative isolate overflow-hidden rounded-3xl px-6 py-12 sm:py-16 text-center shadow-2xl">
                   {/* Background Image with reduced opacity */}
                   <div

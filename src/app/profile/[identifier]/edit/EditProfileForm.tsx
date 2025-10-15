@@ -351,6 +351,7 @@ export default function EditProfileForm({ user }: EditProfileFormProps) {
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     className="rounded-md bg-muted/50 px-3 py-2 text-sm font-semibold shadow-sm hover:bg-muted/80"
+                    suppressHydrationWarning
                   >
                     Change
                   </button>
@@ -624,6 +625,7 @@ export default function EditProfileForm({ user }: EditProfileFormProps) {
               type="button"
               onClick={() => router.back()}
               className="text-sm font-semibold leading-6"
+              suppressHydrationWarning
             >
               Cancel
             </button>

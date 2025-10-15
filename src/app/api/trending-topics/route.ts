@@ -24,6 +24,11 @@ export async function GET(request: NextRequest) {
         weeklyPosts: true,
         category: true,
         postTopics: {
+          where: {
+            post: {
+              moderationStatus: 'approved' // Only get approved posts
+            }
+          },
           orderBy: {
             post: {
               timestamp: 'desc' // Order by post timestamp
@@ -115,6 +120,7 @@ export async function GET(request: NextRequest) {
       // Get all posts with topics from the last 7 days
       const recentPosts = await prisma.generalPost.findMany({
         where: {
+          moderationStatus: 'approved', // Only approved posts
           timestamp: {
             gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Last 7 days
           },

@@ -46,6 +46,7 @@ export default async function DirectMessagePage({ params }: DirectMessagePagePro
   // Get existing direct messages between these users
   const messages = await prisma.chatMessage.findMany({
     where: {
+      isDeleted: false, // Exclude deleted messages
       initiativeId: null, // Direct messages only
       OR: [
         {
@@ -67,8 +68,20 @@ export default async function DirectMessagePage({ params }: DirectMessagePagePro
       senderName: true,
       receiverId: true,
       initiativeId: true,
+      isDeleted: true,
       sender: {
         select: { id: true, name: true, image: true }
+      },
+      replyTo: {
+        select: {
+          id: true,
+          text: true,
+          senderName: true,
+          isDeleted: true,
+          sender: {
+            select: { id: true, name: true, image: true }
+          }
+        }
       }
     }
   });

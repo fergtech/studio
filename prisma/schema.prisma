@@ -161,10 +161,20 @@ model ChatMessage {
   text         String              // Can contain plain text OR JSON-encoded rich media (images, files, etc)
   timestamp    DateTime            @default(now())
   receiverId   String?
+  replyToId    String?             // Message this is replying to
+  isDeleted    Boolean             @default(false) // Soft delete
+  deletedAt    DateTime?           // When message was deleted
   initiative   Initiative?         @relation(fields: [initiativeId], references: [id])
   receiver     User?               @relation("ReceiverOfChatMessage", fields: [receiverId], references: [id])
   sender       User                @relation("SenderOfChatMessage", fields: [senderId], references: [id])
+  replyTo      ChatMessage?        @relation("MessageReplies", fields: [replyToId], references: [id])
+  replies      ChatMessage[]       @relation("MessageReplies")
   reactions    ChatMessageReaction[]
+
+  @@index([senderId, receiverId, isDeleted, timestamp])
+  @@index([receiverId, senderId, isDeleted, timestamp])
+  @@index([initiativeId, timestamp])
+  @@index([isDeleted, timestamp])
 }
 
 model ChatMessageReaction {

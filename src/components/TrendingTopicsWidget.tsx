@@ -86,7 +86,7 @@ export function TrendingTopicsWidget({ limit = 8, showHeader = true }: TrendingT
           <div className="pb-3 px-2">
             <h2 className="text-lg font-semibold flex items-center gap-2">
               <Hash className="h-5 w-5" />
-              Trending Topics
+              Topics
             </h2>
           </div>
         )}
@@ -111,15 +111,15 @@ export function TrendingTopicsWidget({ limit = 8, showHeader = true }: TrendingT
           <div className="pb-3 px-2">
             <h2 className="text-lg font-semibold flex items-center gap-2">
               <Hash className="h-5 w-5" />
-              Trending Topics
+              Topics
             </h2>
           </div>
         )}
         <div className="px-2">
           <div className="text-center py-8 text-muted-foreground">
             <Hash className="h-12 w-12 mx-auto mb-2 opacity-50" />
-            <p className="text-sm">No trending topics yet</p>
-            <p className="text-xs">Start conversations to see topics here!</p>
+            <p className="text-sm">No topics yet</p>
+            <p className="text-xs">Start conversations to create topics!</p>
           </div>
         </div>
       </div>

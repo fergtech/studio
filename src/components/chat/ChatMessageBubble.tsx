@@ -89,7 +89,7 @@ export function ChatMessageBubble({
   if (isDeleted) {
     return (
       <div className={`flex mb-4 ${isOwnMessage ? 'justify-end' : 'justify-start'}`}>
-        <div className={`max-w-[70%] ${isOwnMessage ? 'ml-12' : 'mr-12'}`}>
+        <div className={`max-w-[85%] sm:max-w-[70%] ${isOwnMessage ? 'ml-2 sm:ml-12' : 'mr-2 sm:mr-12'}`}>
           <div className="flex items-center gap-2 mb-1">
             {!isOwnMessage && (
               <>
@@ -122,7 +122,7 @@ export function ChatMessageBubble({
 
   return (
     <div className={`flex mb-4 ${isOwnMessage ? 'justify-end' : 'justify-start'}`}>
-      <div className={`max-w-[70%] ${isOwnMessage ? 'ml-12' : 'mr-12'}`}>
+      <div className={`max-w-[85%] sm:max-w-[70%] ${isOwnMessage ? 'ml-2 sm:ml-12' : 'mr-2 sm:mr-12'}`}>
         {/* Reply indicator */}
         {message.replyTo && (
           <div className="mb-2 ml-4 pl-3 border-l-2 border-muted-foreground/30">

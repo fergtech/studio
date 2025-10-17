@@ -1,13 +1,16 @@
 "use client";
-import React from 'react';
+import React, { useState } from 'react';
 import { Idea } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Lightbulb, MoreHorizontal, MapPin } from 'lucide-react';
+import { Lightbulb, MapPin } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Button } from "@/components/ui/button";
 import Image from 'next/image';
+import { useToast } from '@/hooks/use-toast';
+import { useSession } from 'next-auth/react';
+import { ContentCardMenu } from '@/components/ui/content-card-menu';
 
 // Helper function to safely parse and display location
 const getLocationDisplay = (location: string | null | undefined): string | null => {
@@ -30,11 +33,16 @@ interface CompactIdeaCardProps {
 
 export function CompactIdeaCard({ idea, currentUserId, showTimeline = true }: CompactIdeaCardProps) {
   const router = useRouter();
+  const { toast } = useToast();
+  const { data: session } = useSession();
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const creatorName = idea.creator?.name || 'Anonymous';
   const creatorAvatar = idea.creator?.image || undefined;
   const fallback = creatorName.substring(0, 2).toUpperCase();
   const timeAgo = formatDistanceToNow(new Date(idea.createdAt), { addSuffix: true });
   const locationDisplay = getLocationDisplay(idea.location);
+  const isCreator = session?.user?.id === idea.creatorId;
 
   // Determine background - use first media if available
   const hasMedia = idea.media && idea.media.length > 0;
@@ -45,6 +53,26 @@ export function CompactIdeaCard({ idea, currentUserId, showTimeline = true }: Co
   const handleClick = () => {
     sessionStorage.setItem('scrollY', window.scrollY.toString());
     router.push(`/ideas/${idea.id}`);
+  };
+
+  const handleDelete = async () => {
+    if (!isCreator || isDeleting) return;
+
+    if (!confirm(`Are you sure you want to delete "${idea.title}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/ideas/${idea.id}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error('Failed to delete');
+
+      toast({ title: "Idea deleted successfully" });
+      router.refresh();
+    } catch (error) {
+      toast({ title: "Failed to delete idea", variant: "destructive" });
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -79,14 +107,13 @@ export function CompactIdeaCard({ idea, currentUserId, showTimeline = true }: Co
               <p className="text-xs text-muted-foreground">{timeAgo}</p>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
+          <ContentCardMenu
+            itemId={idea.id}
+            itemType="idea"
+            itemName={idea.title}
+            isCreator={isCreator}
+            onDelete={handleDelete}
+          />
         </div>
 
         {/* Idea Card - Horizontal with background */}

@@ -16,6 +16,7 @@ import { LinkPreview } from '@/components/ui/link-preview';
 import { AudioPlayer } from '@/components/ui/audio-player';
 import { saveScrollPositionForKey } from '@/hooks/useScrollPosition';
 import { useRouter } from 'next/navigation';
+import { HashtaggedText } from '@/components/ui/hashtagged-text';
 
 // Helper function to detect video files
 const isVideoFile = (url: string) => {
@@ -507,12 +508,14 @@ export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralP
             </form>
           ) : (
             <>
-              <p 
-                className="text-base font-medium text-left px-2 bg-black/40 rounded-md py-1 w-fit max-w-full text-white line-clamp-3 overflow-hidden" 
+              <p
+                className="text-base font-medium text-left px-2 bg-black/40 rounded-md py-1 w-fit max-w-full text-white line-clamp-3 overflow-hidden"
                 style={{marginLeft: 0}}
                 title={post.content.length > 150 ? post.content : undefined}
               >
-                {post.content.length > 150 ? `${post.content.substring(0, 150)}...` : post.content}
+                <HashtaggedText
+                  text={post.content.length > 150 ? `${post.content.substring(0, 150)}...` : post.content}
+                />
               </p>
               {post.content.length > 150 && (
                 <button 

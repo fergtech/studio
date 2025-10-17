@@ -3,9 +3,102 @@ import { notFound } from 'next/navigation';
 import PostDetailClient from './PostDetailClient';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { Metadata } from 'next';
 
 // Force dynamic rendering to prevent static generation issues
 export const dynamic = 'force-dynamic';
+
+// Generate metadata for social sharing
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+
+  // Fetch post data
+  const post = await prisma.generalPost.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      content: true,
+      creatorName: true,
+      media: true,
+    },
+  });
+
+  if (!post) {
+    const societyPost = await prisma.societyPost.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        content: true,
+        imageUrl: true,
+        user: {
+          select: {
+            name: true,
+          },
+        },
+        society: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!societyPost) {
+      return {
+        title: 'Post Not Found | Society Plus',
+      };
+    }
+
+    const title = `${societyPost.user?.name || 'Someone'} in ${societyPost.society.name}`;
+    const description = societyPost.content.length > 160
+      ? societyPost.content.substring(0, 157) + '...'
+      : societyPost.content;
+    const imageUrl = societyPost.imageUrl || `${process.env.NEXTAUTH_URL}/api/og?title=${encodeURIComponent(title)}`;
+
+    return {
+      title: `${title} | Society Plus`,
+      description,
+      openGraph: {
+        title,
+        description,
+        images: [imageUrl],
+        type: 'article',
+        siteName: 'Society Plus',
+      },
+      twitter: {
+        card: 'summary_large_image',
+        title,
+        description,
+        images: [imageUrl],
+      },
+    };
+  }
+
+  // General post
+  const title = `${post.creatorName || 'Someone'} shared a post`;
+  const description = post.content.length > 160
+    ? post.content.substring(0, 157) + '...'
+    : post.content;
+  const imageUrl = post.media?.[0]?.url || `${process.env.NEXTAUTH_URL}/api/og?title=${encodeURIComponent(title)}`;
+
+  return {
+    title: `${title} | Society Plus`,
+    description,
+    openGraph: {
+      title,
+      description,
+      images: [imageUrl],
+      type: 'article',
+      siteName: 'Society Plus',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [imageUrl],
+    },
+  };
+}
 
 export default async function PostPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

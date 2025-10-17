@@ -1,13 +1,15 @@
 "use client";
-import React from 'react';
+import React, { useState } from 'react';
 import { Initiative } from '@/lib/types';
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Target, MoreHorizontal } from 'lucide-react';
+import { Target } from 'lucide-react';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { Button } from "@/components/ui/button";
+import { useToast } from '@/hooks/use-toast';
+import { useSession } from 'next-auth/react';
+import { ContentCardMenu } from '@/components/ui/content-card-menu';
 
 // Helper function to parse and display location data
 const getLocationDisplay = (location: string | null | undefined): string | null => {
@@ -54,7 +56,12 @@ export function CompactInitiativeCard({
   showTimeline = true
 }: CompactInitiativeCardProps) {
   const router = useRouter();
+  const { toast } = useToast();
+  const { data: session } = useSession();
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const fallback = creatorName.substring(0, 2).toUpperCase();
+  const isCreator = session?.user?.id === initiative.creatorId;
 
   // Handle date formatting
   const timeAgo = initiative.createdAt ?
@@ -77,6 +84,26 @@ export function CompactInitiativeCard({
   const handleClick = () => {
     sessionStorage.setItem('scrollY', window.scrollY.toString());
     router.push(`/initiatives/${initiative.id}`);
+  };
+
+  const handleDelete = async () => {
+    if (!isCreator || isDeleting) return;
+
+    if (!confirm(`Are you sure you want to delete "${initiative.title}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/initiatives/${initiative.id}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error('Failed to delete');
+
+      toast({ title: "Initiative deleted successfully" });
+      router.refresh();
+    } catch (error) {
+      toast({ title: "Failed to delete initiative", variant: "destructive" });
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -111,14 +138,13 @@ export function CompactInitiativeCard({
               <p className="text-xs text-muted-foreground">{timeAgo}</p>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
+          <ContentCardMenu
+            itemId={initiative.id}
+            itemType="initiative"
+            itemName={initiative.title}
+            isCreator={isCreator}
+            onDelete={handleDelete}
+          />
         </div>
 
         {/* Initiative Card - Horizontal with background */}

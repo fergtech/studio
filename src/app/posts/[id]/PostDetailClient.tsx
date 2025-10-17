@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import PostReactions from '@/components/PostReactions';
 import CommentPanel from '@/components/CommentPanel';
 import React, { useRef, useState, useEffect } from 'react';
-import { Pause, Play, Maximize2, ArrowLeft, Edit, Save, Loader2, Paperclip, X, Upload, Trash2 } from 'lucide-react';
+import { Pause, Play, Maximize2, ArrowLeft, Edit, Save, Loader2, Paperclip, X, Upload, Trash2, Share2, Instagram } from 'lucide-react';
 import imageCompression from 'browser-image-compression';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,7 @@ import { LinkPreview } from '@/components/ui/link-preview';
 import { DocumentPreview } from '@/components/ui/document-preview';
 import AppSidebar, { getDefaultCollapsedState } from '@/components/AppSidebar';
 import { updateGeneralPostContent, updateSocietyPostContent, deletePostAction } from '@/app/actions/postActions';
+import { SocialShareDialog } from '@/components/social/SocialShareDialog';
 
 // Helper function to detect video files
 const isVideoFile = (url: string) => {
@@ -117,6 +118,7 @@ export default function PostDetailClient({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => getDefaultCollapsedState({ type: 'post' }));
   const [commentPanelOpen, setCommentPanelOpen] = useState(false);
   const [commentCount, setCommentCount] = useState(0);
+  const [showSocialShare, setShowSocialShare] = useState(false);
   const searchParams = useSearchParams();
   const { toast } = useToast();
   
@@ -131,7 +133,22 @@ export default function PostDetailClient({
 
   // Delete functionality state
   const [deleteLoading, setDeleteLoading] = useState(false);
-  
+
+  // Share functionality
+  const handleShareLink = async () => {
+    const url = `${window.location.origin}/posts/${id}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast({ title: "Link copied!", description: "Post link copied to clipboard" });
+    } catch (error) {
+      toast({ title: "Failed to copy link", variant: "destructive" });
+    }
+  };
+
+  const handleSocialShare = () => {
+    setShowSocialShare(true);
+  };
+
   // Defensive checks for required props
   if (!id || !content || !creatorId || !creatorName || (postType === 'society' && (!society || !society.id))) {
     console.error('Missing required post data', { id, content, creatorId, creatorName, society });
@@ -454,33 +471,56 @@ export default function PostDetailClient({
                     <span className="font-semibold text-foreground text-base md:text-lg">{creatorName}</span>
                   </Link>
                 </div>
-                {/* Edit and Delete buttons - only show for post creator */}
-                {currentUserId === creatorId && (
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setEditMode(!editMode)}
-                      className="h-8 w-8 p-0"
-                      disabled={deleteLoading}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleDelete}
-                      className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                      disabled={deleteLoading || editMode}
-                    >
-                      {deleteLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                )}
+                {/* Share, Edit and Delete buttons */}
+                <div className="flex items-center gap-1">
+                  {/* Share buttons - visible to everyone */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleShareLink}
+                    className="h-8 w-8 p-0"
+                    title="Share link"
+                  >
+                    <Share2 className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSocialShare}
+                    className="h-8 w-8 p-0"
+                    title="Share to social media"
+                  >
+                    <Instagram className="h-4 w-4" />
+                  </Button>
+
+                  {/* Edit and Delete buttons - only show for post creator */}
+                  {currentUserId === creatorId && (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setEditMode(!editMode)}
+                        className="h-8 w-8 p-0"
+                        disabled={deleteLoading}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleDelete}
+                        className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        disabled={deleteLoading || editMode}
+                      >
+                        {deleteLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </>
+                  )}
+                </div>
               </div>
               <div className="text-xs text-muted-foreground ml-12 mt-1 md:ml-0 md:mt-0 md:ml-2 md:block">{postTime}</div>
               {/* Desktop: Society badge + post type in header */}
@@ -828,6 +868,15 @@ export default function PostDetailClient({
         isOpen={commentPanelOpen}
         onClose={() => setCommentPanelOpen(false)}
         onCommentUpdate={(newCount) => setCommentCount(newCount)}
+      />
+
+      {/* Social Share Dialog */}
+      <SocialShareDialog
+        open={showSocialShare}
+        onOpenChange={setShowSocialShare}
+        contentType="post"
+        contentId={id}
+        contentTitle={content.substring(0, 50) + (content.length > 50 ? '...' : '')}
       />
     </div>
   );

@@ -20,6 +20,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from "@/components/ui/label";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { useToast } from "@/components/ui/use-toast"; // Ensure this import is present
+import imageCompression from 'browser-image-compression';
 import type { Initiative, Role, UserSelectableMembershipRole, Member, EnhancedChatMessage, Goal, Milestone, Update, UserForDisplay, InitiativeStatus, Priority, GoalStatus, Action, StepStatus } from "@/lib/types"; 
 import { ALL_USER_SELECTABLE_MEMBERSHIP_ROLES } from "@/lib/types";
 import { MissionProgressBanner } from './MissionProgressBanner';
@@ -468,8 +469,28 @@ export function InitiativeClientPage({
     } else if (data.imageFile) {
       console.log("New image file provided, attempting upload...");
       try {
+        // Compress image before uploading to avoid 413 (payload too large) errors
+        const options = {
+          maxSizeMB: 3, // Max 3MB to stay well under Vercel's 4.5MB limit
+          maxWidthOrHeight: 1920,
+          useWebWorker: true,
+          fileType: 'image/jpeg',
+        };
+
+        console.log('Compressing image...', {
+          originalSize: (data.imageFile.size / 1024 / 1024).toFixed(2) + 'MB',
+          originalType: data.imageFile.type
+        });
+
+        const compressedFile = await imageCompression(data.imageFile, options);
+
+        console.log('Image compressed:', {
+          compressedSize: (compressedFile.size / 1024 / 1024).toFixed(2) + 'MB',
+          reduction: ((1 - compressedFile.size / data.imageFile.size) * 100).toFixed(1) + '%'
+        });
+
         const formData = new FormData();
-        formData.append("file", data.imageFile);
+        formData.append("file", compressedFile);
         formData.append("filePath", "initiatives/banners");
         const response = await fetch('/api/upload', {
           method: 'POST',

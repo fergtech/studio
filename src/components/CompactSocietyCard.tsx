@@ -1,11 +1,14 @@
 "use client";
-import React from 'react';
+import React, { useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Users, MoreHorizontal } from 'lucide-react';
+import { Users } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
+import { useToast } from '@/hooks/use-toast';
+import { useSession } from 'next-auth/react';
+import { ContentCardMenu } from '@/components/ui/content-card-menu';
 
 interface CompactSocietyCardProps {
   society: {
@@ -25,13 +28,38 @@ interface CompactSocietyCardProps {
 
 export function CompactSocietyCard({ society, showTimeline = true }: CompactSocietyCardProps) {
   const router = useRouter();
+  const { toast } = useToast();
+  const { data: session } = useSession();
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const timeAgo = formatDistanceToNow(society.createdAt, { addSuffix: true });
   const creatorName = society.creator?.name || 'Anonymous';
   const creatorAvatar = society.creator?.image || undefined;
+  const isCreator = session?.user?.id === society.creator?.id;
 
   const handleClick = () => {
     sessionStorage.setItem('scrollY', window.scrollY.toString());
     router.push(`/societies/${society.id}`);
+  };
+
+  const handleDelete = async () => {
+    if (!isCreator || isDeleting) return;
+
+    if (!confirm(`Are you sure you want to delete "${society.name}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/societies/${society.id}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error('Failed to delete');
+
+      toast({ title: "Society deleted successfully" });
+      router.refresh();
+    } catch (error) {
+      toast({ title: "Failed to delete society", variant: "destructive" });
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -71,14 +99,13 @@ export function CompactSocietyCard({ society, showTimeline = true }: CompactSoci
               <p className="text-xs text-muted-foreground">{timeAgo}</p>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
+          <ContentCardMenu
+            itemId={society.id}
+            itemType="society"
+            itemName={society.name}
+            isCreator={isCreator}
+            onDelete={handleDelete}
+          />
         </div>
 
         {/* Society Card - Horizontal with featured image */}

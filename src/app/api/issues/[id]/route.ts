@@ -3,6 +3,47 @@ import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { id } = await params;
+
+    // Check if issue exists and user is the creator
+    const existingIssue = await prisma.issue.findUnique({
+      where: { id },
+      select: { creatorId: true },
+    });
+
+    if (!existingIssue) {
+      return NextResponse.json({ error: 'Issue not found' }, { status: 404 });
+    }
+
+    if (existingIssue.creatorId !== session.user.id) {
+      return NextResponse.json({ error: 'Unauthorized: You can only delete your own issues' }, { status: 403 });
+    }
+
+    // Delete the issue (cascade will handle related records)
+    await prisma.issue.delete({
+      where: { id },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting issue:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

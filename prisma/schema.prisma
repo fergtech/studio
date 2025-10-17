@@ -83,6 +83,8 @@ model User {
   userFollowing         UserFollow[]           @relation("UserFollowing")
   topicInterests        UserTopicInterest[]    @relation("UserTopicInterests")
   chatReactions         ChatMessageReaction[]  @relation("UserChatReactions")
+  socialAccounts        SocialAccount[]        @relation("UserSocialAccounts")
+  socialPosts           SocialPost[]           @relation("UserSocialPosts")
 }
 
 model Initiative {
@@ -1012,4 +1014,66 @@ model Area {
 
   @@index([latitude, longitude])
   @@index([city])
+}
+
+model SocialAccount {
+  id                 String               @id @default(cuid())
+  userId             String
+  platform           SocialPlatform       // instagram, facebook, tiktok
+  platformUserId     String               // User's ID on the platform
+  platformUsername   String?              // Username on the platform
+  accessToken        String               // Encrypted OAuth access token
+  refreshToken       String?              // Encrypted OAuth refresh token (if applicable)
+  tokenExpiresAt     DateTime?            // When the access token expires
+  scope              String[]             @default([]) // OAuth scopes granted
+  isActive           Boolean              @default(true)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  user               User                 @relation("UserSocialAccounts", fields: [userId], references: [id], onDelete: Cascade)
+  posts              SocialPost[]         @relation("SocialAccountPosts")
+
+  @@unique([userId, platform])
+  @@index([userId])
+  @@index([platform])
+}
+
+model SocialPost {
+  id                 String               @id @default(cuid())
+  userId             String
+  socialAccountId    String
+  contentType        String               // idea, issue, initiative, post
+  contentId          String               // ID of the content being shared
+  platform           SocialPlatform
+  platformPostId     String?              // ID of the post on the platform
+  platformPostUrl    String?              // URL of the post on the platform
+  caption            String?              // Custom caption used
+  imageUrl           String?              // URL of generated image
+  status             SocialPostStatus     @default(PENDING)
+  errorMessage       String?              // Error message if failed
+  metrics            Json?                // Platform-specific metrics (likes, shares, views, etc.)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  user               User                 @relation("UserSocialPosts", fields: [userId], references: [id], onDelete: Cascade)
+  socialAccount      SocialAccount        @relation("SocialAccountPosts", fields: [socialAccountId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([socialAccountId])
+  @@index([contentType, contentId])
+  @@index([platform])
+  @@index([status])
+}
+
+enum SocialPlatform {
+  INSTAGRAM
+  FACEBOOK
+  TIKTOK
+}
+
+enum SocialPostStatus {
+  PENDING
+  POSTING
+  SUCCESS
+  FAILED
 }

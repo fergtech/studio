@@ -21,7 +21,7 @@ import { useSession } from 'next-auth/react';
 
 interface ActivityFeedItem {
   id: string;
-  type: 'post' | 'follow' | 'initiative_join' | 'initiative_create' | 'goal_complete' | 'milestone_reach' | 'comment' | 'like';
+  type: 'post' | 'follow' | 'initiative_join' | 'initiative_create' | 'society_create' | 'goal_complete' | 'milestone_reach' | 'comment' | 'like';
   title: string;
   description: string;
   userId: string;
@@ -35,6 +35,7 @@ interface ActivityFeedItem {
   data?: any;
   relatedInitiativeId?: string;
   relatedPostId?: string;
+  relatedSocietyId?: string;
 }
 
 interface ActivityFeedProps {
@@ -94,6 +95,8 @@ export default function ActivityFeed({ initialActivities = [], preview = false }
         return <Users className="h-4 w-4" />;
       case 'initiative_create':
         return <Rocket className="h-4 w-4" />;
+      case 'society_create':
+        return <Users className="h-4 w-4" />;
       case 'goal_complete':
         return <Target className="h-4 w-4" />;
       case 'milestone_reach':
@@ -115,6 +118,8 @@ export default function ActivityFeed({ initialActivities = [], preview = false }
         return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
       case 'initiative_create':
         return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
+      case 'society_create':
+        return 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200';
       case 'goal_complete':
         return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200';
       case 'milestone_reach':
@@ -266,6 +271,20 @@ export default function ActivityFeed({ initialActivities = [], preview = false }
                       <Link href={`/post/${activity.relatedPostId}`}>
                         <FileText className="h-3 w-3 mr-1" />
                         View Post
+                      </Link>
+                    </Button>
+                  )}
+
+                  {activity.relatedSocietyId && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      asChild
+                      className="text-xs"
+                    >
+                      <Link href={`/societies/${activity.relatedSocietyId}`}>
+                        <Users className="h-3 w-3 mr-1" />
+                        View Society
                       </Link>
                     </Button>
                   )}

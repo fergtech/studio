@@ -10,7 +10,10 @@
  */
 
 import { PrismaClient } from '@prisma/client';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config({ path: '.env.local' });
 
 const prisma = new PrismaClient();
 
@@ -46,20 +49,11 @@ const CURATED_TOPICS = [
   { name: 'general', displayName: 'General', category: 'community' }
 ];
 
+// AI classification with Cloudflare + Gemini fallback + Keyword fallback
 async function classifyPostWithAI(content) {
-  try {
-    const apiKey = process.env.GOOGLE_AI_API_KEY;
-    if (!apiKey) {
-      console.warn('⚠️ No Google AI API key, using fallback classification');
-      return ['general'];
-    }
+  const topicList = CURATED_TOPICS.map(t => t.name).join(', ');
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
-
-    const topicList = CURATED_TOPICS.map(t => t.name).join(', ');
-
-    const prompt = `You are a topic classifier. Classify this post into 1-3 topics from the following list ONLY:
+  const prompt = `You are a topic classifier. Classify this post into 1-3 topics from the following list ONLY:
 
 ${topicList}
 
@@ -72,26 +66,108 @@ Rules:
 - If unsure, return ["general"]
 - Do NOT create new topics
 
-Topics:`;
+Respond with ONLY the JSON array.`;
 
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text().trim();
+  // Try Cloudflare Workers AI first
+  try {
+    const cfAccountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+    const cfApiToken = process.env.CLOUDFLARE_API_TOKEN;
 
-    // Parse JSON response
-    const topics = JSON.parse(text.replace(/```json\n?|\n?```/g, ''));
+    if (cfAccountId && cfApiToken) {
+      const modelUrl = `https://api.cloudflare.com/client/v4/accounts/${cfAccountId}/ai/run/@cf/meta/llama-3.1-8b-instruct`;
 
-    if (Array.isArray(topics) && topics.length > 0) {
-      // Validate topics are in our curated list
-      const validTopics = topics.filter(t => CURATED_TOPICS.some(ct => ct.name === t));
-      return validTopics.length > 0 ? validTopics : ['general'];
+      const response = await fetch(modelUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${cfApiToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a helpful topic classifier. Always respond with valid JSON arrays.'
+            },
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          max_tokens: 100,
+          temperature: 0.1
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        const generatedText = result.result?.response || '';
+        const cleaned = generatedText.replace(/```json\n?|\n?```/g, '').trim();
+        const topics = JSON.parse(cleaned);
+
+        if (Array.isArray(topics) && topics.length > 0) {
+          const validTopics = topics.filter(t => CURATED_TOPICS.some(ct => ct.name === t));
+          if (validTopics.length > 0) {
+            console.log(`   ☁️ Cloudflare: ${validTopics.join(', ')}`);
+            return validTopics;
+          }
+        }
+      }
     }
-
-    return ['general'];
-  } catch (error) {
-    console.error('AI classification error:', error.message);
-    return ['general'];
+  } catch (cfError) {
+    console.log(`   ⚠️ Cloudflare failed, trying Gemini...`);
   }
+
+  // Fallback to Gemini
+  try {
+    const apiKey = process.env.GOOGLE_AI_API_KEY;
+    if (apiKey) {
+      const { GoogleGenerativeAI } = await import('@google/generative-ai');
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const text = response.text().trim();
+
+      const topics = JSON.parse(text.replace(/```json\n?|\n?```/g, ''));
+
+      if (Array.isArray(topics) && topics.length > 0) {
+        const validTopics = topics.filter(t => CURATED_TOPICS.some(ct => ct.name === t));
+        if (validTopics.length > 0) {
+          console.log(`   🤖 Gemini: ${validTopics.join(', ')}`);
+          return validTopics;
+        }
+      }
+    }
+  } catch (geminiError) {
+    console.log(`   ⚠️ Gemini failed, using keyword fallback...`);
+  }
+
+  // Keyword fallback
+  const contentLower = content.toLowerCase();
+  if (contentLower.includes('movie') || contentLower.includes('film') || contentLower.includes('tv')) {
+    console.log(`   🔑 Keyword: movies-tv`);
+    return ['movies-tv'];
+  }
+  if (contentLower.includes('tech') || contentLower.includes('ai') || contentLower.includes('software')) {
+    console.log(`   🔑 Keyword: technology`);
+    return ['technology'];
+  }
+  if (contentLower.includes('food') || contentLower.includes('cook') || contentLower.includes('recipe')) {
+    console.log(`   🔑 Keyword: food-drinks`);
+    return ['food-drinks'];
+  }
+  if (contentLower.includes('sport') || contentLower.includes('game')) {
+    console.log(`   🔑 Keyword: sports`);
+    return ['sports'];
+  }
+  if (contentLower.includes('work') || contentLower.includes('remote') || contentLower.includes('office')) {
+    console.log(`   🔑 Keyword: education, business`);
+    return ['education', 'business'];
+  }
+
+  console.log(`   🔑 Keyword: general (fallback)`);
+  return ['general'];
 }
 
 async function migrateTopics() {
@@ -127,25 +203,38 @@ async function migrateTopics() {
   }
   console.log(`\n   🎉 Created ${createdTopics.length} curated topics\n`);
 
-  // Step 4: Re-classify all posts
+  // Step 4: Re-classify all posts (GeneralPosts, Ideas, Issues)
   console.log('🧠 Step 4: Re-classifying all existing posts with AI...\n');
 
-  const allPosts = await prisma.generalPost.findMany({
-    select: {
-      id: true,
-      content: true,
-      creatorId: true
-    }
+  // Fetch all post types
+  const generalPosts = await prisma.generalPost.findMany({
+    select: { id: true, content: true, creatorId: true }
   });
 
-  console.log(`   Found ${allPosts.length} posts to re-classify\n`);
+  const ideas = await prisma.idea.findMany({
+    select: { id: true, description: true, creatorId: true }
+  });
+
+  const issues = await prisma.issue.findMany({
+    select: { id: true, description: true, creatorId: true }
+  });
+
+  // Normalize to common format
+  const allPosts = [
+    ...generalPosts.map(p => ({ id: p.id, content: p.content, type: 'GeneralPost' })),
+    ...ideas.map(i => ({ id: i.id, content: i.description, type: 'Idea' })),
+    ...issues.map(i => ({ id: i.id, content: i.description, type: 'Issue' }))
+  ];
+
+  console.log(`   Found ${generalPosts.length} GeneralPosts, ${ideas.length} Ideas, ${issues.length} Issues`);
+  console.log(`   Total: ${allPosts.length} posts to re-classify\n`);
 
   let successCount = 0;
   let errorCount = 0;
 
   for (let i = 0; i < allPosts.length; i++) {
     const post = allPosts[i];
-    console.log(`   [${i + 1}/${allPosts.length}] Classifying post ${post.id}...`);
+    console.log(`   [${i + 1}/${allPosts.length}] Classifying ${post.type} ${post.id}...`);
 
     try {
       // Get AI classification

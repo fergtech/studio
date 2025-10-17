@@ -14,6 +14,7 @@ import { ShareModal } from './ShareModal';
 import { deleteIssue } from '@/app/actions/issueActions';
 import { saveScrollPositionForKey } from '@/hooks/useScrollPosition';
 import { useRouter } from 'next/navigation';
+import { HashtaggedText } from '@/components/ui/hashtagged-text';
 
 // Helper function to safely parse and display location
 const getLocationDisplay = (location: string | null | undefined): string | null => {
@@ -356,11 +357,13 @@ export function IssueCard({ issue, currentUserId, onIssueDeleted }: IssueCardPro
               <>
                 <div className="flex-grow">
                   <p className="text-base font-medium whitespace-pre-wrap text-left px-2 bg-black/40 rounded-md py-1 w-fit max-w-full mb-1">{issue.title}</p>
-                  <p 
+                  <p
                     className="text-sm whitespace-pre-wrap text-left px-2 bg-black/40 rounded-md py-1 w-fit max-w-full"
                     title={issue.description.length > 150 ? issue.description : undefined}
                   >
-                    {issue.description.length > 150 ? `${issue.description.substring(0, 150)}...` : issue.description}
+                    <HashtaggedText
+                      text={issue.description.length > 150 ? `${issue.description.substring(0, 150)}...` : issue.description}
+                    />
                   </p>
                 </div>
                 <Button size="icon" variant="ghost" className="h-7 w-7 ml-1" onClick={() => { setEditTitle(issue.title); setEditDescription(issue.description); setEditMode(true); }} aria-label="Edit issue"><svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a2 2 0 01-2.828 0L9 13zm-6 6h6v-2H5v-2H3v4z"/></svg></Button>
@@ -369,11 +372,13 @@ export function IssueCard({ issue, currentUserId, onIssueDeleted }: IssueCardPro
           ) : (
             <div className="flex-grow">
               <p className="text-base font-medium whitespace-pre-wrap text-left px-2 bg-black/40 rounded-md py-1 w-fit max-w-full mb-1">{issue.title}</p>
-              <p 
+              <p
                 className="text-sm whitespace-pre-wrap text-left px-2 bg-black/40 rounded-md py-1 w-fit max-w-full"
                 title={issue.description.length > 150 ? issue.description : undefined}
               >
-                {issue.description.length > 150 ? `${issue.description.substring(0, 150)}...` : issue.description}
+                <HashtaggedText
+                  text={issue.description.length > 150 ? `${issue.description.substring(0, 150)}...` : issue.description}
+                />
               </p>
             </div>
           )}

@@ -8,6 +8,7 @@ import { revalidatePath } from 'next/cache';
 import { MediaType } from "@prisma/client";
 import { lookupByPostalCode } from "@/services/location";
 import { contentModerationService } from '@/services/contentModeration';
+import { detectTopicsFromContent } from '@/services/topicDetection';
 
 type IssueWithMediaAndCreator = Issue & {
   media: MediaItem[];
@@ -147,6 +148,17 @@ export async function createIssue(data: CreateIssueData): Promise<CreateIssueRes
 
       return newIssue;
     });
+
+    // STEP 2: AI Topic Detection (after issue is created)
+    try {
+      console.log('🚀 Issue Creation: Starting topic detection');
+      const contentForDetection = `${data.title}\n\n${data.description}`;
+      await detectTopicsFromContent(contentForDetection, result.id);
+      console.log('✅ Topic detection completed for Issue');
+    } catch (topicError) {
+      console.error('Topic detection failed for Issue (continuing anyway):', topicError);
+      // Don't fail issue creation if topic detection fails
+    }
 
     return { success: true, issue: result };
   } catch (error) {

@@ -95,11 +95,23 @@ Content: "${content}"
 
 Check for:
 - Hate speech, harassment, discrimination
-- Spam, scams, commercial solicitation
+- Spam, scams, or aggressive commercial solicitation (NOTE: Legitimate discussion about housing, products, services, or marketplace activity in appropriate contexts is ALLOWED)
 - Violence, graphic content, threats
 - Adult/sexual content
 - Misinformation, conspiracy theories
 - Illegal activities
+
+IMPORTANT: Do NOT flag content as "commercial" if it is:
+- A legitimate discussion about housing, real estate, renting, or buying
+- Sharing information about products/services in a discussion context
+- Asking for recommendations or sharing experiences
+- Community marketplace posts in appropriate topics
+
+ONLY flag as "commercial" or "spam" if it contains:
+- Aggressive advertising or promotional language
+- Multiple links to commercial websites
+- Obvious scam patterns or pyramid schemes
+- Unsolicited business promotion in unrelated contexts
 
 Respond ONLY with valid JSON in this exact format:
 {

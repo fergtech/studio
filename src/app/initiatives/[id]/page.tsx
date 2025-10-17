@@ -5,9 +5,60 @@ import Link from 'next/link';
 import { Prisma } from '@prisma/client';
 import { UpdateType as PrismaUpdateType } from '@prisma/client';
 import { MediaType as PrismaMediaType } from '@prisma/client';
+import { Metadata } from 'next';
+import { prisma } from '@/lib/prisma';
 
 // Force dynamic rendering to prevent static generation issues
 export const dynamic = 'force-dynamic';
+
+// Generate metadata for social sharing
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+
+  const initiative = await prisma.initiative.findUnique({
+    where: { id },
+    select: {
+      title: true,
+      description: true,
+      imageUrl: true,
+      creator: {
+        select: {
+          name: true,
+        },
+      },
+    },
+  });
+
+  if (!initiative) {
+    return {
+      title: 'Initiative Not Found | Society Plus',
+    };
+  }
+
+  const title = initiative.title;
+  const description = initiative.description.length > 160
+    ? initiative.description.substring(0, 157) + '...'
+    : initiative.description;
+  const imageUrl = initiative.imageUrl || `${process.env.NEXTAUTH_URL}/api/og?title=${encodeURIComponent(title)}&type=initiative`;
+
+  return {
+    title: `${title} | Society Plus`,
+    description,
+    openGraph: {
+      title,
+      description,
+      images: [imageUrl],
+      type: 'article',
+      siteName: 'Society Plus',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [imageUrl],
+    },
+  };
+}
 
 // Helper function to convert Prisma's Decimal to number or keep as is
 const toNumber = (value: any): number => {

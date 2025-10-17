@@ -14,7 +14,7 @@ import Image from 'next/image';
 import { FileIcon, Send, Paperclip, X, Smile, MoreVertical, Reply, Trash2 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { RichMessageRenderer } from '@/components/RichMessageRenderer';
-import { formatFileSize } from '@/lib/messageUtils';
+import { formatFileSize, createImageMessage, createVideoMessage, createFileMessage } from '@/lib/messageUtils';
 import { Textarea } from '@/components/ui/textarea';
 
 interface DirectMessageClientProps {
@@ -118,19 +118,32 @@ export default function DirectMessageClient({
       const isVideo = fileToSend?.type?.startsWith('video/');
       const isMediaFile = isImage || isVideo;
 
+      // Encode message properly based on content type
+      let textContent = messageText;
+      if (fileUrl) {
+        if (isImage) {
+          textContent = createImageMessage(fileUrl, fileToSend?.name);
+        } else if (isVideo) {
+          textContent = createVideoMessage(fileUrl, fileToSend?.name);
+        } else {
+          // Other file types
+          textContent = createFileMessage(
+            fileUrl,
+            fileToSend?.name || 'file',
+            fileToSend?.size ? formatFileSize(fileToSend.size) : undefined,
+            fileToSend?.type
+          );
+        }
+      }
+
       const response = await fetch(`/api/chat/direct/${otherUser.id}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          text: fileUrl && !isMediaFile ? fileUrl : messageText,
+          text: textContent,
           replyToId: replyingTo?.id,
-          imageUrl: isMediaFile ? fileUrl : undefined,
-          fileName: fileToSend?.name,
-          fileSize: fileToSend?.size ? formatFileSize(fileToSend.size) : undefined,
-          mimeType: fileToSend?.type,
-          messageType: fileToSend && !isMediaFile ? 'file' : undefined,
         }),
       });
 
@@ -193,6 +206,23 @@ export default function DirectMessageClient({
       toast({ title: "Error", description: "Failed to delete message", variant: "destructive" });
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleReaction = async (messageId: string, emoji: string) => {
+    try {
+      const response = await fetch(`/api/chat/message/${messageId}/reaction`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emoji }),
+      });
+
+      if (!response.ok) throw new Error('Failed to add reaction');
+
+      const updatedMessage = await response.json();
+      setMessages(prev => prev.map(m => m.id === messageId ? updatedMessage : m));
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to add reaction", variant: "destructive" });
     }
   };
 
@@ -288,10 +318,33 @@ export default function DirectMessageClient({
                               <MoreVertical className="h-3 w-3" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
+                          <DropdownMenuContent align="end" className="w-48">
                             <DropdownMenuItem onClick={() => setReplyingTo(message)}>
                               <Reply className="h-4 w-4 mr-2" /> Reply
                             </DropdownMenuItem>
+
+                            {/* React submenu */}
+                            <DropdownMenuItem asChild>
+                              <div className="flex items-center justify-between w-full cursor-default">
+                                <span className="flex items-center gap-2">
+                                  <Smile className="h-4 w-4" /> React
+                                </span>
+                              </div>
+                            </DropdownMenuItem>
+                            <div className="px-2 py-1">
+                              <div className="flex gap-1 flex-wrap">
+                                {['👍', '❤️', '😂', '😮', '😢', '🙏'].map(emoji => (
+                                  <button
+                                    key={emoji}
+                                    onClick={() => handleReaction(message.id, emoji)}
+                                    className="text-lg hover:bg-accent rounded p-1 transition-colors"
+                                  >
+                                    {emoji}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
                             {isOwnMessage && (
                               <DropdownMenuItem onClick={() => handleDelete(message.id)} className="text-destructive">
                                 <Trash2 className="h-4 w-4 mr-2" /> Delete
@@ -300,6 +353,25 @@ export default function DirectMessageClient({
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
+
+                      {/* Reactions display */}
+                      {message.reactions && message.reactions.length > 0 && (
+                        <div className="flex gap-1 flex-wrap mt-1">
+                          {Object.entries(
+                            message.reactions.reduce((acc: Record<string, number>, r: any) => {
+                              acc[r.emoji] = (acc[r.emoji] || 0) + 1;
+                              return acc;
+                            }, {})
+                          ).map(([emoji, count]) => (
+                            <span
+                              key={emoji}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted text-xs"
+                            >
+                              {emoji} {count}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -372,6 +444,18 @@ export default function DirectMessageClient({
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) {
+                    // Check file size (4MB limit)
+                    const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
+                    if (file.size > MAX_FILE_SIZE) {
+                      toast({
+                        title: "File too large",
+                        description: `File size must be less than 4MB. Your file is ${(file.size / 1024 / 1024).toFixed(2)}MB. Please compress it before uploading.`,
+                        variant: "destructive",
+                      });
+                      e.target.value = ''; // Reset input
+                      return;
+                    }
+
                     setSelectedFile(file);
                     const reader = new FileReader();
                     reader.onloadend = () => {

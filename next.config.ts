@@ -24,6 +24,19 @@ const nextConfig: NextConfig = {
     },
   },
   webpack: (config, { dev, isServer, webpack }) => {
+    // Fix OpenTelemetry and uuid module resolution issues
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@opentelemetry/api': require.resolve('@opentelemetry/api'),
+      'uuid': require.resolve('uuid'),
+    };
+
+    // Enable ESM resolution
+    config.resolve.extensionAlias = {
+      '.js': ['.js', '.ts', '.tsx'],
+      '.jsx': ['.jsx', '.tsx'],
+    };
+
     // Fix chunk loading timeout issues in Next.js 15
     if (!isServer) {
       config.resolve.fallback = {

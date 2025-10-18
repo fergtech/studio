@@ -39,6 +39,7 @@ import { ChatPanel } from '@/components/initiatives/ChatPanel';
 // import { io, Socket } from 'socket.io-client'; // Temporarily disabled for Vercel deployment
 import { SuggestedGoalTag } from '@/components/initiatives/SuggestedGoalTag';
 import { deleteGoal } from '@/app/actions/goalActions';
+import { SocialShareDialog } from '@/components/social/SocialShareDialog';
 
 // Helper function to parse and display location data
 const getLocationDisplay = (location: string | null | undefined): string | null => {
@@ -1165,76 +1166,14 @@ export function InitiativeClientPage({
           />
         )}
 
-        {/* Share Dialog */}
-        <Dialog open={isShareOpen} onOpenChange={setIsShareOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Share Initiative</DialogTitle>
-              <DialogDescription>
-                Share this initiative with others to grow the community.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              {/* QR Code Section */}
-              <div className="text-center">
-                {qrCodeDataURL ? (
-                  <Image 
-                    src={qrCodeDataURL} 
-                    alt="QR Code for joining initiative"
-                    width={128}
-                    height={128}
-                    className="w-32 h-32 border-2 border-gray-300 rounded-lg mx-auto mb-2"
-                  />
-                ) : (
-                  <div className="w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50 mx-auto mb-2">
-                    <div className="text-xs text-gray-400">Loading...</div>
-                  </div>
-                )}
-                <p className="text-sm text-muted-foreground mb-2">
-                  Scan this QR code to quickly join the initiative.
-                </p>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={handleDownloadQRCode}
-                  disabled={!qrCodeDataURL}
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Download QR Code
-                </Button>
-              </div>
-              
-              {/* Sharing Options */}
-              <div className="flex gap-2">
-                <Button variant="outline" className="flex-1">
-                  <Twitter className="h-4 w-4 mr-2" />
-                  Twitter
-                </Button>
-                <Button variant="outline" className="flex-1">
-                  <Facebook className="h-4 w-4 mr-2" />
-                  Facebook
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="flex-1"
-                  onClick={handleCopyLink}
-                >
-                  <Link2 className="h-4 w-4 mr-2" />
-                  Copy Link
-                </Button>
-              </div>
-              
-              {/* Custom Message */}
-              <div className="space-y-2">
-                <Label>Custom Message</Label>
-                <Textarea
-                  placeholder="Add a message to your share..."
-                  defaultValue={`Check out this initiative: ${initiative.title}`}
-                />
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+        {/* Share Dialog - Use proper social sharing component */}
+        <SocialShareDialog
+          open={isShareOpen}
+          onOpenChange={setIsShareOpen}
+          contentType="initiative"
+          contentId={initiativeId}
+          contentTitle={initiative.title}
+        />
 
         {/* Invite Dialog */}
         <Dialog open={isInviteOpen} onOpenChange={setIsInviteOpen}>

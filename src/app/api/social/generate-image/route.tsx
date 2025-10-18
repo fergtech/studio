@@ -2,10 +2,22 @@ import { ImageResponse } from '@vercel/og';
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import QRCode from 'qrcode';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
 // Note: Using nodejs runtime because Prisma Client requires it
 // Images are still cached by Vercel CDN for performance
 export const runtime = 'nodejs';
+
+// Load logo as base64 at module level (cached)
+let logoBase64: string | null = null;
+try {
+  const logoPath = join(process.cwd(), 'public', 'apple-touch-icon.png');
+  const logoBuffer = readFileSync(logoPath);
+  logoBase64 = `data:image/png;base64,${logoBuffer.toString('base64')}`;
+} catch (error) {
+  console.error('Failed to load logo:', error);
+}
 
 // Image sizes for different platforms
 const SIZES = {
@@ -186,7 +198,8 @@ export async function GET(request: NextRequest) {
     const qrCodeDataUrl = await generateQRCode(contentUrl);
 
     // TODO: Fetch and convert media image to base64 if available
-    // Currently disabled - using gradient backgrounds only
+    // Currently disabled - Satori has issues rendering certain base64 images (u2 is not iterable error)
+    // Logo works because it's PNG, but user-uploaded images fail
     // if (mediaUrl) {
     //   console.log('Fetching media from URL:', mediaUrl);
     //   mediaBase64 = await fetchImageAsBase64(mediaUrl);
@@ -217,7 +230,7 @@ export async function GET(request: NextRequest) {
             fontFamily: 'system-ui, -apple-system, sans-serif',
           }}
         >
-          {/* Background layer - gradient fallback */}
+          {/* Background layer - gradient */}
           <div
             style={{
               position: 'absolute',
@@ -228,9 +241,6 @@ export async function GET(request: NextRequest) {
               background: GRADIENTS[contentType],
             }}
           />
-
-          {/* Background image if available - temporarily disabled due to Satori limitations */}
-          {/* TODO: Re-enable once we solve base64 image rendering in Satori */}
 
           {/* Content wrapper */}
           <div
@@ -243,7 +253,7 @@ export async function GET(request: NextRequest) {
               padding: isStory ? '60px 40px' : '40px',
             }}
           >
-          {/* Header with Society+ logo */}
+          {/* Header with society+ logo */}
           <div
             style={{
               display: 'flex',
@@ -256,27 +266,28 @@ export async function GET(request: NextRequest) {
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '12px',
+                gap: '16px',
               }}
             >
+              {logoBase64 ? (
+                <img
+                  src={logoBase64}
+                  width={isStory ? 56 : 48}
+                  height={isStory ? 56 : 48}
+                  style={{
+                    borderRadius: '12px',
+                  }}
+                />
+              ) : null}
               <div
                 style={{
-                  fontSize: isStory ? '48px' : '40px',
-                  fontWeight: 'bold',
-                  color: 'white',
-                }}
-              >
-                S+
-              </div>
-              <div
-                style={{
-                  fontSize: isStory ? '24px' : '20px',
+                  fontSize: isStory ? '28px' : '24px',
                   fontWeight: '600',
                   color: 'white',
                   opacity: 0.95,
                 }}
               >
-                Society Plus
+                society+
               </div>
             </div>
             <div
@@ -379,32 +390,33 @@ export async function GET(request: NextRequest) {
               </div>
             </div>
 
-            {/* QR Code */}
+            {/* QR Code - Made larger for better scannability */}
             {qrCodeDataUrl ? (
               <div
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
-                  gap: '8px',
+                  gap: '12px',
                 }}
               >
                 <img
                   src={qrCodeDataUrl}
-                  width={isStory ? 140 : 120}
-                  height={isStory ? 140 : 120}
+                  width={isStory ? 200 : 180}
+                  height={isStory ? 200 : 180}
                   style={{
                     backgroundColor: 'white',
-                    padding: '8px',
-                    borderRadius: '12px',
+                    padding: '12px',
+                    borderRadius: '16px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
                   }}
                 />
                 <div
                   style={{
-                    fontSize: isStory ? '18px' : '14px',
+                    fontSize: isStory ? '20px' : '16px',
                     color: 'white',
-                    opacity: 0.9,
-                    fontWeight: '500',
+                    opacity: 0.95,
+                    fontWeight: '600',
                   }}
                 >
                   Scan to view

@@ -10,7 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { X, Lightbulb, AlertTriangle, MessageCircle, ChevronDown, Users, Target } from 'lucide-react';
+import { X, Lightbulb, AlertTriangle, MessageCircle, ChevronDown, Users, Target, Gavel } from 'lucide-react';
 import CreatePostForm from './CreatePostForm';
 import { cn } from '@/lib/utils';
 
@@ -23,6 +23,7 @@ interface CollapsiblePostComposerProps {
   initialTopic?: string | null;
   onOpenSocietyModal?: () => void;
   onOpenInitiativeModal?: () => void;
+  onOpenDebateTopicModal?: () => void;
 }
 
 type ContentType = 'idea' | 'issue' | 'post' | null;
@@ -36,6 +37,7 @@ export function CollapsiblePostComposer({
   initialTopic,
   onOpenSocietyModal,
   onOpenInitiativeModal,
+  onOpenDebateTopicModal,
 }: CollapsiblePostComposerProps) {
   const { data: session } = useSession();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -75,11 +77,13 @@ export function CollapsiblePostComposer({
     };
   }, [isExpanded]);
 
-  const handleActionClick = (type: ContentType | 'society' | 'initiative') => {
+  const handleActionClick = (type: ContentType | 'society' | 'initiative' | 'debate') => {
     if (type === 'society') {
       onOpenSocietyModal?.();
     } else if (type === 'initiative') {
       onOpenInitiativeModal?.();
+    } else if (type === 'debate') {
+      onOpenDebateTopicModal?.();
     } else {
       setSelectedContentType(type);
       setIsExpanded(true);
@@ -185,14 +189,30 @@ export function CollapsiblePostComposer({
                 <span className="sm:hidden text-xs">Post</span>
               </Button>
 
+              {/* Start Debate Button */}
+              <Button
+                onClick={() => handleActionClick('debate')}
+                className={cn(
+                  "flex items-center gap-1.5 sm:gap-2 rounded-full font-medium transition-all flex-shrink-0",
+                  "bg-purple-500/10 border-2 border-purple-500/30 text-purple-700 dark:text-purple-300",
+                  "hover:bg-purple-500/20 hover:scale-105 active:scale-95",
+                  "px-3 sm:px-4 py-2 sm:py-2.5 h-auto"
+                )}
+                variant="ghost"
+              >
+                <Gavel className="h-4 w-4 flex-shrink-0" />
+                <span className="hidden sm:inline text-sm">Start Debate</span>
+                <span className="sm:hidden text-xs">Debate</span>
+              </Button>
+
               {/* Create Society Button - Hidden on smaller screens, shown on lg+ */}
               <Button
                 onClick={() => handleActionClick('society')}
                 className={cn(
-                  "hidden lg:flex items-center gap-2 rounded-full font-medium transition-all",
+                  "hidden lg:flex items-center gap-1.5 sm:gap-2 rounded-full font-medium transition-all flex-shrink-0",
                   "bg-indigo-500/10 border-2 border-indigo-500/30 text-indigo-700 dark:text-indigo-300",
                   "hover:bg-indigo-500/20 hover:scale-105 active:scale-95",
-                  "px-4 py-2.5 h-auto"
+                  "px-3 sm:px-4 py-2 sm:py-2.5 h-auto"
                 )}
                 variant="ghost"
               >
@@ -204,10 +224,10 @@ export function CollapsiblePostComposer({
               <Button
                 onClick={() => handleActionClick('initiative')}
                 className={cn(
-                  "hidden lg:flex items-center gap-2 rounded-full font-medium transition-all",
+                  "hidden lg:flex items-center gap-1.5 sm:gap-2 rounded-full font-medium transition-all flex-shrink-0",
                   "bg-blue-500/10 border-2 border-blue-500/30 text-blue-700 dark:text-blue-300",
                   "hover:bg-blue-500/20 hover:scale-105 active:scale-95",
-                  "px-4 py-2.5 h-auto"
+                  "px-3 sm:px-4 py-2 sm:py-2.5 h-auto"
                 )}
                 variant="ghost"
               >
@@ -232,7 +252,14 @@ export function CollapsiblePostComposer({
                   <ChevronDown className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuItem
+                  onClick={() => handleActionClick('debate')}
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  <Gavel className="h-4 w-4 text-purple-500" />
+                  <span>Start Debate</span>
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => handleActionClick('society')}
                   className="flex items-center gap-2 cursor-pointer"

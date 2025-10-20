@@ -1,9 +1,8 @@
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Home, Activity, Search, Users, Target, AlertTriangle, Lightbulb } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import { cn } from '@/lib/utils';
 
 export default function NavigationWidget() {
   const pathname = usePathname();
@@ -22,31 +21,32 @@ export default function NavigationWidget() {
   const filteredNavItems = navigationItems.filter(item => !item.requiresAuth || (item.requiresAuth && session));
 
   return (
-    <Card>
-      <CardHeader className="py-2 px-3">
-        <CardTitle className="flex items-center gap-2 text-base font-semibold">
+    <div className="space-y-1">
+      <div className="px-3 py-2">
+        <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
           Navigation
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="py-2 px-3 space-y-1">
+        </h3>
+      </div>
+      <nav className="space-y-0.5">
         {filteredNavItems.map((item) => {
           const IconComponent = item.icon;
           return (
-            <Button
+            <Link
               key={item.href}
-              asChild
-              variant={item.isActive ? "default" : "ghost"}
-              size="sm"
-              className="w-full justify-start text-sm h-8"
+              href={item.href}
+              className={cn(
+                "flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200",
+                item.isActive
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+              )}
             >
-              <Link href={item.href} className="flex items-center gap-2">
-                <IconComponent className="h-4 w-4" />
-                {item.label}
-              </Link>
-            </Button>
+              <IconComponent className="h-4 w-4 flex-shrink-0" />
+              <span>{item.label}</span>
+            </Link>
           );
         })}
-      </CardContent>
-    </Card>
+      </nav>
+    </div>
   );
 }

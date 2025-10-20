@@ -34,7 +34,18 @@ export function CompactPostCard({ post, currentUserId, showTimeline = true }: Co
   const [isDeleting, setIsDeleting] = useState(false);
 
   const fallback = post.creatorName?.substring(0, 2).toUpperCase() || '??';
-  const postTime = formatDistanceToNow(new Date(post.timestamp), { addSuffix: true });
+
+  // Safely handle timestamp formatting
+  let postTime = 'recently';
+  try {
+    const timestamp = new Date(post.timestamp);
+    if (!isNaN(timestamp.getTime())) {
+      postTime = formatDistanceToNow(timestamp, { addSuffix: true });
+    }
+  } catch (error) {
+    console.error('Invalid timestamp for post:', post.id, post.timestamp);
+  }
+
   const isCreator = session?.user?.id === post.creatorId;
 
   // Social stats

@@ -40,7 +40,18 @@ export function CompactIdeaCard({ idea, currentUserId, showTimeline = true }: Co
   const creatorName = idea.creator?.name || 'Anonymous';
   const creatorAvatar = idea.creator?.image || undefined;
   const fallback = creatorName.substring(0, 2).toUpperCase();
-  const timeAgo = formatDistanceToNow(new Date(idea.createdAt), { addSuffix: true });
+
+  // Safely handle timestamp formatting
+  let timeAgo = 'recently';
+  try {
+    const timestamp = new Date(idea.createdAt);
+    if (!isNaN(timestamp.getTime())) {
+      timeAgo = formatDistanceToNow(timestamp, { addSuffix: true });
+    }
+  } catch (error) {
+    console.error('Invalid timestamp for idea:', idea.id, idea.createdAt);
+  }
+
   const locationDisplay = getLocationDisplay(idea.location);
   const isCreator = session?.user?.id === idea.creatorId;
 

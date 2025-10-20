@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -271,144 +270,125 @@ export default function UserControlsWidget({ collapsed = false, isMobile = false
   }
 
   return (
-    <Card>
-      <CardHeader className="py-2 px-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-base font-semibold">Account</h3>
-        </div>
-      </CardHeader>
-      <CardContent className="py-2 px-3 space-y-3">
-        {/* Create Actions */}
-        <div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="default" className="w-full justify-center gap-2">
-                <PlusCircle className="h-4 w-4" />
-                Create
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56" align="center">
-              <DropdownMenuItem onClick={() => openCreateInitiativeModal()} className="cursor-pointer">
-                Create Initiative
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => openCreateIssueModal()} className="cursor-pointer">
-                Create Issue
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => openCreateIdeaModal()} className="cursor-pointer">
-                Create Idea
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => openCreateSocietyModal()} className="cursor-pointer">
-                Create Society
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => openCreateDebateTopicModal()} className="cursor-pointer">
-                Create Debate Topic
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-
-        {/* User Profile & Controls */}
-        {isLoading ? (
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 bg-muted rounded-full animate-pulse"></div>
-            <div className="flex-1">
-              <div className="h-4 bg-muted rounded animate-pulse mb-1"></div>
-              <div className="h-3 bg-muted rounded animate-pulse w-2/3"></div>
-            </div>
+    <div className="space-y-4">
+      {/* User Profile & Controls */}
+      {isLoading ? (
+        <div className="flex items-center gap-3 px-3">
+          <div className="h-10 w-10 bg-muted/50 rounded-full animate-pulse"></div>
+          <div className="flex-1">
+            <div className="h-4 bg-muted/50 rounded animate-pulse mb-1.5"></div>
+            <div className="h-3 bg-muted/50 rounded animate-pulse w-2/3"></div>
           </div>
-        ) : session?.user ? (
-          <div className="space-y-3">
-            {/* User Info & Profile */}
-            <div className="flex items-center gap-3">
-              <Link 
-                href={session.user && (session.user as any).username ? `/profile/${(session.user as any).username}` : '/profile/me'}
-                className="flex items-center gap-3 flex-1 min-w-0 hover:bg-muted/50 rounded-lg p-1 -m-1 transition-colors"
-              >
-                <div className="relative">
-                  <Avatar className="h-10 w-10">
-                    <AvatarImage 
-                      src={getAvatarUrl(session.user.id, session.user.image)} 
-                      alt={session.user.name || 'User'} 
-                    />
-                    <AvatarFallback>{getInitials(session.user.name)}</AvatarFallback>
-                  </Avatar>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{session.user.name || 'User'}</p>
-                  <p className="text-xs text-muted-foreground truncate">{session.user.email}</p>
-                </div>
-              </Link>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                    <Settings className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  {session.user && (session.user as any).username && (
-                    <DropdownMenuItem asChild>
-                      <Link href={`/profile/${(session.user as any).username}`}>
-                        <User className="h-4 w-4 mr-2" />
-                        Profile
-                      </Link>
-                    </DropdownMenuItem>
-                  )}
-                  {session.user && !(session.user as any).username && (
-                    <DropdownMenuItem asChild>
-                      <Link href={`/profile/me`}>
-                        <User className="h-4 w-4 mr-2" />
-                        Profile
-                      </Link>
-                    </DropdownMenuItem>
-                  )}
-                  {/* Profile (Legacy) - commented out
-                  {session.user && !(session.user as any).username && (
-                    <DropdownMenuItem asChild>
-                      <Link href={`/profile/me`}>
-                        <User className="h-4 w-4 mr-2" />
-                        Profile (Legacy)
-                      </Link>
-                    </DropdownMenuItem>
-                  )}
-                  */}
+        </div>
+      ) : session?.user ? (
+        <div className="space-y-3">
+          {/* User Info & Profile */}
+          <div className="flex items-center gap-3 px-3">
+            <Link
+              href={session.user && (session.user as any).username ? `/profile/${(session.user as any).username}` : '/profile/me'}
+              className="flex items-center gap-3 flex-1 min-w-0 hover:bg-accent/50 rounded-lg p-2 -m-2 transition-all duration-200 group"
+            >
+              <div className="relative">
+                <Avatar className="h-10 w-10 ring-2 ring-transparent group-hover:ring-primary/20 transition-all duration-200">
+                  <AvatarImage
+                    src={getAvatarUrl(session.user.id, session.user.image)}
+                    alt={session.user.name || 'User'}
+                  />
+                  <AvatarFallback className="bg-primary/10 text-primary font-medium">
+                    {getInitials(session.user.name)}
+                  </AvatarFallback>
+                </Avatar>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold truncate">{session.user.name || 'User'}</p>
+                <p className="text-xs text-muted-foreground truncate">{session.user.email}</p>
+              </div>
+            </Link>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-accent/50 rounded-lg transition-colors">
+                  <Settings className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                {session.user && (session.user as any).username && (
                   <DropdownMenuItem asChild>
-                    <Link href={`/profile/${session.user.id}/edit`}>
-                      <Edit className="h-4 w-4 mr-2" />
-                      Edit Profile
+                    <Link href={`/profile/${(session.user as any).username}`}>
+                      <User className="h-4 w-4 mr-2" />
+                      Profile
                     </Link>
                   </DropdownMenuItem>
+                )}
+                {session.user && !(session.user as any).username && (
                   <DropdownMenuItem asChild>
-                      <Link href={`/messages`}>
-                        <MessageSquare className="h-4 w-4 mr-2" />
-                        Messages
-                      </Link>
-                    </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
-                    <LogOut className="h-4 w-4 mr-2" />
-                    Log out
+                    <Link href={`/profile/me`}>
+                      <User className="h-4 w-4 mr-2" />
+                      Profile
+                    </Link>
                   </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+                )}
+                <DropdownMenuItem asChild>
+                  <Link href={`/profile/${session.user.id}/edit`}>
+                    <Edit className="h-4 w-4 mr-2" />
+                    Edit Profile
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href={`/messages`}>
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    Messages
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-destructive focus:text-destructive">
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Log out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
 
-            {/* Action Buttons Row */}
-            <div className="flex items-center justify-between">
-              <NotificationBell />
-              <ToggleTheme />
-            </div>
+          {/* Action Buttons Row */}
+          <div className="flex items-center gap-2 px-3">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="default" size="sm" className="flex-1 gap-2 shadow-sm">
+                  <PlusCircle className="h-4 w-4" />
+                  Create
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56" align="start">
+                <DropdownMenuItem onClick={() => openCreateInitiativeModal()} className="cursor-pointer">
+                  Create Initiative
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openCreateIssueModal()} className="cursor-pointer">
+                  Create Issue
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openCreateIdeaModal()} className="cursor-pointer">
+                  Create Idea
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openCreateSocietyModal()} className="cursor-pointer">
+                  Create Society
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openCreateDebateTopicModal()} className="cursor-pointer">
+                  Create Debate Topic
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <NotificationBell />
+            <ToggleTheme />
           </div>
-        ) : (
-          <div className="space-y-2">
-            <Button variant="outline" asChild className="w-full">
-              <Link href="/api/auth/signin">Sign In</Link>
-            </Button>
-            <div className="flex justify-center">
-              <ToggleTheme />
-            </div>
+        </div>
+      ) : (
+        <div className="space-y-3 px-3">
+          <Button variant="default" asChild className="w-full shadow-sm">
+            <Link href="/api/auth/signin">Sign In</Link>
+          </Button>
+          <div className="flex justify-center">
+            <ToggleTheme />
           </div>
-        )}
-      </CardContent>
-    </Card>
+        </div>
+      )}
+    </div>
   );
 }

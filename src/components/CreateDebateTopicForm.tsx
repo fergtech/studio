@@ -139,13 +139,12 @@ export function CreateDebateTopicForm({ setOpen, onCreated }: CreateDebateTopicF
 
       // Call callbacks
       onCreated?.(newTopic);
-      
-      // Trigger feed update event for real-time updates
-      window.dispatchEvent(new CustomEvent('feed:itemCreated', { 
-        detail: { type: 'debate', data: newTopic } 
-      }));
-      
+
+      // Close modal
       setOpen(false);
+
+      // Refresh the page to show the new debate with correct data from server
+      window.location.reload();
 
     } catch (error) {
       console.error('Error creating debate topic:', error);

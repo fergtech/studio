@@ -38,7 +38,18 @@ export function CompactIssueCard({ issue, currentUserId, showTimeline = true }: 
   const creatorName = issue.creator?.name || 'Anonymous';
   const creatorAvatar = issue.creator?.image || undefined;
   const fallback = creatorName.substring(0, 2).toUpperCase();
-  const timeAgo = formatDistanceToNow(new Date(issue.createdAt), { addSuffix: true });
+
+  // Safely handle timestamp formatting
+  let timeAgo = 'recently';
+  try {
+    const timestamp = new Date(issue.createdAt);
+    if (!isNaN(timestamp.getTime())) {
+      timeAgo = formatDistanceToNow(timestamp, { addSuffix: true });
+    }
+  } catch (error) {
+    console.error('Invalid timestamp for issue:', issue.id, issue.createdAt);
+  }
+
   const locationDisplay = getLocationDisplay(issue.location);
   const isCreator = session?.user?.id === issue.creatorId;
 

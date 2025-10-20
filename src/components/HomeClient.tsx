@@ -340,12 +340,21 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
   });
   const [filterSwitching, setFilterSwitching] = useState(false);
   const { toast } = useToast();
-  const { openCreateBattleResponseModal, openCreateSocietyModal, openCreateInitiativeModal } = useModal();
+  const { openCreateBattleResponseModal, openCreateSocietyModal, openCreateInitiativeModal, openCreateDebateTopicModal } = useModal();
   const [showMoreNews, setShowMoreNews] = useState(false);
 
 
+  // Deduplicate feed items by ID (keep first occurrence)
+  const deduplicatedFeedItems = allFeedItems.reduce((acc, item) => {
+    const isDuplicate = acc.some(existingItem => existingItem.id === item.id);
+    if (!isDuplicate) {
+      acc.push(item);
+    }
+    return acc;
+  }, [] as UnifiedFeedItem[]);
+
   // Filter feed items based on selected filter - Instant client-side filtering
-  const filteredFeedItems = allFeedItems.filter((item) => {
+  const filteredFeedItems = deduplicatedFeedItems.filter((item) => {
     switch (feedFilter) {
       case 'initiatives':
         return item.type === 'initiative' || (isMetaAction(item) && (item.type === 'update' || item.type === 'initiativeJoin'));
@@ -455,9 +464,22 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
     const handleFeedItemCreated = (event: CustomEvent) => {
       const item = event.detail;
 
-      // Infer type based on item shape - improve the logic to correctly distinguish ideas from issues
+      // Infer type based on item shape - improve the logic to correctly distinguish all content types
       let type: FeedItemType | undefined;
-      if ('status' in item && 'roles' in item) {
+
+      // Check for debate topics first (they have votes/arguments arrays, title, and content)
+      // More robust check: votes and arguments should be arrays, not just present
+      if (
+        'votes' in item &&
+        'arguments' in item &&
+        'title' in item &&
+        'content' in item &&
+        !('status' in item) &&
+        Array.isArray(item.votes) &&
+        Array.isArray(item.arguments)
+      ) {
+        type = 'debate';
+      } else if ('status' in item && 'roles' in item) {
         type = 'initiative';
       } else if ('tags' in item && 'title' in item && 'description' in item && !('content' in item) && !('status' in item)) {
         // Both ideas and issues have tags, title, and description, but not content or status
@@ -489,9 +511,18 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
 
       setAllFeedItems(prev => [newFeedItem, ...prev]);
     };
+
+    const handleFeedItemDeleted = (event: CustomEvent) => {
+      const { id } = event.detail;
+      setAllFeedItems(prev => prev.filter(item => item.id !== id));
+    };
+
     window.addEventListener('feed:itemCreated', handleFeedItemCreated as EventListener);
+    window.addEventListener('feed:itemDeleted', handleFeedItemDeleted as EventListener);
+
     return () => {
       window.removeEventListener('feed:itemCreated', handleFeedItemCreated as EventListener);
+      window.removeEventListener('feed:itemDeleted', handleFeedItemDeleted as EventListener);
     };
   }, []);
 
@@ -1115,6 +1146,7 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
         context="general"
         onOpenSocietyModal={openCreateSocietyModal}
         onOpenInitiativeModal={() => openCreateInitiativeModal()}
+        onOpenDebateTopicModal={() => openCreateDebateTopicModal()}
       />
     </div>
   );

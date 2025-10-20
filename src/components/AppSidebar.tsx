@@ -97,52 +97,72 @@ function AppSidebar({
     <>
       {/* Desktop Sidebar - Fixed Position */}
       <aside className={cn(
-        "hidden lg:flex flex-col bg-card/50 border-r border-border transition-all duration-300 fixed left-0 top-0 h-screen z-40",
-        desktopCollapsed ? "w-16" : "w-80 xl:w-96",
+        "hidden lg:flex flex-col bg-background/80 backdrop-blur-xl border-r border-border/40 transition-all duration-300 fixed left-0 top-0 h-screen z-40",
+        desktopCollapsed ? "w-16" : "w-72 xl:w-80",
         className
       )}>
         {/* App Logo and Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border">
+        <div className="flex items-center justify-between px-4 py-6 border-b border-border/30">
           {!desktopCollapsed ? (
             <>
-              <Link href="/" className="flex items-center space-x-2">
-                <Image src="/apple-touch-icon.png" alt="Society+ logo" width={24} height={24} className="h-6 w-6 rounded-full" priority />
-                <span className="font-bold text-lg">society+</span>
+              <Link href="/" className="flex items-center gap-2.5 group">
+                <div className="relative">
+                  <Image
+                    src="/apple-touch-icon.png"
+                    alt="Society+ logo"
+                    width={28}
+                    height={28}
+                    className="h-7 w-7 rounded-lg group-hover:scale-105 transition-transform duration-200"
+                    priority
+                  />
+                </div>
+                <span className="font-semibold text-lg tracking-tight">society+</span>
               </Link>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={handleCollapseToggle}
-                className="h-8 w-8 p-0 hover:bg-muted flex-shrink-0"
+                className="h-8 w-8 p-0 hover:bg-accent/50 rounded-lg transition-colors flex-shrink-0"
                 aria-label="Collapse sidebar"
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
             </>
           ) : (
-            <div className="flex flex-col items-center space-y-1 w-full">
-              <Link href="/" className="flex items-center justify-center">
-                <Image src="/apple-touch-icon.png" alt="Society+ logo" width={24} height={24} className="h-6 w-6 rounded-full hover:scale-110 transition-transform" priority />
+            <div className="flex flex-col items-center gap-3 w-full">
+              <Link href="/" className="flex items-center justify-center group">
+                <Image
+                  src="/apple-touch-icon.png"
+                  alt="Society+ logo"
+                  width={28}
+                  height={28}
+                  className="h-7 w-7 rounded-lg hover:scale-110 transition-transform duration-200"
+                  priority
+                />
               </Link>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={handleCollapseToggle}
-                className="h-6 w-6 p-0 hover:bg-muted"
+                className="h-7 w-7 p-0 hover:bg-accent/50 rounded-lg transition-colors"
                 aria-label="Expand sidebar"
               >
-                <ChevronRight className="h-3 w-3" />
+                <ChevronRight className="h-3.5 w-3.5" />
               </Button>
             </div>
           )}
         </div>
-        
+
         {/* Sidebar Content */}
         <div className={cn(
-          "flex-1 overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-300/20 hover:scrollbar-thumb-gray-300/40 space-y-4",
-          desktopCollapsed ? "px-2" : "px-4 lg:px-6"
+          "flex-1 overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-foreground/10 hover:scrollbar-thumb-foreground/20",
+          desktopCollapsed ? "px-2 py-4" : "px-3 py-4"
         )}>
-          {!desktopCollapsed && renderWidgets()}
+          {!desktopCollapsed && (
+            <div className="space-y-3">
+              {renderWidgets()}
+            </div>
+          )}
           {desktopCollapsed && (
             <div className="space-y-2">
               {/* Collapsed state - no content, just the chevron button in header handles expand */}
@@ -156,25 +176,39 @@ function AppSidebar({
         <SheetTrigger asChild>
           <Button
             variant="outline"
-            className="fixed top-4 left-4 z-50 lg:hidden bg-background/95 backdrop-blur-sm border shadow-lg rounded-full px-3 py-2 h-12 flex items-center justify-center gap-2 hover:bg-background/90 transition-all duration-200 min-w-fit"
+            className="fixed top-4 left-4 z-50 lg:hidden bg-background/95 backdrop-blur-md border-border/50 shadow-lg rounded-full px-3 py-2 h-11 flex items-center justify-center gap-2 hover:bg-accent/50 hover:border-border transition-all duration-200 min-w-fit"
             aria-label="Open sidebar"
           >
-            <Image src="/apple-touch-icon.png" alt="Society+ logo" width={24} height={24} className="h-6 w-6 rounded-full flex-shrink-0" priority />
+            <Image
+              src="/apple-touch-icon.png"
+              alt="Society+ logo"
+              width={24}
+              height={24}
+              className="h-6 w-6 rounded-lg flex-shrink-0"
+              priority
+            />
             <ChevronRight className="h-4 w-4 flex-shrink-0" />
           </Button>
         </SheetTrigger>
-        <SheetContent side="left" className="w-80 p-0 max-h-screen overflow-y-auto">
+        <SheetContent side="left" className="w-80 p-0 max-h-screen overflow-y-auto bg-background/95 backdrop-blur-xl border-border/40">
           <SheetTitle className="sr-only">Sidebar Menu</SheetTitle>
-          
+
           {/* Mobile Header with Logo */}
-          <div className="flex items-center p-4 border-b border-border">
-            <Link href="/" className="flex items-center space-x-2" onClick={() => setSidebarOpen(false)}>
-              <Image src="/apple-touch-icon.png" alt="Society+ logo" width={24} height={24} className="h-6 w-6 rounded-full" priority />
-              <span className="font-bold text-lg">society+</span>
+          <div className="flex items-center px-4 py-6 border-b border-border/30">
+            <Link href="/" className="flex items-center gap-2.5 group" onClick={() => setSidebarOpen(false)}>
+              <Image
+                src="/apple-touch-icon.png"
+                alt="Society+ logo"
+                width={28}
+                height={28}
+                className="h-7 w-7 rounded-lg group-hover:scale-105 transition-transform duration-200"
+                priority
+              />
+              <span className="font-semibold text-lg tracking-tight">society+</span>
             </Link>
           </div>
-          
-          <div className="space-y-4 p-4">
+
+          <div className="px-3 py-4 space-y-3">
             {renderWidgets(true)}
           </div>
         </SheetContent>

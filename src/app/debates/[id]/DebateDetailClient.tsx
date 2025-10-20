@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 import { formatDistanceToNow } from 'date-fns';
-import { ArrowLeft, ThumbsUp, ThumbsDown, MessageCircle, Users, Loader2, X, Edit, Save } from 'lucide-react';
+import { ArrowLeft, ThumbsUp, ThumbsDown, MessageCircle, Users, Loader2, X, Edit, Save, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -104,6 +104,7 @@ export default function DebateDetailClient({
   const [editTitle, setEditTitle] = useState(debateTopic.title);
   const [editContent, setEditContent] = useState(debateTopic.content);
   const [editLoading, setEditLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
@@ -345,7 +346,53 @@ export default function DebateDetailClient({
     }
   };
 
-  const timeAgo = formatDistanceToNow(new Date(debateTopic.createdAt), { addSuffix: true });
+  // Delete debate topic handler
+  const handleDelete = async () => {
+    if (deleteLoading) return;
+
+    if (!confirm(`Are you sure you want to delete "${debateTopic.title}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    setDeleteLoading(true);
+
+    try {
+      const response = await fetch(`/api/debates/${debateTopic.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete debate topic');
+      }
+
+      toast({
+        title: 'Debate Deleted',
+        description: 'Your debate topic has been successfully deleted.',
+      });
+
+      // Navigate back to home/debates page
+      router.push('/');
+    } catch (error) {
+      console.error('Error deleting debate topic:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete debate topic. Please try again.',
+        variant: 'destructive',
+      });
+      setDeleteLoading(false);
+    }
+  };
+
+  // Safely handle timestamp formatting
+  let timeAgo = 'recently';
+  try {
+    const timestamp = new Date(debateTopic.createdAt);
+    if (!isNaN(timestamp.getTime())) {
+      timeAgo = formatDistanceToNow(timestamp, { addSuffix: true });
+    }
+  } catch (error) {
+    console.error('Invalid timestamp for debate topic:', debateTopic.id, debateTopic.createdAt);
+  }
 
   // Determine media type
   const isVideo = debateTopic.imageUrl ? isVideoFile(debateTopic.imageUrl) : false;
@@ -468,7 +515,16 @@ export default function DebateDetailClient({
             <div className="flex items-center gap-2 mb-1">
               <span className={cn("font-medium", isReply ? "text-xs" : "text-sm")}>{argument.user.name}</span>
               <span className="text-xs text-muted-foreground">
-                {formatDistanceToNow(new Date(argument.createdAt), { addSuffix: true })}
+                {(() => {
+                  try {
+                    const timestamp = new Date(argument.createdAt);
+                    return !isNaN(timestamp.getTime())
+                      ? formatDistanceToNow(timestamp, { addSuffix: true })
+                      : 'recently';
+                  } catch {
+                    return 'recently';
+                  }
+                })()}
               </span>
             </div>
             <p className={cn("text-foreground leading-relaxed", isReply ? "text-xs" : "text-sm")}>
@@ -610,14 +666,31 @@ export default function DebateDetailClient({
                   <div className="ml-auto flex items-center gap-2">
                     <Badge variant="secondary">Debate Topic</Badge>
                     {currentUserId === debateTopic.creator.id && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setEditMode(!editMode)}
-                        className="h-8 w-8 p-0"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setEditMode(!editMode)}
+                          className="h-8 w-8 p-0"
+                          title="Edit debate topic"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleDelete}
+                          disabled={deleteLoading}
+                          className="h-8 w-8 p-0 hover:text-destructive"
+                          title="Delete debate topic"
+                        >
+                          {deleteLoading ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -1036,14 +1109,31 @@ export default function DebateDetailClient({
                 <div className="ml-auto flex items-center gap-2">
                   <Badge variant="secondary" className="text-sm">Debate Topic</Badge>
                   {currentUserId === debateTopic.creator.id && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setEditMode(!editMode)}
-                      className="h-8 w-8 p-0"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setEditMode(!editMode)}
+                        className="h-8 w-8 p-0"
+                        title="Edit debate topic"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleDelete}
+                        disabled={deleteLoading}
+                        className="h-8 w-8 p-0 hover:text-destructive"
+                        title="Delete debate topic"
+                      >
+                        {deleteLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </>
                   )}
                 </div>
               </div>

@@ -12,6 +12,7 @@ interface SuggestedUser {
   username: string | null;
   image: string | null;
   online?: boolean;
+  totalActivity?: number;
 }
 
 interface SuggestedInitiative {
@@ -112,10 +113,12 @@ export default function SmartSuggestionsWidget() {
           <div className="text-xs text-red-500">{error}</div>
         ) : (
           <>
-            {/* User-based suggestions */}
+            {/* User-based suggestions - only show if users exist */}
             {usersWithOnline.length > 0 && (
-              <div className="mb-3">
-                <div className="text-xs font-semibold mb-2 text-muted-foreground">People nearby</div>
+              <div className={initiatives.length > 0 ? "mb-3" : ""}>
+                <div className="text-xs font-semibold mb-2 text-muted-foreground">
+                  {usersWithOnline.some(u => u.totalActivity && u.totalActivity > 0) ? 'Top Active Users' : 'Suggested Users'}
+                </div>
                 <div className="space-y-2">
                   {usersWithOnline.map(user => (
                     <div key={user.id} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-muted/20">
@@ -159,7 +162,7 @@ export default function SmartSuggestionsWidget() {
                 </div>
               </div>
             )}
-            
+
             {/* Initiative suggestions */}
             {initiatives.length > 0 && (
               <div>
@@ -188,9 +191,12 @@ export default function SmartSuggestionsWidget() {
                 </div>
               </div>
             )}
-            
+
+            {/* Empty state - only show if BOTH are empty */}
             {usersWithOnline.length === 0 && initiatives.length === 0 && (
-              <div className="text-xs text-muted-foreground">No smart suggestions available right now.</div>
+              <div className="text-xs text-muted-foreground text-center py-4">
+                No suggestions available right now.
+              </div>
             )}
           </>
         )}

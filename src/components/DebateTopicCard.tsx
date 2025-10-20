@@ -1,12 +1,16 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { MessageCircle, Users, TrendingUp, Play, Volume2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import { useToast } from '@/hooks/use-toast';
+import { ContentCardMenu } from '@/components/ui/content-card-menu';
 
 // Helper function to detect video files
 const isVideoFile = (url: string) => {
@@ -45,6 +49,7 @@ interface DebateTopicCardProps {
     argumentCount: number;
   };
   className?: string;
+  onDelete?: (id: string) => void;
 }
 
 export function DebateTopicCard({
@@ -56,7 +61,64 @@ export function DebateTopicCard({
   createdAt,
   stats,
   className,
+  onDelete,
 }: DebateTopicCardProps) {
+  const { data: session } = useSession();
+  const router = useRouter();
+  const { toast } = useToast();
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const isCreator = session?.user?.id === creator.id;
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!isCreator || isDeleting) return;
+
+    if (!confirm(`Are you sure you want to delete "${title}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    setIsDeleting(true);
+
+    try {
+      const response = await fetch(`/api/debates/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete debate topic');
+      }
+
+      toast({
+        title: 'Debate Deleted',
+        description: 'Your debate topic has been successfully deleted.',
+      });
+
+      // Call the onDelete callback if provided
+      onDelete?.(id);
+
+      // Trigger a feed update event
+      window.dispatchEvent(new CustomEvent('feed:itemDeleted', {
+        detail: { id, type: 'debate' }
+      }));
+
+      // Optionally navigate away if on debate detail page
+      if (window.location.pathname.includes(`/debates/${id}`)) {
+        router.push('/');
+      }
+    } catch (error) {
+      console.error('Error deleting debate topic:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete debate topic. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
   const timeAgo = formatDistanceToNow(
     typeof createdAt === 'string' ? new Date(createdAt) : createdAt,
     { addSuffix: true }
@@ -152,9 +214,9 @@ export function DebateTopicCard({
         {/* Header with creator info */}
         <div className="flex items-center gap-3 mb-3">
           <Avatar className="w-8 h-8">
-            <AvatarImage 
-              src={getAvatarUrl(creator.id, creator.image)} 
-              alt={creator.name} 
+            <AvatarImage
+              src={getAvatarUrl(creator.id, creator.image)}
+              alt={creator.name}
             />
             <AvatarFallback className="text-xs">
               {getInitials(creator.name)}
@@ -167,6 +229,13 @@ export function DebateTopicCard({
           <Badge variant="outline" className="text-xs">
             Debate
           </Badge>
+          {isCreator && (
+            <ContentCardMenu
+              onDelete={handleDelete}
+              itemType="debate topic"
+              isDeleting={isDeleting}
+            />
+          )}
         </div>
 
         {/* Title */}

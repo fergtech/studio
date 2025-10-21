@@ -3,6 +3,7 @@
 
 import { PrismaClient } from '@prisma/client';
 import { detectTopicsEnhanced } from './enhancedTopicDetection';
+import { getCachedTopics } from '@/lib/kv';
 
 const prisma = new PrismaClient();
 
@@ -402,8 +403,12 @@ export async function processPostForTopics(
       hashtags.push(match[1].toLowerCase());
     }
 
-    // Classify into curated topics using AI
-    const curatedTopics = await classifyIntoCuratedTopics(content);
+    // Classify into curated topics using AI (with KV caching)
+    const curatedTopics = await getCachedTopics(
+      content,
+      () => classifyIntoCuratedTopics(content),
+      604800 // 7 days TTL
+    );
 
     console.log(`📊 Classification result:`, {
       curated: curatedTopics,

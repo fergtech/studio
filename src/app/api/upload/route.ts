@@ -1,27 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { put } from '@vercel/blob';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { v4 as uuidv4 } from 'uuid';
 import { prisma } from '@/lib/prisma';
-//import { HttpsProxyAgent } from "https-proxy-agent";
-//import { StorageSharedKeyCredential } from "@azure/storage-blob";
-//import { createPipelineFromOptions, Pipeline } from "@azure/core-rest-pipeline";
-//import { DefaultHttpClient } from '@azure/core-http';
+import { uploadToR2, generateR2Key } from '@/lib/r2';
 
-// Vercel has a 4.5MB limit for API routes (Hobby/Pro plans)
-// For larger files, use direct client-side upload to Vercel Blob or upgrade to Enterprise
+// Using Cloudflare R2 for file storage (much higher limits than Vercel Blob)
 export const maxDuration = 60; // 60 seconds timeout
-export const maxRequestBodySize = '4.5mb';
+export const maxRequestBodySize = '10mb'; // R2 supports much larger files
 
 export async function POST(request: NextRequest) {
-  console.log("Upload API route hit");
+  console.log("Upload API route hit - using Cloudflare R2");
 
-  const BLOB_READ_WRITE_TOKEN = process.env.BLOB_READ_WRITE_TOKEN;
-
-  if (!BLOB_READ_WRITE_TOKEN) {
-    console.error("Vercel Blob token is not configured.");
-    return NextResponse.json({ error: "Vercel Blob token is not configured." }, { status: 500 });
+  // Verify R2 configuration
+  if (!process.env.R2_ACCOUNT_ID || !process.env.R2_ACCESS_KEY_ID || !process.env.R2_SECRET_ACCESS_KEY) {
+    console.error("Cloudflare R2 is not configured.");
+    return NextResponse.json({ error: "Cloudflare R2 is not configured." }, { status: 500 });
   }
 
   try {
@@ -78,57 +72,34 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Vercel API route body size limit is 4.5MB for Hobby/Pro plans
-    const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB (conservative to stay under 4.5MB limit)
+    // R2 supports much larger files than Vercel Blob
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB limit
     if (file.size > MAX_FILE_SIZE) {
       console.error(`File size exceeds limit: ${(file.size / 1024 / 1024).toFixed(2)}MB`);
       return NextResponse.json(
         {
           success: false,
-          message: `File size must be less than 4MB. Your file is ${(file.size / 1024 / 1024).toFixed(2)}MB. Please compress it before uploading.`
+          message: `File size must be less than 10MB. Your file is ${(file.size / 1024 / 1024).toFixed(2)}MB. Please compress it before uploading.`
         },
         { status: 413 } // 413 = Payload Too Large
       );
     }
 
-    /*
-     *
-     * COMMENTING OUT THE PROBLEMATIC PROXY/PIPELINE CODE
-     *
-    const proxyUrl = process.env.FIXIE_URL;
-    const agent = proxyUrl ? new HttpsProxyAgent(proxyUrl) : undefined;
-    const pipeline = newPipeline(undefined, {
-      httpClient: agent
-        ? {
-            sendRequest: (httpRequest: any) => {
-              httpRequest.agent = agent;
-              return new DefaultHttpClient().sendRequest(httpRequest);
-            },
-          }
-        : undefined,
-    });*/
-    // Vercel Blob doesn't need client initialization - just direct upload
+    // Prepare file for R2 upload
+    const normalizedPath = filePath ? filePath.replace(/\\\\\\\\/g, '/').replace(/\/$/, '') : 'uploads';
+    const r2Key = generateR2Key(normalizedPath, file.name);
 
-    const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '-');
-    const uniqueFileName = `${Date.now()}-${uuidv4()}-${sanitizedFileName}`;
-    
-    // Construct blob name with path prefix if provided
-    // Corrected regex for removing trailing slash: /\/$/
-    const normalizedPath = filePath ? filePath.replace(/\\\\\\\\/g, '/').replace(/\/$/, '') : '';
-    const blobName = normalizedPath ? `${normalizedPath}/${uniqueFileName}` : uniqueFileName;
-    
-    console.log(`Attempting to upload blob: '${blobName}' to Vercel Blob`);
+    console.log(`Attempting to upload to R2: '${r2Key}'`);
 
-    // Upload to Vercel Blob
-    const blob = await put(blobName, file, {
-      access: 'public',
-      token: BLOB_READ_WRITE_TOKEN,
-    });
-    
-    console.log(`File uploaded successfully to Vercel Blob: ${blob.url}`);
+    // Convert file to buffer for R2 upload
+    const fileBuffer = Buffer.from(await file.arrayBuffer());
+
+    // Upload to Cloudflare R2
+    const imageUrl = await uploadToR2(fileBuffer, r2Key, file.type);
+
+    console.log(`File uploaded successfully to R2: ${imageUrl}`);
 
     // --- BEGIN DATABASE UPDATE LOGIC ---
-    const imageUrl = blob.url;
     let updatedUser;
 
     console.log(`Attempting to update database for user: ${userId} with imageType: ${imageType}`);

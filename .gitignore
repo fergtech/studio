@@ -55,3 +55,49 @@ test-db.js
 test-request.json
 settings.json
 babel.config.js.backup
+test-*.js
+test-*.mjs
+check-*.mjs
+*.test.mjs
+analyze-*.mjs
+clean-*.mjs
+cleanup-*.mjs
+delete-*.mjs
+find-*.mjs
+fix-*.mjs
+migrate-*.mjs
+reprocess-*.mjs
+remove-*.mjs
+add-*.sh
+*.backup
+
+# Temporary files
+temp_*/
+temp_*.txt
+nul
+*.log
+
+# Planning and documentation (local only)
+*PLAN*.md
+*IMPLEMENTATION*.md
+*MIGRATION*.md
+*FEATURES*.md
+*NEWS*.md
+claude-online.txt
+cloudflare-configs.txt
+Honest\ Feedback*.txt
+Now\ What*.txt
+
+# Old/archived files
+old_files*/
+
+# Build artifacts
+build-output.log
+trending-response.json
+
+# Database scripts (manual execution only)
+add_*.sql
+migrations/*.sql
+
+# Alternative package managers
+pnpm-lock.yaml*

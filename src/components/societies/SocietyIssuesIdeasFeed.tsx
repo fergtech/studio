@@ -8,14 +8,18 @@ import { AlertTriangle, Lightbulb, Plus, Filter } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { IssueCard } from "@/components/IssueCard";
 import { IdeaCard } from "@/components/IdeaCard";
+import { Issue, Idea } from '@/lib/types';
+import { MediaType } from '@prisma/client';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 
-interface Issue {
+// API response types (with string dates)
+interface IssueResponse {
   id: string;
   title: string;
   description: string;
   createdAt: string;
+  creatorId: string;
   creator: {
     id: string;
     name: string | null;
@@ -30,11 +34,12 @@ interface Issue {
   }>;
 }
 
-interface Idea {
+interface IdeaResponse {
   id: string;
   title: string;
   description: string;
   createdAt: string;
+  creatorId: string;
   creator: {
     id: string;
     name: string | null;
@@ -73,15 +78,39 @@ export function SocietyIssuesIdeasFeed({ societyId, isMember }: SocietyIssuesIde
       // Fetch issues
       const issuesResponse = await fetch(`/api/societies/${societyId}/issues?sort=${sortBy}`);
       if (issuesResponse.ok) {
-        const issuesData = await issuesResponse.json();
-        setIssues(issuesData);
+        const issuesData: IssueResponse[] = await issuesResponse.json();
+        // Convert API response to proper Issue type
+        const convertedIssues: Issue[] = issuesData.map(issue => ({
+          ...issue,
+          createdAt: new Date(issue.createdAt),
+          media: issue.media.map((media, index) => ({
+            ...media,
+            type: media.type as MediaType,
+            order: index,
+            issueId: issue.id,
+            ideaId: null,
+          })),
+        }));
+        setIssues(convertedIssues);
       }
       
       // Fetch ideas
       const ideasResponse = await fetch(`/api/societies/${societyId}/ideas?sort=${sortBy}`);
       if (ideasResponse.ok) {
-        const ideasData = await ideasResponse.json();
-        setIdeas(ideasData);
+        const ideasData: IdeaResponse[] = await ideasResponse.json();
+        // Convert API response to proper Idea type
+        const convertedIdeas: Idea[] = ideasData.map(idea => ({
+          ...idea,
+          createdAt: new Date(idea.createdAt),
+          media: idea.media.map((media, index) => ({
+            ...media,
+            type: media.type as MediaType,
+            order: index,
+            issueId: null,
+            ideaId: idea.id,
+          })),
+        }));
+        setIdeas(convertedIdeas);
       }
     } catch (error) {
       console.error('Error fetching society content:', error);

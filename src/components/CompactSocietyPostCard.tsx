@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from "@/components/ui/button";
 import { MessageSquare, Share2, ThumbsUp, Play, Users } from 'lucide-react';
@@ -50,6 +50,11 @@ export function CompactSocietyPostCard({ post, showTimeline = true }: CompactSoc
   const { data: session } = useSession();
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Video autoplay state
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [hasVideoStarted, setHasVideoStarted] = useState(false);
+  const [isInView, setIsInView] = useState(false);
+
   const fallback = post.user.name?.substring(0, 2).toUpperCase() || '??';
   const postTime = formatDistanceToNow(
     typeof post.createdAt === 'string' ? new Date(post.createdAt) : post.createdAt,
@@ -61,6 +66,36 @@ export function CompactSocietyPostCard({ post, showTimeline = true }: CompactSoc
   const hasMedia = (post.media && post.media.length > 0) || post.imageUrl;
   const firstMediaUrl = post.media && post.media.length > 0 ? post.media[0].url : post.imageUrl;
   const isVideo = firstMediaUrl && isVideoFile(firstMediaUrl);
+
+  // Intersection Observer for video autoplay optimization
+  useEffect(() => {
+    if (!isVideo || !videoRef.current) return;
+
+    const video = videoRef.current;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        setIsInView(entry.isIntersecting);
+        
+        if (entry.isIntersecting) {
+          // Only start playing when video comes into view
+          video.play().catch(() => {
+            console.log('Autoplay failed for video in view');
+          });
+        } else {
+          // Pause when out of view to save resources
+          video.pause();
+        }
+      },
+      { threshold: 0.5 } // Play when 50% of video is visible
+    );
+
+    observer.observe(video);
+
+    return () => {
+      observer.unobserve(video);
+    };
+  }, [isVideo]);
 
   const navigateToPost = () => {
     sessionStorage.setItem('scrollY', window.scrollY.toString());
@@ -80,6 +115,12 @@ export function CompactSocietyPostCard({ post, showTimeline = true }: CompactSoc
       if (!response.ok) throw new Error('Failed to delete');
 
       toast({ title: "Post deleted successfully" });
+
+      // Dispatch global delete event for immediate feed update
+      window.dispatchEvent(new CustomEvent('feed:itemDeleted', {
+        detail: { id: post.id }
+      }));
+
       router.refresh();
     } catch (error) {
       toast({ title: "Failed to delete post", variant: "destructive" });
@@ -154,11 +195,18 @@ export function CompactSocietyPostCard({ post, showTimeline = true }: CompactSoc
               {isVideo ? (
                 <div className="relative w-full h-full">
                   <video
+                    ref={videoRef}
                     src={firstMediaUrl}
                     className="w-full h-full object-cover"
                     muted
+                    playsInline
+                    loop
                     preload="metadata"
-                    poster={`${firstMediaUrl}#t=0.1`}
+                    onLoadedMetadata={(e) => {
+                      // Seek to 0.5 seconds to show a better preview frame
+                      const video = e.target as HTMLVideoElement;
+                      video.currentTime = 0.5;
+                    }}
                   />
                   <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
                     <div className="bg-black/60 rounded-full p-3 backdrop-blur-sm">

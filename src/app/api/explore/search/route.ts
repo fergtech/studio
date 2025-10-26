@@ -96,7 +96,7 @@ export async function GET(req: NextRequest) {
   const transformedPosts = generalPosts.map((post: any) => {
     // Extract first media item for display
     const firstMedia = post.media && post.media.length > 0 ? post.media[0] : null;
-    
+
     return {
       id: post.id,
       content: post.content,
@@ -113,10 +113,66 @@ export async function GET(req: NextRequest) {
     };
   });
 
+  // Debates: title, content
+  const debates = await prisma.debateTopic.findMany({
+    where: {
+      AND: [
+        {
+          OR: [
+            { moderationStatus: 'approved' },
+            { moderationStatus: null }
+          ],
+        },
+        {
+          OR: [
+            { title: { contains: q, mode: 'insensitive' } },
+            { content: { contains: q, mode: 'insensitive' } },
+          ],
+        },
+      ],
+    },
+    select: {
+      id: true,
+      title: true,
+      content: true,
+      votes: {
+        select: {
+          side: true,
+        },
+      },
+      _count: {
+        select: {
+          arguments: true,
+        },
+      },
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+    take: 20,
+  });
+
+  // Format debate results with stats
+  const formattedDebates = debates.map((debate) => {
+    const proVotes = debate.votes.filter((v) => v.side === 'PRO').length;
+    const conVotes = debate.votes.filter((v) => v.side === 'CON').length;
+
+    return {
+      id: debate.id,
+      title: debate.title,
+      content: debate.content,
+      stats: {
+        totalVotes: proVotes + conVotes,
+        argumentCount: debate._count.arguments,
+      },
+    };
+  });
+
   return NextResponse.json({
     users,
     initiatives,
     posts: transformedPosts,
     societies: transformedSocieties,
+    debates: formattedDebates,
   });
 } 

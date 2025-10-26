@@ -3,6 +3,60 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { id: topicId } = await params;
+
+    // Get user's current vote
+    const userVote = await prisma.debateVote.findUnique({
+      where: {
+        topicId_userId: {
+          topicId,
+          userId: session.user.id,
+        },
+      },
+    });
+
+    // Get vote statistics
+    const [proCount, conCount] = await Promise.all([
+      prisma.debateVote.count({
+        where: { topicId, side: 'PRO' },
+      }),
+      prisma.debateVote.count({
+        where: { topicId, side: 'CON' },
+      }),
+    ]);
+
+    const totalVotes = proCount + conCount;
+    const stats = {
+      proVotes: proCount,
+      conVotes: conCount,
+      totalVotes,
+      proPercentage: totalVotes > 0 ? Math.round((proCount / totalVotes) * 100) : 0,
+      conPercentage: totalVotes > 0 ? Math.round((conCount / totalVotes) * 100) : 0,
+    };
+
+    return NextResponse.json({
+      userVote: userVote?.side || null,
+      stats,
+    });
+  } catch (error) {
+    console.error('Error fetching vote:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch vote' },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

@@ -7,9 +7,13 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import AppSidebar, { getDefaultCollapsedState } from '@/components/AppSidebar';
-import { Search, Target, Users, Calendar } from 'lucide-react';
+import { Search, Target, Users, Calendar, Filter, Grid, Layers } from 'lucide-react';
 import { useModal } from '@/context/ModalContext';
+import { InitiativeCard } from '@/components/InitiativeCard';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { motion, AnimatePresence } from 'framer-motion';
+import { TikTokStyleFeed } from '@/components/initiatives/TikTokStyleFeed';
+import { DesktopInitiativesView } from '@/components/initiatives/DesktopInitiativesView';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,12 +38,13 @@ interface Initiative {
 export default function InitiativesPage() {
   const [initiatives, setInitiatives] = useState<Initiative[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => getDefaultCollapsedState({ type: 'initiatives' }));
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('createdAt');
-  const [sortOrder, setSortOrder] = useState('desc');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [viewMode, setViewMode] = useState<'grid' | 'tiktok'>('tiktok'); // New state for view mode
   const { openCreateInitiativeModal } = useModal();
+  const isMobile = useIsMobile();
 
   // Debounce search term to avoid excessive API calls
   useEffect(() => {
@@ -108,14 +113,7 @@ export default function InitiativesPage() {
   if (loading) {
     return (
       <div className="w-full min-w-0 overflow-hidden">
-        <AppSidebar 
-          widgets={['userControls', 'navigation', 'suggestions', 'location', 'resources', 'footer']}
-          context={{ type: 'initiatives' }}
-          onCollapseChange={setSidebarCollapsed}
-        />
-        <div className={`transition-all duration-300 px-4 lg:px-6 pt-20 lg:pt-6 ${
-          sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'
-        }`}>
+        <div className="px-4 lg:px-6 pt-20 lg:pt-6 pb-24">
           <div className="max-w-6xl mx-auto py-10">
             <div className="text-center">Loading initiatives...</div>
           </div>
@@ -126,147 +124,33 @@ export default function InitiativesPage() {
 
   return (
     <div className="w-full min-w-0 overflow-hidden">
-      <AppSidebar 
-        widgets={['userControls', 'navigation', 'suggestions', 'location', 'resources', 'footer']}
-        context={{ type: 'initiatives' }}
-        onCollapseChange={setSidebarCollapsed}
-      />
-      <div className={`transition-all duration-300 px-4 lg:px-6 pt-20 lg:pt-6 ${
-        sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'
+      <div className={`transition-all duration-300 ${
+        isMobile
+          ? 'pt-0' // No padding for mobile full-screen experience
+          : 'px-4 lg:px-6 pt-20 lg:pt-6 pb-24'
       }`}>
-        <div className="max-w-6xl mx-auto py-10">
-          {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">
-              <Target className="h-8 w-8 text-primary" />
-              All Initiatives
-            </h1>
-            <p className="text-muted-foreground">
-              Discover and join community initiatives that are making a difference
-            </p>
-          </div>
-
-          {/* Search and Filter Controls */}
-          <div className="flex flex-col sm:flex-row gap-4 mb-6">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search initiatives..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="Sort by" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="createdAt">Newest</SelectItem>
-                <SelectItem value="updatedAt">Recently Active</SelectItem>
-                <SelectItem value="members">Most Members</SelectItem>
-                <SelectItem value="title">Alphabetical</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Button
-              variant="outline"
-              onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
-              className="w-full sm:w-auto"
-            >
-              {sortOrder === 'desc' ? '↓' : '↑'} 
-              {sortOrder === 'desc' ? 'Descending' : 'Ascending'}
-            </Button>
-          </div>
-
-          {/* Initiatives Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {initiatives.length > 0 ? initiatives.map((initiative) => (
-              <Link key={initiative.id} href={`/initiatives/${initiative.id}`} className="block">
-                <Card className="h-full hover:shadow-lg hover:ring-2 hover:ring-primary transition-all duration-200">
-                  {initiative.imageUrl && (
-                    <div className="relative w-full h-48 overflow-hidden rounded-t-lg">
-                      <Image 
-                        src={initiative.imageUrl} 
-                        alt={initiative.title} 
-                        fill 
-                        className="object-cover"
-                      />
-                    </div>
-                  )}
-                  
-                  <CardContent className="p-4">
-                    <h3 className="font-semibold text-lg mb-2 line-clamp-2">
-                      {initiative.title}
-                    </h3>
-                    
-                    <p className="text-sm text-muted-foreground mb-3 line-clamp-3">
-                      {initiative.description}
-                    </p>
-                    
-                    {/* Creator Info */}
-                    <div className="flex items-center gap-2 mb-3">
-                      {initiative.creator.image && (
-                        <Image
-                          src={initiative.creator.image}
-                          alt={initiative.creator.name}
-                          width={20}
-                          height={20}
-                          className="rounded-full"
-                        />
-                      )}
-                      <span className="text-xs text-muted-foreground">
-                        by {initiative.creator.name}
-                      </span>
-                    </div>
-                    
-                    {/* Stats */}
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <Users className="h-3 w-3" />
-                        {initiative._count.members} member{initiative._count.members !== 1 ? 's' : ''}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        {formatDate(initiative.createdAt)}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            )) : (
-              <div className="col-span-full text-center py-12">
-                <Target className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No initiatives found</h3>
-                <p className="text-muted-foreground mb-4">
-                  {debouncedSearchTerm 
-                    ? "Try adjusting your search terms or filters."
-                    : "Be the first to create an initiative in your community!"
-                  }
-                </p>
-                <Button onClick={() => openCreateInitiativeModal()}>
-                  Create Initiative
-                </Button>
-              </div>
-            )}
-          </div>
-
-          {/* Create Initiative CTA */}
-          {initiatives.length > 0 && (
-            <div className="mt-12 text-center">
-              <div className="bg-muted/50 rounded-lg p-6">
-                <h3 className="text-lg font-semibold mb-2">Have an idea for change?</h3>
-                <p className="text-muted-foreground mb-4">
-                  Create your own initiative and gather support from the community
-                </p>
-                <Button onClick={() => openCreateInitiativeModal()}>
-                  Create Initiative
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
+        {isMobile ? (
+          // Mobile: TikTok-style full-screen feed
+          <TikTokStyleFeed 
+            initiatives={initiatives} 
+            onRefresh={fetchInitiatives} 
+          />
+        ) : (
+          // Desktop: Traditional layout with optional view modes
+          <DesktopInitiativesView
+            initiatives={initiatives}
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            sortBy={sortBy}
+            setSortBy={setSortBy}
+            sortOrder={sortOrder}
+            setSortOrder={setSortOrder}
+            viewMode={viewMode}
+            setViewMode={setViewMode}
+            debouncedSearchTerm={debouncedSearchTerm}
+            openCreateInitiativeModal={openCreateInitiativeModal}
+          />
+        )}
       </div>
     </div>
   );

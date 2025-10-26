@@ -16,12 +16,12 @@ const nextConfig: NextConfig = {
   trailingSlash: false,
   poweredByHeader: false,
   distDir: '.next',
+  turbopack: {
+    rules: {},
+  },
   experimental: {
     // Settings to prevent chunk loading issues
     optimizeCss: false,
-    turbo: {
-      rules: {},
-    },
   },
   webpack: (config, { dev, isServer, webpack }) => {
     // Fix OpenTelemetry and uuid module resolution issues

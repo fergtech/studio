@@ -11,7 +11,8 @@ import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import AppSidebar, { getDefaultCollapsedState } from '@/components/AppSidebar';
+import { DiscoveryGrid } from '@/components/DiscoveryGrid';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 interface SearchUser {
   id: string;
@@ -68,8 +69,8 @@ function ExplorePageInner() {
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState<SearchResults>({ users: [], initiatives: [], posts: [], societies: [] });
   const [hasSearched, setHasSearched] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => getDefaultCollapsedState({ type: 'explore' }));
   const [isLoadingFeatured, setIsLoadingFeatured] = useState(true);
+  const isMobile = useIsMobile();
 
   // Load featured content on initial page load
   const loadFeaturedContent = async () => {
@@ -257,14 +258,8 @@ function ExplorePageInner() {
 
   return (
     <div className="w-full min-w-0 overflow-hidden">
-      <AppSidebar 
-        widgets={['userControls', 'navigation', 'resources', 'footer']}
-        context={{ type: 'explore' }}
-        onCollapseChange={setSidebarCollapsed}
-      />
-      <div className={`transition-all duration-300 px-4 lg:px-6 pt-20 lg:pt-6 ${
-        sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'
-      }`}>
+      {/* AppSidebar removed for mobile-first redesign */}
+      <div className="px-4 lg:px-6 pt-20 lg:pt-6 pb-24">
         <div className="max-w-5xl mx-auto py-10">
           <div className="flex flex-col sm:flex-row items-center justify-center mb-2 gap-4">
             {/* Networking image above or right of Explore header */}
@@ -294,102 +289,12 @@ function ExplorePageInner() {
       {/* Show content when not loading */}
       {!isLoading && !isLoadingFeatured && (
         <>
-          {/* Dynamic header based on whether user searched or viewing featured content */}
-          <div className="mb-6 text-center">
-            {hasSearched ? (
-              <h2 className="text-2xl font-semibold">Search Results for "{searchQuery}"</h2>
-            ) : (
-              <div>
-                <h2 className="text-2xl font-semibold mb-2">Featured Content</h2>
-                <p className="text-muted-foreground">Discover trending users, initiatives, societies, and posts</p>
-              </div>
-            )}
-          </div>
-
-          {/* Users group */}
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold mb-3">{hasSearched ? 'Users' : 'Featured Users'}</h2>
-            {results.users.length > 0 ? (
-              <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide min-w-0">
-                {results.users.map((user: any) => (
-                  <div key={user.id} className="flex-shrink-0 w-64">
-                    <UserCard {...user} />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center text-muted-foreground">
-                {hasSearched ? 'No users found' : 'No featured users available'}
-              </div>
-            )}
-          </div>
-          
-          {/* Societies group */}
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold mb-3">{hasSearched ? 'Societies' : 'Featured Societies'}</h2>
-            {results.societies.length > 0 ? (
-              <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide min-w-0">
-                {results.societies.map((society: SearchSociety) => (
-                  <div key={society.id} className="flex-shrink-0 w-80">
-                    <SocietyCard {...society} />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center text-muted-foreground">
-                {hasSearched ? 'No societies found' : 'No featured societies available'}
-              </div>
-            )}
-          </div>
-          
-          {/* Initiatives group */}
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold mb-3">{hasSearched ? 'Initiatives' : 'Featured Initiatives'}</h2>
-            {results.initiatives.length > 0 ? (
-              <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide min-w-0">
-                {results.initiatives.map((initiative: SearchInitiative) => (
-                  <div key={initiative.id} className="flex-shrink-0 w-80">
-                    <InitiativeCard {...initiative} />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center text-muted-foreground">
-                {hasSearched ? 'No initiatives found' : 'No featured initiatives available'}
-              </div>
-            )}
-          </div>
-          
-          {/* Posts group (mixed) */}
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold mb-3">{hasSearched ? 'Posts' : 'Featured Posts'}</h2>
-            {results.posts.length > 0 ? (
-              <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide min-w-0">
-                {results.posts.map((post: SearchPost) => (
-                  <div key={post.id} className="flex-shrink-0 w-80">
-                    <PostCard {...post} />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center text-muted-foreground">
-                {hasSearched ? 'No posts found' : 'No featured posts available'}
-              </div>
-            )}
-          </div>
-          
-          {/* If all sections are empty */}
-          {results.users.length === 0 && results.societies.length === 0 && results.initiatives.length === 0 && results.posts.length === 0 && (
-            <div className="flex flex-col items-center justify-center mt-12">
-              <span className="text-5xl mb-4">🔍</span>
-              <div className="text-xl font-semibold mb-2">
-                {hasSearched ? 'No results found' : 'No content available'}
-              </div>
-              <div className="text-muted-foreground">
-                {hasSearched ? 'Try searching with a different term' : 'Check back later for featured content'}
-              </div>
-            </div>
-          )}
+          {/* Instagram-style Discovery Grid for all devices */}
+          <DiscoveryGrid 
+            searchResults={results}
+            isSearching={isLoading || isLoadingFeatured}
+            hasSearched={hasSearched}
+          />
         </>
       )}
         </div>

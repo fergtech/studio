@@ -1,11 +1,13 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { DebateTopicCard } from './DebateTopicCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { MessageSquare, TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useLazyLoad } from '@/hooks/useLazyLoad';
+import { useSwipeGestures } from '@/hooks/useSwipeGestures';
+import { cn } from '@/lib/utils';
 
 interface DebateTopic {
   id: string;
@@ -33,6 +35,8 @@ export function DebateTopicsWidget() {
   const [debates, setDebates] = useState<DebateTopic[]>([]);
   const [showLeftFade, setShowLeftFade] = useState(false);
   const [showRightFade, setShowRightFade] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   
   // Lazy load debates
@@ -84,6 +88,46 @@ export function DebateTopicsWidget() {
       scrollContainerRef.current.scrollBy({ left: 320, behavior: 'smooth' });
     }
   };
+
+  // Handle mouse drag scrolling for desktop
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (!scrollContainerRef.current) return;
+    setIsDragging(true);
+    setDragStart(e.pageX - scrollContainerRef.current.offsetLeft);
+    e.preventDefault();
+  }, []);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!isDragging || !scrollContainerRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - scrollContainerRef.current.offsetLeft;
+    const walk = (x - dragStart) * 2; // Multiply by 2 for faster scrolling
+    scrollContainerRef.current.scrollLeft = scrollContainerRef.current.scrollLeft - walk;
+    setDragStart(x);
+  }, [isDragging, dragStart]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  // Add swipe gesture support for mobile
+  const { ref: swipeRef } = useSwipeGestures({
+    onSwipeLeft: scrollRight,
+    onSwipeRight: scrollLeft,
+    minSwipeDistance: 30,
+  });
+
+  // Combined ref callback for both scroll container and swipe gestures
+  const combinedRef = useCallback((el: HTMLDivElement | null) => {
+    // Set scroll container ref
+    (scrollContainerRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+    // Set swipe ref
+    (swipeRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+  }, [swipeRef]);
 
   // Set up real-time updates and fade visibility after debates load
   useEffect(() => {
@@ -168,37 +212,62 @@ export function DebateTopicsWidget() {
         <MessageSquare className="w-5 h-5 text-primary" />
         <h2 className="text-lg font-semibold">Trending Debates</h2>
         <TrendingUp className="w-4 h-4 text-orange-500" />
-        {!loading && !error && debates.length > 0 && (
-          <div className="flex gap-1 ml-auto">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={scrollLeft}
-              disabled={!showLeftFade}
-              className="h-8 w-8 p-0 hidden sm:flex"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={scrollRight}
-              disabled={!showRightFade}
-              className="h-8 w-8 p-0 hidden sm:flex"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        )}
       </div>
       
-      <div className="relative">
-        {/* Left fade mask - only show when there are debates */}
+      <div className="relative group">
+        {/* Left Navigation Arrow - Desktop */}
+        {!loading && !error && debates.length > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={scrollLeft}
+            disabled={!showLeftFade}
+            className={cn(
+              "absolute left-2 top-1/2 -translate-y-1/2 z-20 h-10 w-10 p-0 bg-background/80 backdrop-blur-sm border shadow-lg",
+              "hidden lg:flex opacity-0 group-hover:opacity-100 transition-opacity duration-200",
+              "hover:bg-background hover:scale-110",
+              !showLeftFade && "opacity-0 pointer-events-none"
+            )}
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </Button>
+        )}
+
+        {/* Right Navigation Arrow - Desktop */}
+        {!loading && !error && debates.length > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={scrollRight}
+            disabled={!showRightFade}
+            className={cn(
+              "absolute right-2 top-1/2 -translate-y-1/2 z-20 h-10 w-10 p-0 bg-background/80 backdrop-blur-sm border shadow-lg",
+              "hidden lg:flex opacity-0 group-hover:opacity-100 transition-opacity duration-200",
+              "hover:bg-background hover:scale-110",
+              !showRightFade && "opacity-0 pointer-events-none"
+            )}
+          >
+            <ChevronRight className="h-5 w-5" />
+          </Button>
+        )}
+
+        {/* Left fade mask */}
         {!loading && !error && debates.length > 0 && (
           <div 
-            className={`absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-background to-transparent z-10 pointer-events-none transition-opacity duration-300 ${
-              showLeftFade ? 'opacity-100' : 'opacity-0'
-            }`}
+            className={cn(
+              "absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-background via-background/60 to-transparent z-10 pointer-events-none transition-opacity duration-300",
+              showLeftFade ? "opacity-100" : "opacity-0"
+            )}
+          />
+        )}
+
+        {/* Right fade mask */}
+        {!loading && !error && debates.length > 0 && (
+          <div 
+            className={cn(
+              "absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-background via-background/60 to-transparent z-10 pointer-events-none transition-opacity duration-300",
+              showRightFade ? "opacity-100" : "opacity-0"
+            )}
           />
         )}
         
@@ -228,12 +297,19 @@ export function DebateTopicsWidget() {
           </div>
         )}
         
-        {/* Scrollable content */}
+        {/* Scrollable content with touch and drag support */}
         {!loading && !error && debates.length > 0 && (
           <div 
-            ref={scrollContainerRef}
-            className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide min-w-0"
-            style={{ scrollBehavior: 'smooth' }}
+            ref={combinedRef}
+            className={cn(
+              "flex gap-4 overflow-x-auto pb-2 scrollbar-hide min-w-0 touch-pan-x",
+              isDragging ? "cursor-grabbing select-none" : "cursor-grab"
+            )}
+            style={{ scrollBehavior: isDragging ? 'auto' : 'smooth' }}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseLeave}
           >
             {debates.map((debate) => (
               <DebateTopicCard
@@ -249,15 +325,6 @@ export function DebateTopicsWidget() {
               />
             ))}
           </div>
-        )}
-        
-        {/* Right fade mask - only show when there are debates */}
-        {!loading && !error && debates.length > 0 && (
-          <div 
-            className={`absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent z-10 pointer-events-none transition-opacity duration-300 ${
-              showRightFade ? 'opacity-100' : 'opacity-0'
-            }`}
-          />
         )}
       </div>
     </div>

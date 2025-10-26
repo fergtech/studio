@@ -10,13 +10,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { X, Lightbulb, AlertTriangle, MessageCircle, ChevronDown, Users, Target, Gavel } from 'lucide-react';
+import { X, Lightbulb, AlertTriangle, MessageCircle, ChevronDown, Users, Target, Gavel, LogIn, Plus } from 'lucide-react';
 import CreatePostForm from './CreatePostForm';
 import { cn } from '@/lib/utils';
+import Link from 'next/link';
 
 interface CollapsiblePostComposerProps {
-  onPostCreated?: () => void;
-  onSuccess?: () => void;
+  onPostCreated?: (post?: any) => void;
+  onSuccess?: (post?: any) => void;
   societyId?: string;
   context?: 'general' | 'society' | 'initiative';
   battleContext?: any;
@@ -110,13 +111,13 @@ export function CollapsiblePostComposer({
               </button>
 
               <CreatePostForm
-                onPostCreated={() => {
-                  onPostCreated?.();
+                onPostCreated={(post) => {
+                  onPostCreated?.(post);  // Pass the post through!
                   setIsExpanded(false);
                   setSelectedContentType(null);
                 }}
-                onSuccess={() => {
-                  onSuccess?.();
+                onSuccess={(post) => {
+                  onSuccess?.(post);  // Pass the post through!
                   setIsExpanded(false);
                   setSelectedContentType(null);
                 }}
@@ -133,152 +134,118 @@ export function CollapsiblePostComposer({
     );
   }
 
-  // Collapsed state - Action button bar
-  return (
-    <div className="fixed bottom-4 left-4 right-4 z-40 flex justify-center pointer-events-none" data-composer>
-      <div className="w-full max-w-4xl pointer-events-auto">
-        <Card className="bg-background/95 backdrop-blur-sm border border-border shadow-lg rounded-full overflow-hidden">
-          <div className="p-2 sm:p-3 flex items-center justify-between gap-1 sm:gap-2">
-            {/* Primary Action Buttons - Horizontally scrollable on small screens */}
-            <div className="flex items-center gap-1.5 sm:gap-2 flex-1 overflow-x-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent hover:scrollbar-thumb-primary/50">
-              {/* Share Idea Button */}
-              <Button
-                onClick={() => handleActionClick('idea')}
-                className={cn(
-                  "flex items-center gap-1.5 sm:gap-2 rounded-full font-medium transition-all flex-shrink-0",
-                  "bg-yellow-500/10 border-2 border-yellow-500/30 text-yellow-700 dark:text-yellow-400",
-                  "hover:bg-yellow-500/20 hover:scale-105 active:scale-95",
-                  "px-3 sm:px-4 py-2 sm:py-2.5 h-auto"
-                )}
-                variant="ghost"
-              >
-                <Lightbulb className="h-4 w-4 flex-shrink-0" />
-                <span className="hidden sm:inline text-sm">Share Idea</span>
-                <span className="sm:hidden text-xs">Idea</span>
-              </Button>
-
-              {/* Raise Issue Button */}
-              <Button
-                onClick={() => handleActionClick('issue')}
-                className={cn(
-                  "flex items-center gap-1.5 sm:gap-2 rounded-full font-medium transition-all flex-shrink-0",
-                  "bg-red-500/10 border-2 border-red-500/30 text-red-700 dark:text-red-300",
-                  "hover:bg-red-500/20 hover:scale-105 active:scale-95",
-                  "px-3 sm:px-4 py-2 sm:py-2.5 h-auto"
-                )}
-                variant="ghost"
-              >
-                <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-                <span className="hidden sm:inline text-sm">Raise Issue</span>
-                <span className="sm:hidden text-xs">Issue</span>
-              </Button>
-
-              {/* Post Update Button */}
-              <Button
-                onClick={() => handleActionClick('post')}
-                className={cn(
-                  "flex items-center gap-1.5 sm:gap-2 rounded-full font-medium transition-all flex-shrink-0",
-                  "bg-green-500/10 border-2 border-green-500/30 text-green-700 dark:text-green-300",
-                  "hover:bg-green-500/20 hover:scale-105 active:scale-95",
-                  "px-3 sm:px-4 py-2 sm:py-2.5 h-auto"
-                )}
-                variant="ghost"
-              >
-                <MessageCircle className="h-4 w-4 flex-shrink-0" />
-                <span className="hidden sm:inline text-sm">Post Update</span>
-                <span className="sm:hidden text-xs">Post</span>
-              </Button>
-
-              {/* Start Debate Button */}
-              <Button
-                onClick={() => handleActionClick('debate')}
-                className={cn(
-                  "flex items-center gap-1.5 sm:gap-2 rounded-full font-medium transition-all flex-shrink-0",
-                  "bg-purple-500/10 border-2 border-purple-500/30 text-purple-700 dark:text-purple-300",
-                  "hover:bg-purple-500/20 hover:scale-105 active:scale-95",
-                  "px-3 sm:px-4 py-2 sm:py-2.5 h-auto"
-                )}
-                variant="ghost"
-              >
-                <Gavel className="h-4 w-4 flex-shrink-0" />
-                <span className="hidden sm:inline text-sm">Start Debate</span>
-                <span className="sm:hidden text-xs">Debate</span>
-              </Button>
-
-              {/* Create Society Button - Hidden on smaller screens, shown on lg+ */}
-              <Button
-                onClick={() => handleActionClick('society')}
-                className={cn(
-                  "hidden lg:flex items-center gap-1.5 sm:gap-2 rounded-full font-medium transition-all flex-shrink-0",
-                  "bg-indigo-500/10 border-2 border-indigo-500/30 text-indigo-700 dark:text-indigo-300",
-                  "hover:bg-indigo-500/20 hover:scale-105 active:scale-95",
-                  "px-3 sm:px-4 py-2 sm:py-2.5 h-auto"
-                )}
-                variant="ghost"
-              >
-                <Users className="h-4 w-4 flex-shrink-0" />
-                <span className="text-sm">Create Society</span>
-              </Button>
-
-              {/* Start Initiative Button - Hidden on smaller screens, shown on lg+ */}
-              <Button
-                onClick={() => handleActionClick('initiative')}
-                className={cn(
-                  "hidden lg:flex items-center gap-1.5 sm:gap-2 rounded-full font-medium transition-all flex-shrink-0",
-                  "bg-blue-500/10 border-2 border-blue-500/30 text-blue-700 dark:text-blue-300",
-                  "hover:bg-blue-500/20 hover:scale-105 active:scale-95",
-                  "px-3 sm:px-4 py-2 sm:py-2.5 h-auto"
-                )}
-                variant="ghost"
-              >
-                <Target className="h-4 w-4 flex-shrink-0" />
-                <span className="text-sm">Start Initiative</span>
-              </Button>
-            </div>
-
-            {/* More Dropdown - Only shown on smaller screens */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  className={cn(
-                    "lg:hidden flex items-center gap-1.5 rounded-full font-medium transition-all",
-                    "bg-muted/50 border-2 border-border/50 text-muted-foreground",
-                    "hover:bg-muted hover:scale-105 active:scale-95",
-                    "px-4 py-2.5 h-auto"
-                  )}
-                  variant="ghost"
-                >
-                  <span className="text-sm hidden sm:inline">More</span>
-                  <ChevronDown className="h-4 w-4" />
+  // Guest mode - show CTA to sign in
+  if (!session?.user) {
+    return (
+      <div className="fixed bottom-4 left-4 right-4 z-40 flex justify-center pointer-events-none" data-composer>
+        <div className="w-full max-w-4xl pointer-events-auto">
+          <Card className="bg-background/95 backdrop-blur-sm border border-border shadow-lg rounded-2xl overflow-hidden">
+            <div className="p-4 sm:p-6 text-center">
+              <p className="text-muted-foreground mb-4">
+                Sign in to share ideas, raise issues, and create posts
+              </p>
+              <div className="flex gap-3 justify-center">
+                <Button asChild variant="default">
+                  <Link href="/register">Sign Up</Link>
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52">
-                <DropdownMenuItem
-                  onClick={() => handleActionClick('debate')}
-                  className="flex items-center gap-2 cursor-pointer"
-                >
-                  <Gavel className="h-4 w-4 text-purple-500" />
-                  <span>Start Debate</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => handleActionClick('society')}
-                  className="flex items-center gap-2 cursor-pointer"
-                >
-                  <Users className="h-4 w-4 text-indigo-500" />
-                  <span>Create Society</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => handleActionClick('initiative')}
-                  className="flex items-center gap-2 cursor-pointer"
-                >
-                  <Target className="h-4 w-4 text-blue-500" />
-                  <span>Start Initiative</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </Card>
+                <Button asChild variant="outline">
+                  <Link href="/login">
+                    <LogIn className="h-4 w-4 mr-2" />
+                    Log In
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
       </div>
+    );
+  }
+
+  // Collapsed state - FAB
+  return (
+    <div className="fixed bottom-6 right-6 z-40" data-composer>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            className={cn(
+              "rounded-full h-16 w-16 bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 hover:scale-105 active:scale-95 transition-all flex items-center justify-center"
+            )}
+          >
+            <Plus className="h-8 w-8" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-64 rounded-2xl border border-border/50 shadow-xl bg-background/95 backdrop-blur-sm mb-2">
+          <div className="p-2 space-y-1">
+            <DropdownMenuItem
+              onClick={() => handleActionClick('idea')}
+              className="flex items-center gap-3 cursor-pointer p-3 rounded-xl hover:bg-yellow-500/10 transition-colors"
+            >
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-yellow-500/10">
+                <Lightbulb className="h-4 w-4 text-yellow-500" />
+              </div>
+              <div className="flex-1">
+                <span className="font-medium text-sm">Share an Idea</span>
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => handleActionClick('issue')}
+              className="flex items-center gap-3 cursor-pointer p-3 rounded-xl hover:bg-red-500/10 transition-colors"
+            >
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-red-500/10">
+                <AlertTriangle className="h-4 w-4 text-red-500" />
+              </div>
+              <div className="flex-1">
+                <span className="font-medium text-sm">Raise an Issue</span>
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => handleActionClick('post')}
+              className="flex items-center gap-3 cursor-pointer p-3 rounded-xl hover:bg-blue-500/10 transition-colors"
+            >
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-500/10">
+                <MessageCircle className="h-4 w-4 text-blue-500" />
+              </div>
+              <div className="flex-1">
+                <span className="font-medium text-sm">Create Post</span>
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => handleActionClick('debate')}
+              className="flex items-center gap-3 cursor-pointer p-3 rounded-xl hover:bg-purple-500/10 transition-colors"
+            >
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-500/10">
+                <Gavel className="h-4 w-4 text-purple-500" />
+              </div>
+              <div className="flex-1">
+                <span className="font-medium text-sm">Start Debate</span>
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => handleActionClick('society')}
+              className="flex items-center gap-3 cursor-pointer p-3 rounded-xl hover:bg-indigo-500/10 transition-colors"
+            >
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-indigo-500/10">
+                <Users className="h-4 w-4 text-indigo-500" />
+              </div>
+              <div className="flex-1">
+                <span className="font-medium text-sm">Create Society</span>
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => handleActionClick('initiative')}
+              className="flex items-center gap-3 cursor-pointer p-3 rounded-xl hover:bg-green-500/10 transition-colors"
+            >
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-green-500/10">
+                <Target className="h-4 w-4 text-green-500" />
+              </div>
+              <div className="flex-1">
+                <span className="font-medium text-sm">Start Initiative</span>
+              </div>
+            </DropdownMenuItem>
+          </div>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }

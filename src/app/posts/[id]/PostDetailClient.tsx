@@ -17,7 +17,6 @@ import { VideoPlayer } from '@/components/ui/video-player';
 import { AudioPlayer } from '@/components/ui/audio-player';
 import { LinkPreview } from '@/components/ui/link-preview';
 import { DocumentPreview } from '@/components/ui/document-preview';
-import AppSidebar, { getDefaultCollapsedState } from '@/components/AppSidebar';
 import { updateGeneralPostContent, updateSocietyPostContent, deletePostAction } from '@/app/actions/postActions';
 import { SocialShareDialog } from '@/components/social/SocialShareDialog';
 
@@ -115,7 +114,6 @@ export default function PostDetailClient({
   links,
   documents,
 }: PostDetailClientProps) {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => getDefaultCollapsedState({ type: 'post' }));
   const [commentPanelOpen, setCommentPanelOpen] = useState(false);
   const [commentCount, setCommentCount] = useState(0);
   const [showSocialShare, setShowSocialShare] = useState(false);
@@ -390,6 +388,7 @@ export default function PostDetailClient({
   const hasVideo = safeMedia.length > 0 && (safeMedia[0].type === 'video' || isVideoFile(safeMedia[0].url));
   const hasAudio = safeMedia.length > 0 && (safeMedia[0].type === 'audio' || isAudioFile(safeMedia[0].url));
   const hasImage = safeMedia.length > 0 && safeMedia[0].type === 'image' && !isVideoFile(safeMedia[0].url) && !isAudioFile(safeMedia[0].url);
+  
   const imageUrl = hasImage ? safeMedia[0].url : null;
   const videoUrl = hasVideo ? safeMedia[0].url : null;
   const audioUrl = hasAudio ? safeMedia[0].url : null;
@@ -434,17 +433,8 @@ export default function PostDetailClient({
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Sidebar - blurred when comment panel is open */}
-      <div className={commentPanelOpen ? 'blur-sm pointer-events-none' : ''}>
-        <AppSidebar 
-          widgets={['userControls', 'navigation', 'resources', 'footer']}
-          context={{ type: 'post' }}
-          onCollapseChange={setSidebarCollapsed}
-        />
-      </div>
-      
-      {/* Main Content - with dynamic left margin based on sidebar state and blur when comment panel open */}
-      <div className={`transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'} ${commentPanelOpen ? 'blur-sm pointer-events-none' : ''}`}>
+      {/* Main Content - blur when comment panel open */}
+      <div className={`px-4 lg:px-6 pt-20 lg:pt-6 pb-24 ${commentPanelOpen ? 'blur-sm pointer-events-none' : ''}`}>
         {/* Close Button - positioned on the right */}
         <div className="max-w-6xl mx-auto pt-6 px-4 flex items-center justify-end mb-4">
           <Button variant="ghost" size="icon" onClick={() => router.back()}>
@@ -544,8 +534,8 @@ export default function PostDetailClient({
             </div>
             {/* Post Content */}
             <div className="px-4 py-2">
-              {/* Media Content */}
-              {videoUrl && (
+              {/* Media Content - Mutually Exclusive */}
+              {videoUrl ? (
                 <div className="my-4">
                   <VideoPlayer 
                     src={videoUrl}
@@ -555,16 +545,14 @@ export default function PostDetailClient({
                     muted={false}
                   />
                 </div>
-              )}
-              {audioUrl && (
+              ) : audioUrl ? (
                 <div className="my-4">
                   <AudioPlayer 
                     src={audioUrl}
                     className="w-full"
                   />
                 </div>
-              )}
-              {imageUrl && (
+              ) : imageUrl ? (
                 <div className="bg-muted relative w-full" style={{ maxHeight: '70vh' }}>
                   <Image 
                     src={imageUrl} 
@@ -575,7 +563,7 @@ export default function PostDetailClient({
                     priority
                   />
                 </div>
-              )}
+              ) : null}
               {/* Content - Edit or Display Mode */}
               {editMode ? (
                 <div className="mt-2 space-y-3">

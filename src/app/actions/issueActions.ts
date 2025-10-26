@@ -1,11 +1,11 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { Issue, MediaItem, User } from "@/lib/types";
+import { Issue, MediaItem } from "@/lib/types";
 import { revalidatePath } from 'next/cache';
-import { MediaType } from "@prisma/client";
 import { lookupByPostalCode } from "@/services/location";
 import { contentModerationService } from '@/services/contentModeration';
 import { detectTopicsFromContent } from '@/services/topicDetection';
@@ -104,11 +104,33 @@ export async function createIssue(data: CreateIssueData): Promise<CreateIssueRes
       }
     }
 
-    const result = await prisma.$transaction(async (tx: any) => {
-      const createData: any = {
+    // AI Topic Detection - populate tags if not manually provided
+    let finalTags = data.tags || [];
+    if (finalTags.length < 3) {
+      try {
+        console.log('🚀 Issue Creation: Starting AI topic detection');
+        const contentForDetection = `${data.title}\n\n${data.description}`;
+        // Don't pass postId - we just want the AI analysis
+        const aiResult = await detectTopicsFromContent(contentForDetection);
+
+        if (aiResult.confidence > 0.5 && aiResult.semanticTopics.length > 0) {
+          // Add AI-detected topics that aren't already in manual tags
+          const newAiTopics = aiResult.semanticTopics.filter(
+            aiTopic => !finalTags.includes(aiTopic)
+          );
+          finalTags = [...finalTags, ...newAiTopics].slice(0, 5); // Max 5 total tags
+          console.log('✅ AI topics detected for Issue:', finalTags);
+        }
+      } catch (aiError) {
+        console.error('AI topic detection failed for Issue (continuing with manual tags):', aiError);
+      }
+    }
+
+    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const createData: Prisma.IssueCreateInput = {
         title: data.title,
         description: data.description,
-        tags: data.tags || [],
+        tags: finalTags,
         location: data.location,
         latitude: coordinates?.lat,
         longitude: coordinates?.lng,
@@ -148,17 +170,6 @@ export async function createIssue(data: CreateIssueData): Promise<CreateIssueRes
 
       return newIssue;
     });
-
-    // STEP 2: AI Topic Detection (after issue is created)
-    try {
-      console.log('🚀 Issue Creation: Starting topic detection');
-      const contentForDetection = `${data.title}\n\n${data.description}`;
-      await detectTopicsFromContent(contentForDetection, result.id);
-      console.log('✅ Topic detection completed for Issue');
-    } catch (topicError) {
-      console.error('Topic detection failed for Issue (continuing anyway):', topicError);
-      // Don't fail issue creation if topic detection fails
-    }
 
     return { success: true, issue: result };
   } catch (error) {
@@ -223,7 +234,7 @@ export async function updateIssue({
       return { error: "You are not authorized to update this issue." };
     }
 
-    const updateData: any = {};
+    const updateData: Prisma.IssueUpdateInput = {};
     if (title) updateData.title = title;
     if (description) updateData.description = description;
     if (tags) updateData.tags = tags;

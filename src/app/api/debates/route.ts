@@ -20,6 +20,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Detect topics from content using AI
+    let detectedTopics: string[] = [];
+    let confidence = 0;
+
+    try {
+      const topicDetectionResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/topic-detection`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: `${title} ${content}` })
+      });
+
+      if (topicDetectionResponse.ok) {
+        const topicData = await topicDetectionResponse.json();
+        detectedTopics = topicData.semanticTopics || [];
+        confidence = topicData.confidence || 0;
+      }
+    } catch (error) {
+      console.error('Topic detection failed, continuing without topics:', error);
+    }
+
     // Create debate topic
     const debateTopic = await prisma.debateTopic.create({
       data: {
@@ -27,6 +47,7 @@ export async function POST(request: NextRequest) {
         content: content.trim(),
         imageUrl: imageUrl || null,
         creatorId: session.user.id,
+        topics: detectedTopics,
       },
       include: {
         creator: {
@@ -45,6 +66,46 @@ export async function POST(request: NextRequest) {
         },
       },
     });
+
+    // Create topic relations and update counts
+    if (detectedTopics.length > 0) {
+      for (const topicName of detectedTopics) {
+        // Get or create topic
+        let topic = await prisma.topic.findUnique({
+          where: { name: topicName }
+        });
+
+        if (!topic) {
+          topic = await prisma.topic.create({
+            data: {
+              name: topicName,
+              isSystem: true,
+              confidence,
+              debateCount: 1,
+              weeklyDebates: 1
+            }
+          });
+        } else {
+          // Update debate count
+          await prisma.topic.update({
+            where: { id: topic.id },
+            data: {
+              debateCount: { increment: 1 },
+              weeklyDebates: { increment: 1 }
+            }
+          });
+        }
+
+        // Create DebateTopicTopic relation
+        await prisma.debateTopicTopic.create({
+          data: {
+            debateId: debateTopic.id,
+            topicId: topic.id,
+            confidence
+          }
+        });
+      }
+    }
 
     return NextResponse.json(debateTopic, { status: 201 });
   } catch (error) {

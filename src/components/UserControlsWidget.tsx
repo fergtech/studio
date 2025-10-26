@@ -145,10 +145,13 @@ export default function UserControlsWidget({ collapsed = false, isMobile = false
             </DropdownMenu>
           </>
         ) : (
-          <div className="flex items-center space-x-1">
+          <div className="flex items-center space-x-2">
             <ToggleTheme />
-            <Button variant="outline" asChild>
-              <Link href="/api/auth/signin">Sign In</Link>
+            <Button variant="default" size="sm" asChild>
+              <Link href="/register">Sign Up</Link>
+            </Button>
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/login">Log In</Link>
             </Button>
           </div>
         )}
@@ -254,11 +257,18 @@ export default function UserControlsWidget({ collapsed = false, isMobile = false
             </DropdownMenuContent>
           </DropdownMenu>
         ) : (
-          <Button variant="outline" size="sm" className="h-10 w-10 p-0" title="Sign In" asChild>
-            <Link href="/api/auth/signin">
-              <User className="h-4 w-4" />
-            </Link>
-          </Button>
+          <div className="space-y-2">
+            <Button variant="default" size="sm" className="h-10 w-10 p-0" title="Sign Up" asChild>
+              <Link href="/register">
+                <PlusCircle className="h-4 w-4" />
+              </Link>
+            </Button>
+            <Button variant="outline" size="sm" className="h-10 w-10 p-0" title="Log In" asChild>
+              <Link href="/login">
+                <User className="h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
         )}
 
         {/* Theme Toggle - Collapsed */}
@@ -380,10 +390,24 @@ export default function UserControlsWidget({ collapsed = false, isMobile = false
           </div>
         </div>
       ) : (
-        <div className="space-y-3 px-3">
-          <Button variant="default" asChild className="w-full shadow-sm">
-            <Link href="/api/auth/signin">Sign In</Link>
-          </Button>
+        <div className="space-y-3">
+          {/* Guest Welcome Banner */}
+          <div className="mx-3 p-4 bg-gradient-to-br from-primary/90 to-primary text-primary-foreground rounded-xl shadow-lg">
+            <h3 className="font-bold text-base mb-2">Join Society+</h3>
+            <p className="text-sm mb-4 opacity-90">
+              Create posts, join initiatives, and make real impact!
+            </p>
+            <div className="flex flex-col gap-2">
+              <Button asChild size="sm" variant="secondary" className="w-full shadow-sm font-semibold">
+                <Link href="/register">Sign Up</Link>
+              </Button>
+              <Button asChild size="sm" variant="ghost" className="w-full hover:bg-white/10">
+                <Link href="/login">Log In</Link>
+              </Button>
+            </div>
+          </div>
+
+          {/* Theme Toggle */}
           <div className="flex justify-center">
             <ToggleTheme />
           </div>

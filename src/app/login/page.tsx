@@ -17,7 +17,7 @@ export default function LoginPage() {
               width={40}
               height={40} 
               alt="Society+ logo" 
-              className="h-10 w-10 rounded-full ring-2 ring-primary/20 group-hover:ring-primary/40 transition-all" 
+              className="h-10 w-10 ring-primary/20 group-hover:ring-primary/40 transition-all" 
             />
             <div className="flex items-center gap-2">
               <span className="text-3xl font-bold">society</span>

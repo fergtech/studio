@@ -8,10 +8,17 @@ export async function GET(request: NextRequest) {
 
     console.log('🔍 Fetching trending topics from database...');
 
-    // Get all topics (simplified for early-stage growth)
+    // Get all topics with debates OR general posts
     const allTopics = await prisma.topic.findMany({
+      where: {
+        OR: [
+          { debateCount: { gt: 0 } },
+          { postCount: { gt: 0 } }
+        ]
+      },
       orderBy: [
-        { postCount: 'desc' },    // Most popular first
+        { debateCount: 'desc' },  // Most debates first
+        { postCount: 'desc' },    // Then most posts
         { name: 'asc' }           // Then alphabetical
       ],
       select: {
@@ -19,7 +26,43 @@ export async function GET(request: NextRequest) {
         name: true,
         postCount: true,
         weeklyPosts: true,
+        debateCount: true,
+        weeklyDebates: true,
         category: true,
+        debateTopics: {
+          where: {
+            debate: {
+              OR: [
+                { moderationStatus: 'approved' },
+                { moderationStatus: null }, // Include existing debates without moderation status
+              ]
+            }
+          },
+          orderBy: {
+            debate: {
+              createdAt: 'desc' // Order by debate creation time
+            }
+          },
+          select: {
+            debate: {
+              select: {
+                id: true,
+                title: true,
+                content: true,
+                creatorId: true,
+                createdAt: true,
+                imageUrl: true,
+                creator: {
+                  select: {
+                    name: true,
+                    username: true,
+                    image: true
+                  }
+                }
+              }
+            }
+          }
+        },
         postTopics: {
           where: {
             post: {
@@ -41,6 +84,7 @@ export async function GET(request: NextRequest) {
                 content: true,
                 creatorId: true,
                 timestamp: true,
+                background: true,
                 media: {
                   take: 1, // Get first media item for thumbnail
                   select: {
@@ -62,47 +106,78 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    console.log(`📊 Found ${allTopics.length} topics in database`);
+    console.log(`📊 Found ${allTopics.length} topics with debates and/or posts in database`);
 
     // Take only the requested limit (no multi-creator filter for early growth)
     const trendingTopics = allTopics.slice(0, limit);
 
     console.log(`✅ Returning ${trendingTopics.length} topics`);
 
-    // Format for the widget with thumbnail data
+    // Format for the widget with data from both debates and posts
     const formattedTopics = trendingTopics.map(topic => {
-      // Find first post with media from the posts array
-      const postWithMedia = topic.postTopics.find(pt => pt.post.media.length > 0);
-      const latestPost = postWithMedia?.post || topic.postTopics[0]?.post;
+      // Collect all content from both debates and posts for thumbnail selection
+      const allContent = [];
 
-      // Get thumbnail from media relation
-      const thumbnail = latestPost?.media[0];
+      // Add debates
+      for (const dt of topic.debateTopics) {
+        allContent.push({
+          id: dt.debate.id,
+          content: dt.debate.content,
+          timestamp: dt.debate.createdAt,
+          thumbnail: dt.debate.imageUrl ? {
+            url: dt.debate.imageUrl,
+            type: 'image'
+          } : null,
+          creator: dt.debate.creator,
+          type: 'debate'
+        });
+      }
 
-      console.log(`🖼️ Topic "${topic.name}": posts=${topic.postTopics.length}, selected post=${latestPost?.id}, has media=${!!thumbnail}`,
-        latestPost ? {
+      // Add general posts
+      for (const pt of topic.postTopics) {
+        allContent.push({
+          id: pt.post.id,
+          content: pt.post.content,
+          timestamp: pt.post.timestamp,
+          thumbnail: pt.post.media[0] ? {
+            url: pt.post.media[0].url,
+            type: pt.post.media[0].type.toLowerCase()
+          } : (pt.post.background ? {
+            url: pt.post.background,
+            type: 'image'
+          } : null),
+          creator: pt.post.creator,
+          type: 'post'
+        });
+      }
+
+      // Sort by timestamp (most recent first) and find first with media
+      allContent.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      const contentWithMedia = allContent.find(c => c.thumbnail);
+      const latestContent = contentWithMedia || allContent[0];
+
+      console.log(`🖼️ Topic "${topic.name}": debates=${topic.debateTopics.length}, posts=${topic.postTopics.length}, selected content=${latestContent?.id}, has media=${!!latestContent?.thumbnail}`,
+        latestContent ? {
+          totalDebates: topic.debateTopics.length,
           totalPosts: topic.postTopics.length,
-          postsWithMedia: topic.postTopics.filter(pt => pt.post.media.length > 0).length,
-          selectedPostMediaCount: latestPost.media?.length || 0,
-          thumbnailUrl: thumbnail?.url?.substring(0, 60)
+          selectedType: latestContent.type,
+          thumbnailUrl: latestContent.thumbnail?.url?.substring(0, 60)
         } : null);
 
       return {
         topic: topic.name,
-        count: topic.postCount,
+        count: topic.debateCount + topic.postCount, // Combined count
         category: topic.category,
-        // Include latest post data for thumbnail
-        latestPost: latestPost ? {
-          id: latestPost.id,
-          content: latestPost.content.substring(0, 100), // Preview text
-          timestamp: latestPost.timestamp,
-          thumbnail: thumbnail ? {
-            url: thumbnail.url,
-            type: thumbnail.type
-          } : null,
+        // Include latest content data for thumbnail
+        latestPost: latestContent ? {
+          id: latestContent.id,
+          content: latestContent.content.substring(0, 100), // Preview text
+          timestamp: latestContent.timestamp,
+          thumbnail: latestContent.thumbnail,
           author: {
-            name: latestPost.creator.name,
-            username: latestPost.creator.username,
-            image: latestPost.creator.image
+            name: latestContent.creator.name,
+            username: latestContent.creator.username,
+            image: latestContent.creator.image
           }
         } : null
       };

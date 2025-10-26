@@ -34,7 +34,7 @@ const isAudioFile = (url: string) => {
   return audioExtensions.some(ext => lowerUrl.includes(ext));
 };
 
-// Mock comment data (in a real app, this would come from the database)
+// Comment data interface (fetched from API in real app)
 interface Comment {
   id: string;
   userId: string;
@@ -43,19 +43,6 @@ interface Comment {
   text: string;
   timestamp: Date;
 }
-
-// Mock User Profile Data (Simplified) - Needed for comment avatars/names
-const mockUsers: Record<string, { name: string; avatar?: string }> = {
-  "user1": { name: "Alice" , avatar: "https://i.pravatar.cc/40?u=user1"},
-  "user2": { name: "Bob" },
-  "user3": { name: "Charlie", avatar: "https://i.pravatar.cc/40?u=user3" },
-  "user4": { name: "Diana" },
-  "user5": { name: "Eve", avatar: "https://i.pravatar.cc/40?u=user5" },
-  "user6": { name: "Faythe" },
-  "user7": { name: "Grace", avatar: "https://i.pravatar.cc/40?u=user7" },
-  "user8": { name: "Frank" },
-  "currentUser": { name: "You" }, // Placeholder for the current user
-};
 
 interface GeneralPostCardProps {
   post: GeneralPost;
@@ -159,9 +146,11 @@ export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralP
     ) : 'Just now';
   
   const hasMedia = post.media && post.media.length > 0;
-  const isImage = hasMedia && post.media![0].type === 'image' && !isVideoFile(post.media![0].url) && !isAudioFile(post.media![0].url);
-  const isVideo = hasMedia && (post.media![0].type === 'video' || isVideoFile(post.media![0].url));
-  const isAudio = hasMedia && (post.media![0].type === 'audio' || isAudioFile(post.media![0].url));
+  const mediaType = hasMedia ? (post.media![0].type as any) : undefined;
+  const mediaUrl = hasMedia ? post.media![0].url : '';
+  const isImage = hasMedia && mediaType === 'image' && !isVideoFile(mediaUrl) && !isAudioFile(mediaUrl);
+  const isVideo = hasMedia && (mediaType === 'video' || isVideoFile(mediaUrl));
+  const isAudio = hasMedia && (mediaType === 'audio' || isAudioFile(mediaUrl));
   const hasLinkPreview = post.linkPreview && !hasMedia;
   const hasMultipleLinks = post.links && post.links.length > 0 && !hasMedia;
   
@@ -300,6 +289,14 @@ export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralP
         setDeleteError(result.error);
       } else {
         // Post was deleted successfully.
+        console.log('[GeneralPostCard] Post deleted, dispatching event:', post.id);
+
+        // Dispatch global delete event for immediate feed update
+        window.dispatchEvent(new CustomEvent('feed:itemDeleted', {
+          detail: { id: post.id }
+        }));
+
+        // Also call the callback if provided
         if (onPostDeleted) onPostDeleted(post.id);
       }
     } catch (error) {
@@ -311,12 +308,15 @@ export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralP
   };
 
   // Video play/pause state for custom control
-  const [isVideoPlaying, setIsVideoPlaying] = useState(true);
-  const [isVideoMuted, setIsVideoMuted] = useState(true); // New state for mute
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false); // Start paused
+  const [isVideoMuted, setIsVideoMuted] = useState(true);
   const videoRef = React.useRef<HTMLVideoElement>(null);
 
-  const handleVideoToggle = () => {
+  const handleVideoToggle = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation(); // Prevent navigating to post detail
     if (!videoRef.current) return;
+
     if (videoRef.current.paused) {
       videoRef.current.play();
       setIsVideoPlaying(true);
@@ -325,6 +325,23 @@ export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralP
       setIsVideoPlaying(false);
     }
   };
+
+  // Add play/pause event listeners to keep state in sync
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !isVideo) return;
+
+    const handlePlay = () => setIsVideoPlaying(true);
+    const handlePause = () => setIsVideoPlaying(false);
+
+    video.addEventListener('play', handlePlay);
+    video.addEventListener('pause', handlePause);
+
+    return () => {
+      video.removeEventListener('play', handlePlay);
+      video.removeEventListener('pause', handlePause);
+    };
+  }, [isVideo]);
 
   const handleMuteToggle = (e: React.MouseEvent) => {
     e.preventDefault(); // Prevent navigation
@@ -379,33 +396,56 @@ export function GeneralPostCard({ post, currentUserId, onPostDeleted }: GeneralP
         </div>
       )}
 
-      {/* Video Thumbnail Layer */}
+      {/* Video Preview Layer - Modern social media style */}
       {isVideo && (
-        <div className="absolute inset-0 z-0">
+        <div className="absolute inset-0 z-0" onClick={handleVideoToggle}>
           <video
+            ref={videoRef}
             src={post.media![0].url}
-            className="w-full h-full object-cover rounded-none"
-            style={{ 
+            className="w-full h-full object-cover rounded-none cursor-pointer"
+            style={{
               maxHeight: '100%',
-              pointerEvents: 'none' // Video won't capture any events
             }}
-            muted={true}
-            preload="metadata"
-            poster={`${post.media![0].url}#t=0.1`}
-            onLoadedData={(e) => {
-              // Force mobile browsers to show first frame
+            muted={isVideoMuted}
+            loop
+            playsInline
+            preload="auto"
+            onLoadedMetadata={(e) => {
+              // Seek to 0.5 seconds to show a better preview frame
               const video = e.target as HTMLVideoElement;
-              if (video.videoWidth > 0) {
-                video.currentTime = 0.1;
-              }
+              video.currentTime = 0.5;
             }}
+            onClick={handleVideoToggle}
           />
-          <div className="absolute inset-0 bg-black/30 z-10"></div>
-          {/* Play Icon Overlay */}
-          <div className="absolute inset-0 flex items-center justify-center z-20">
-            <div className="bg-black/60 rounded-full p-4 backdrop-blur-sm">
-              <Play className="w-8 h-8 text-white fill-white" />
+          <div className="absolute inset-0 bg-black/20 z-10 pointer-events-none"></div>
+
+          {/* Play/Pause Overlay - Only show when paused */}
+          {!isVideoPlaying && (
+            <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
+              <div className="bg-black/70 rounded-full p-5 backdrop-blur-sm animate-in fade-in zoom-in duration-200">
+                <Play className="w-12 h-12 text-white fill-white" />
+              </div>
             </div>
+          )}
+
+          {/* Video controls overlay - bottom right */}
+          <div className="absolute bottom-4 right-4 z-20 flex gap-2">
+            {/* Mute/Unmute button */}
+            <button
+              onClick={handleMuteToggle}
+              className="bg-black/60 hover:bg-black/80 rounded-full p-2 backdrop-blur-sm transition-all hover:scale-110"
+              aria-label={isVideoMuted ? "Unmute" : "Mute"}
+            >
+              {isVideoMuted ? (
+                <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 111.414 1.414L16.414 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" clipRule="evenodd" />
+                </svg>
+              )}
+            </button>
           </div>
         </div>
       )}

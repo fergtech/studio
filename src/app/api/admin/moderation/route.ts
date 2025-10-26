@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch pending content
-    const [pendingPosts, pendingIssues, pendingIdeas] = await Promise.all([
+    const [pendingPosts, pendingIssues, pendingIdeas, pendingDebates] = await Promise.all([
       prisma.generalPost.findMany({
         where: { moderationStatus: 'pending_review' },
         include: {
@@ -56,6 +56,14 @@ export async function GET(request: NextRequest) {
         },
         orderBy: { createdAt: 'desc' },
         take: 50
+      }),
+      prisma.debateTopic.findMany({
+        where: { moderationStatus: 'pending_review' },
+        include: {
+          creator: { select: { id: true, name: true, image: true, email: true } }
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 50
       })
     ]);
 
@@ -63,7 +71,8 @@ export async function GET(request: NextRequest) {
     const pendingContent = [
       ...pendingPosts.map(p => ({ ...p, contentType: 'post' as const })),
       ...pendingIssues.map(i => ({ ...i, contentType: 'issue' as const })),
-      ...pendingIdeas.map(i => ({ ...i, contentType: 'idea' as const }))
+      ...pendingIdeas.map(i => ({ ...i, contentType: 'idea' as const })),
+      ...pendingDebates.map(d => ({ ...d, contentType: 'debate' as const }))
     ];
 
     return NextResponse.json({
@@ -130,6 +139,12 @@ export async function POST(request: NextRequest) {
         break;
       case 'idea':
         await prisma.idea.update({
+          where: { id: contentId },
+          data: { moderationStatus: newStatus }
+        });
+        break;
+      case 'debate':
+        await prisma.debateTopic.update({
           where: { id: contentId },
           data: { moderationStatus: newStatus }
         });

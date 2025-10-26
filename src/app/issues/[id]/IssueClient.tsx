@@ -11,7 +11,6 @@ import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '@/components/ui/textarea';
 import imageCompression from 'browser-image-compression';
-import AppSidebar, { getDefaultCollapsedState } from '@/components/AppSidebar';
 import CommentPanel from '@/components/CommentPanel';
 import IssueReactions from '@/components/IssueReactions';
 import { useModal } from '@/context/ModalContext';
@@ -28,6 +27,13 @@ const getLocationDisplay = (location: string | null | undefined): string | null 
     // If not JSON, return as-is (plain text location)
     return location;
   }
+};
+
+// Helper to detect if URL is a video file
+const isVideoFile = (url: string): boolean => {
+  const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.avi', '.mkv'];
+  const lowerUrl = url.toLowerCase();
+  return videoExtensions.some(ext => lowerUrl.includes(ext));
 };
 
 interface MediaItem {
@@ -69,7 +75,6 @@ interface IssueClientProps {
 }
 
 export default function IssueClient({ issue, currentUserId, initiallyChampioned }: IssueClientProps) {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => getDefaultCollapsedState({ type: 'issue' }));
   const [championCount, setChampionCount] = useState(issue.championCount);
   const [isChampioned, setIsChampioned] = useState(initiallyChampioned);
   const [isChampioning, setIsChampioning] = useState(false);
@@ -88,9 +93,11 @@ export default function IssueClient({ issue, currentUserId, initiallyChampioned 
 
   const fallback = issue.creator?.name?.substring(0, 2).toUpperCase() || '??';
   const issueTime = formatDistanceToNow(issue.createdAt, { addSuffix: true });
-  
+
   const hasMedia = issue.media && issue.media.length > 0;
-  const isImage = hasMedia && issue.media[0].type === 'image';
+  const firstMedia = hasMedia ? issue.media[0] : null;
+  const isVideo = firstMedia && (firstMedia.type === 'video' || isVideoFile(firstMedia.url));
+  const isImage = firstMedia && !isVideo;
 
   const handleChampion = async () => {
     if (!currentUserId) return;
@@ -304,14 +311,7 @@ export default function IssueClient({ issue, currentUserId, initiallyChampioned 
 
   return (
     <div className="w-full min-w-0 overflow-hidden">
-      <AppSidebar 
-        widgets={['userControls', 'navigation', 'resources', 'footer']}
-        context={{ type: 'issue' }}
-        onCollapseChange={setSidebarCollapsed}
-      />
-      <div className={`transition-all duration-300 px-4 lg:px-6 ${
-        sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'
-      }`}>
+      <div className="px-4 lg:px-6 pt-20 lg:pt-6 pb-24">
         <div className="max-w-4xl mx-auto py-6">
           {/* Header with close button and type indicator on right */}
           <div className="flex items-center justify-end gap-4 mb-6">
@@ -384,11 +384,20 @@ export default function IssueClient({ issue, currentUserId, initiallyChampioned 
                 </div>
               </div>
 
-              {/* Media */}
-              {hasMedia && isImage && (
+              {/* Media - Mutually Exclusive */}
+              {isVideo ? (
                 <div className="rounded-lg overflow-hidden relative">
-                  <Image 
-                    src={issue.media[0].url} 
+                  <video
+                    src={issue.media[0].url}
+                    controls
+                    className="w-full h-auto max-h-96 object-cover"
+                    preload="metadata"
+                  />
+                </div>
+              ) : isImage ? (
+                <div className="rounded-lg overflow-hidden relative">
+                  <Image
+                    src={issue.media[0].url}
                     alt="Issue image"
                     width={600}
                     height={384}
@@ -396,7 +405,7 @@ export default function IssueClient({ issue, currentUserId, initiallyChampioned 
                     priority
                   />
                 </div>
-              )}
+              ) : null}
 
               {/* Description */}
               <div className="bg-card rounded-lg p-6">

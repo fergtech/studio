@@ -38,6 +38,12 @@ model User {
   newsTypes             String[]               @default(["local", "community", "government"])
   isModerator           Boolean                @default(false)
   isAdmin               Boolean                @default(false)
+  // Gamification & Progressive Unlocking (V2/V3 Features)
+  activityScore         Int                    @default(0) // Composite engagement score
+  canCreateSociety      Boolean                @default(false) // Unlocked via debate thresholds
+  canCreateInitiative   Boolean                @default(false) // Unlocked via user activity
+  societyUnlockedAt     DateTime?              // Timestamp when unlocked
+  initiativeUnlockedAt  DateTime?              // Timestamp when unlocked
   assignedActions       Action[]               @relation("AssigneeOfAction")
   completedActionsBy    Action[]               @relation("CompleterOfAction")
   createdActions        Action[]               @relation("CreatorOfAction")
@@ -156,21 +162,21 @@ model Step {
 }
 
 model ChatMessage {
-  id           String              @id @default(cuid())
+  id           String                @id @default(cuid())
   initiativeId String?
   senderId     String
   senderName   String
-  text         String              // Can contain plain text OR JSON-encoded rich media (images, files, etc)
-  timestamp    DateTime            @default(now())
+  text         String // Can contain plain text OR JSON-encoded rich media (images, files, etc)
+  timestamp    DateTime              @default(now())
   receiverId   String?
-  replyToId    String?             // Message this is replying to
-  isDeleted    Boolean             @default(false) // Soft delete
-  deletedAt    DateTime?           // When message was deleted
-  initiative   Initiative?         @relation(fields: [initiativeId], references: [id])
-  receiver     User?               @relation("ReceiverOfChatMessage", fields: [receiverId], references: [id])
-  sender       User                @relation("SenderOfChatMessage", fields: [senderId], references: [id])
-  replyTo      ChatMessage?        @relation("MessageReplies", fields: [replyToId], references: [id])
-  replies      ChatMessage[]       @relation("MessageReplies")
+  replyToId    String? // Message this is replying to
+  isDeleted    Boolean               @default(false) // Soft delete
+  deletedAt    DateTime? // When message was deleted
+  initiative   Initiative?           @relation(fields: [initiativeId], references: [id])
+  receiver     User?                 @relation("ReceiverOfChatMessage", fields: [receiverId], references: [id])
+  sender       User                  @relation("SenderOfChatMessage", fields: [senderId], references: [id])
+  replyTo      ChatMessage?          @relation("MessageReplies", fields: [replyToId], references: [id])
+  replies      ChatMessage[]         @relation("MessageReplies")
   reactions    ChatMessageReaction[]
 
   @@index([senderId, receiverId, isDeleted, timestamp])
@@ -708,16 +714,25 @@ model GeneralPostDocument {
 }
 
 model DebateTopic {
-  id        String           @id @default(cuid())
-  title     String
-  content   String
-  creatorId String
-  imageUrl  String?
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
-  arguments DebateArgument[]
-  creator   User             @relation(fields: [creatorId], references: [id])
-  votes     DebateVote[]
+  id                  String              @id @default(cuid())
+  title               String
+  content             String
+  creatorId           String
+  imageUrl            String?
+  topics              String[]            @default([]) // Keep for backward compatibility during migration
+  moderationStatus    String?             @default("approved") // 'approved', 'rejected', 'pending_review'
+  moderationFlags     String[]            @default([])
+  moderationScore     Float?
+  moderationReasoning String?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  arguments           DebateArgument[]
+  creator             User                @relation(fields: [creatorId], references: [id])
+  votes               DebateVote[]
+  debateTopics        DebateTopicTopic[]  @relation("DebateTopics")
+
+  @@index([topics])
+  @@index([moderationStatus])
 }
 
 model DebateVote {
@@ -765,19 +780,23 @@ model Topic {
   id             String              @id @default(cuid())
   name           String              @unique
   description    String?
-  category       String?             // e.g., "civic", "entertainment", "technology"
+  category       String? // e.g., "civic", "entertainment", "technology"
   isSystem       Boolean             @default(false) // True for auto-generated topics
-  confidence     Float?              // Confidence score for auto-generated topics
+  confidence     Float? // Confidence score for auto-generated topics
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
   postCount      Int                 @default(0)
   weeklyPosts    Int                 @default(0)
+  debateCount    Int                 @default(0) // Number of debates with this topic
+  weeklyDebates  Int                 @default(0) // Weekly debate count
   popularInAreas String[]            @default([])
   userInterests  UserTopicInterest[] @relation("TopicUserInterests")
   postTopics     PostTopic[]         @relation("TopicPosts")
+  debateTopics   DebateTopicTopic[]  @relation("TopicDebates")
 
   @@index([name])
   @@index([postCount])
+  @@index([debateCount])
   @@index([category])
   @@index([isSystem])
 }
@@ -786,13 +805,27 @@ model PostTopic {
   id         String      @id @default(cuid())
   postId     String
   topicId    String
-  confidence Float?      // Confidence score for this topic assignment
+  confidence Float? // Confidence score for this topic assignment
   createdAt  DateTime    @default(now())
   post       GeneralPost @relation("PostTopics", fields: [postId], references: [id], onDelete: Cascade)
   topic      Topic       @relation("TopicPosts", fields: [topicId], references: [id], onDelete: Cascade)
 
   @@unique([postId, topicId])
   @@index([postId])
+  @@index([topicId])
+}
+
+model DebateTopicTopic {
+  id         String      @id @default(cuid())
+  debateId   String
+  topicId    String
+  confidence Float? // Confidence score for this topic assignment
+  createdAt  DateTime    @default(now())
+  debate     DebateTopic @relation("DebateTopics", fields: [debateId], references: [id], onDelete: Cascade)
+  topic      Topic       @relation("TopicDebates", fields: [topicId], references: [id], onDelete: Cascade)
+
+  @@unique([debateId, topicId])
+  @@index([debateId])
   @@index([topicId])
 }
 
@@ -1004,10 +1037,10 @@ enum NotificationType {
 // A searchable geographic area (e.g., city, neighborhood)
 model Area {
   id        String   @id @default(cuid())
-  name      String   // e.g., "Downtown", "The Fan District"
-  city      String   // e.g., "Richmond"
-  state     String   // e.g., "VA"
-  country   String   // e.g., "USA"
+  name      String // e.g., "Downtown", "The Fan District"
+  city      String // e.g., "Richmond"
+  state     String // e.g., "VA"
+  country   String // e.g., "USA"
   latitude  Float
   longitude Float
   createdAt DateTime @default(now())
@@ -1017,21 +1050,21 @@ model Area {
 }
 
 model SocialAccount {
-  id                 String               @id @default(cuid())
-  userId             String
-  platform           SocialPlatform       // instagram, facebook, tiktok
-  platformUserId     String               // User's ID on the platform
-  platformUsername   String?              // Username on the platform
-  accessToken        String               // Encrypted OAuth access token
-  refreshToken       String?              // Encrypted OAuth refresh token (if applicable)
-  tokenExpiresAt     DateTime?            // When the access token expires
-  scope              String[]             @default([]) // OAuth scopes granted
-  isActive           Boolean              @default(true)
-  createdAt          DateTime             @default(now())
-  updatedAt          DateTime             @updatedAt
+  id               String         @id @default(cuid())
+  userId           String
+  platform         SocialPlatform // instagram, facebook, tiktok
+  platformUserId   String // User's ID on the platform
+  platformUsername String? // Username on the platform
+  accessToken      String // Encrypted OAuth access token
+  refreshToken     String? // Encrypted OAuth refresh token (if applicable)
+  tokenExpiresAt   DateTime? // When the access token expires
+  scope            String[]       @default([]) // OAuth scopes granted
+  isActive         Boolean        @default(true)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
 
-  user               User                 @relation("UserSocialAccounts", fields: [userId], references: [id], onDelete: Cascade)
-  posts              SocialPost[]         @relation("SocialAccountPosts")
+  user  User         @relation("UserSocialAccounts", fields: [userId], references: [id], onDelete: Cascade)
+  posts SocialPost[] @relation("SocialAccountPosts")
 
   @@unique([userId, platform])
   @@index([userId])
@@ -1039,24 +1072,24 @@ model SocialAccount {
 }
 
 model SocialPost {
-  id                 String               @id @default(cuid())
-  userId             String
-  socialAccountId    String
-  contentType        String               // idea, issue, initiative, post
-  contentId          String               // ID of the content being shared
-  platform           SocialPlatform
-  platformPostId     String?              // ID of the post on the platform
-  platformPostUrl    String?              // URL of the post on the platform
-  caption            String?              // Custom caption used
-  imageUrl           String?              // URL of generated image
-  status             SocialPostStatus     @default(PENDING)
-  errorMessage       String?              // Error message if failed
-  metrics            Json?                // Platform-specific metrics (likes, shares, views, etc.)
-  createdAt          DateTime             @default(now())
-  updatedAt          DateTime             @updatedAt
+  id              String           @id @default(cuid())
+  userId          String
+  socialAccountId String
+  contentType     String // idea, issue, initiative, post
+  contentId       String // ID of the content being shared
+  platform        SocialPlatform
+  platformPostId  String? // ID of the post on the platform
+  platformPostUrl String? // URL of the post on the platform
+  caption         String? // Custom caption used
+  imageUrl        String? // URL of generated image
+  status          SocialPostStatus @default(PENDING)
+  errorMessage    String? // Error message if failed
+  metrics         Json? // Platform-specific metrics (likes, shares, views, etc.)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
-  user               User                 @relation("UserSocialPosts", fields: [userId], references: [id], onDelete: Cascade)
-  socialAccount      SocialAccount        @relation("SocialAccountPosts", fields: [socialAccountId], references: [id], onDelete: Cascade)
+  user          User          @relation("UserSocialPosts", fields: [userId], references: [id], onDelete: Cascade)
+  socialAccount SocialAccount @relation("SocialAccountPosts", fields: [socialAccountId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([socialAccountId])

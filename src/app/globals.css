@@ -34,6 +34,18 @@ body {
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
     --radius: 0.5rem;
+
+    /* Mobile-First Vibrant Colors for Gen Z */
+    --vibrant-like: 340 82% 62%; /* Hot pink for likes */
+    --vibrant-share: 200 90% 55%; /* Cyan for shares */
+    --vibrant-comment: 280 70% 60%; /* Purple for comments */
+    --vibrant-idea: 48 100% 50%; /* Golden yellow for ideas */
+    --vibrant-issue: 0 84% 60%; /* Red for issues */
+    --vibrant-debate: 280 65% 60%; /* Purple for debates */
+    --vibrant-success: 142 76% 45%; /* Green for success */
+    --vibrant-gradient-start: 220 90% 56%; /* Blue gradient start */
+    --vibrant-gradient-end: 280 70% 60%; /* Purple gradient end */
+
     --sidebar-background: 222 16% 14%;
     --sidebar-foreground: 0 0% 98%;
     --sidebar-primary: 220 90% 56%;
@@ -76,6 +88,18 @@ body {
     --chart-3: 48 100% 50%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
+
+    /* Mobile-First Vibrant Colors for Gen Z (Light Mode) */
+    --vibrant-like: 340 82% 62%;
+    --vibrant-share: 200 90% 55%;
+    --vibrant-comment: 280 70% 60%;
+    --vibrant-idea: 48 100% 50%;
+    --vibrant-issue: 0 84% 60%;
+    --vibrant-debate: 280 65% 60%;
+    --vibrant-success: 142 76% 45%;
+    --vibrant-gradient-start: 220 90% 56%;
+    --vibrant-gradient-end: 280 70% 60%;
+
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 222 28% 10%;
     --sidebar-primary: 220 90% 56%;
@@ -171,6 +195,11 @@ body {
   display: none;  /* Safari and Chrome */
 }
 
+/* Improved touch scrolling for horizontal containers */
+.touch-pan-x {
+  touch-action: pan-x pan-down pinch-zoom;
+}
+
 /* Mobile touch improvements for Chrome/Safari */
 @layer utilities {
   .touch-manipulation {
@@ -242,4 +271,173 @@ textarea,
 input {
   -webkit-user-select: text;
   user-select: text;
+}
+
+/* Mobile-First Vibrant Utilities */
+@layer utilities {
+  /* Vibrant color classes */
+  .text-vibrant-like {
+    color: hsl(var(--vibrant-like));
+  }
+  .bg-vibrant-like {
+    background-color: hsl(var(--vibrant-like));
+  }
+  .text-vibrant-share {
+    color: hsl(var(--vibrant-share));
+  }
+  .bg-vibrant-share {
+    background-color: hsl(var(--vibrant-share));
+  }
+  .text-vibrant-comment {
+    color: hsl(var(--vibrant-comment));
+  }
+  .bg-vibrant-comment {
+    background-color: hsl(var(--vibrant-comment));
+  }
+  .text-vibrant-idea {
+    color: hsl(var(--vibrant-idea));
+  }
+  .bg-vibrant-idea {
+    background-color: hsl(var(--vibrant-idea));
+  }
+  .text-vibrant-issue {
+    color: hsl(var(--vibrant-issue));
+  }
+  .bg-vibrant-issue {
+    background-color: hsl(var(--vibrant-issue));
+  }
+  .text-vibrant-debate {
+    color: hsl(var(--vibrant-debate));
+  }
+  .bg-vibrant-debate {
+    background-color: hsl(var(--vibrant-debate));
+  }
+  .text-vibrant-success {
+    color: hsl(var(--vibrant-success));
+  }
+  .bg-vibrant-success {
+    background-color: hsl(var(--vibrant-success));
+  }
+
+  /* Vibrant gradients */
+  .bg-vibrant-gradient {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--vibrant-gradient-start)) 0%,
+      hsl(var(--vibrant-gradient-end)) 100%
+    );
+  }
+
+  /* Like gradient */
+  .bg-like-gradient {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--vibrant-like)) 0%,
+      hsl(340 82% 72%) 100%
+    );
+  }
+
+  /* GPU acceleration helpers */
+  .gpu-accelerated {
+    transform: translateZ(0);
+    will-change: transform, opacity;
+  }
+
+  .will-animate {
+    will-change: transform, opacity;
+  }
+
+  /* Smooth animations */
+  .transition-smooth {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .transition-bounce {
+    transition: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  }
+
+  /* Mobile-optimized shadows */
+  .shadow-vibrant {
+    box-shadow: 0 4px 20px -4px hsl(var(--vibrant-gradient-start) / 0.3);
+  }
+
+  .shadow-like {
+    box-shadow: 0 4px 16px -4px hsl(var(--vibrant-like) / 0.4);
+  }
+
+  .shadow-comment {
+    box-shadow: 0 4px 16px -4px hsl(var(--vibrant-comment) / 0.4);
+  }
+
+  .shadow-share {
+    box-shadow: 0 4px 16px -4px hsl(var(--vibrant-share) / 0.4);
+  }
+}
+
+/* Pulse animation for notifications */
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Shimmer loading animation */
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 2s infinite linear;
+  background: linear-gradient(
+    to right,
+    hsl(var(--muted)) 4%,
+    hsl(var(--muted) / 0.5) 25%,
+    hsl(var(--muted)) 36%
+  );
+  background-size: 1000px 100%;
+}
+
+/* Enhanced shimmer for topic pills */
+@keyframes topic-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-topic-shimmer {
+  animation: topic-shimmer 1.5s infinite ease-in-out;
+}
+
+/* Animation delays for staggered effects */
+.animation-delay-100 {
+  animation-delay: 100ms;
+}
+
+.animation-delay-200 {
+  animation-delay: 200ms;
+}
+
+.animation-delay-300 {
+  animation-delay: 300ms;
+}
+
+.animation-delay-500 {
+  animation-delay: 500ms;
 }

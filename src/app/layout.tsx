@@ -11,6 +11,8 @@ import { SessionProvider } from "next-auth/react";
 import QueryProvider from "@/providers/QueryProvider";
 import { NavigationProgress } from "@/components/NavigationProgress";
 
+import { BottomNavBar } from '@/components/layout/BottomNavBar';
+
 // Force dynamic rendering to prevent static generation issues
 export const dynamic = 'force-dynamic';
 
@@ -36,12 +38,13 @@ export default function RootLayout({
               <AuthProvider>
                 <ModalProvider>
                   <NavigationProgress />
-                  <ConditionalHeader />
-                  <main className="flex-grow overflow-x-hidden"> {/* Removed py-8 padding for pages with AppSidebar */}
+                  {/* <ConditionalHeader /> */}
+                  <main className="flex-grow overflow-x-hidden">
                     {children}
                   </main>
                   <GlobalModals /> {/* Global modal dialogs */}
                   <Toaster /> {/* Keep Toaster */}
+                  <BottomNavBar />
                 </ModalProvider>
               </AuthProvider>
             </QueryProvider>

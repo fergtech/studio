@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { IssueCard } from '@/components/IssueCard';
 import { Issue } from '@/lib/types';
-import AppSidebar, { getDefaultCollapsedState } from '@/components/AppSidebar';
 import { AlertTriangle, Filter, Plus } from 'lucide-react';
 import Link from 'next/link';
 
@@ -20,7 +19,6 @@ export default function IssuesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('recent');
   const [isLoading, setIsLoading] = useState(true);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => getDefaultCollapsedState({ type: 'issue' }));
 
   useEffect(() => {
     fetchIssues();
@@ -83,14 +81,7 @@ export default function IssuesPage() {
 
   return (
     <div className="w-full min-w-0 overflow-hidden">
-      <AppSidebar 
-        widgets={['userControls', 'navigation', 'suggestions', 'location', 'resources', 'footer']}
-        context={{ type: 'issues' }}
-        onCollapseChange={setSidebarCollapsed}
-      />
-      <div className={`transition-all duration-300 px-4 lg:px-6 pt-20 lg:pt-6 ${
-        sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'
-      }`}>
+      <div className="px-4 lg:px-6 pt-20 lg:pt-6 pb-24">
         <div className="max-w-5xl mx-auto py-10">
           {/* Header */}
           <div className="flex flex-col sm:flex-row items-center justify-between mb-8">

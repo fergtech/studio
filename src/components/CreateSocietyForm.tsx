@@ -6,11 +6,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, X, MapPin, Globe, Users } from 'lucide-react';
+import { Upload, X, MapPin, Globe, Users, Lock } from 'lucide-react';
 import imageCompression from 'browser-image-compression';
 import LocationInput from '@/components/LocationInput';
 import { ResolvedLocation } from '@/services/location';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { UnlockProgress } from '@/components/UnlockProgress';
+import { UserUnlockStatus } from '@/lib/gamification';
 
 interface CreateSocietyFormProps {
   setOpen: (open: boolean) => void;
@@ -28,10 +30,36 @@ export function CreateSocietyForm({ setOpen, onCreated }: CreateSocietyFormProps
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [unlockStatus, setUnlockStatus] = useState<(UserUnlockStatus & { activityScore: number }) | null>(null);
+  const [isLoadingUnlockStatus, setIsLoadingUnlockStatus] = useState(true);
   const { data: session } = useSession();
   const router = useRouter();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch user's unlock status
+  useEffect(() => {
+    const fetchUnlockStatus = async () => {
+      if (!session?.user?.id) {
+        setIsLoadingUnlockStatus(false);
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/user/unlock-status');
+        if (response.ok) {
+          const data = await response.json();
+          setUnlockStatus(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch unlock status:', error);
+      } finally {
+        setIsLoadingUnlockStatus(false);
+      }
+    };
+
+    fetchUnlockStatus();
+  }, [session?.user?.id]);
 
   // Fetch user's location data
   useEffect(() => {
@@ -218,6 +246,36 @@ export function CreateSocietyForm({ setOpen, onCreated }: CreateSocietyFormProps
       setIsSubmitting(false);
     }
   };
+
+  // Show loading state
+  if (isLoadingUnlockStatus) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-sm text-muted-foreground">Checking eligibility...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show unlock progress if user hasn't unlocked society creation yet
+  if (unlockStatus && !unlockStatus.canCreateSociety) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+          <Lock className="h-5 w-5 text-amber-600" />
+          <p className="text-sm text-amber-900 dark:text-amber-100">
+            Society creation is locked. Engage with debates to unlock this feature!
+          </p>
+        </div>
+        <UnlockProgress
+          unlockStatus={unlockStatus}
+          activityScore={unlockStatus.activityScore}
+        />
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">

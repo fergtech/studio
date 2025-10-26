@@ -28,14 +28,6 @@ const backgroundOptions = [
   '#333333', // Dark Grey
 ];
 
-// Mock user avatars matching main feed pattern
-const mockUserAvatars: Record<string, string | undefined> = {
-  "user1": "https://i.pravatar.cc/40?u=user1",
-  "user3": "https://i.pravatar.cc/40?u=user3",
-  "user5": "https://i.pravatar.cc/40?u=user5",
-  "user7": "https://i.pravatar.cc/40?u=user7",
-};
-
 type PostType = 'general' | 'issue' | 'idea';
 
 type LocationScope = 'user' | 'global' | 'custom';
@@ -84,8 +76,8 @@ const postTypeConfigs: Record<PostType, PostTypeConfig> = {
 };
 
 interface CreatePostFormProps {
-  onPostCreated?: () => void;
-  onSuccess?: () => void;
+  onPostCreated?: (post?: any) => void;
+  onSuccess?: (post?: any) => void;
   societyId?: string | null;
   context?: 'general' | 'society' | 'initiative';
   battleContext?: {
@@ -216,18 +208,18 @@ export default function CreatePostForm({ onPostCreated, onSuccess, societyId, co
     return name.substring(0, 2).toUpperCase();
   };
 
-  // Get avatar URL with fallback pattern matching main feed
-  const getAvatarUrl = (userId?: string, sessionImage?: string | null) => {
-    return sessionImage || mockUserAvatars[userId || ''] || "https://i.pravatar.cc/40?u=anonymous";
+  // Get avatar URL with fallback to user initials (no mock data)
+  const getAvatarUrl = (sessionImage?: string | null) => {
+    return sessionImage || undefined;
   };
 
   const fallback = getInitials(currentUser?.name);
 
   // Compress media files if they're too large
   const compressFile = async (file: File): Promise<File | null> => {
-    // Vercel has a 4.5MB limit for API route request bodies in production
-    // We'll target 4MB to be safe, with aggressive compression for larger files
-    const maxSizeInMB = 4;
+    // R2 supports much larger files - 50MB for videos, 10MB for images
+    const maxImageSizeInMB = 10;
+    const maxVideoSizeInMB = 50;
     const fileSizeMB = file.size / 1024 / 1024;
 
     console.log(`[compressFile] Original file size: ${fileSizeMB.toFixed(2)}MB`);
@@ -236,7 +228,7 @@ export default function CreatePostForm({ onPostCreated, onSuccess, societyId, co
       if (file.type.startsWith('image/')) {
         // Always compress images to ensure they're under the limit
         const options = {
-          maxSizeMB: maxSizeInMB,
+          maxSizeMB: maxImageSizeInMB,
           maxWidthOrHeight: fileSizeMB > 10 ? 1280 : 1920, // Smaller dimensions for very large files
           useWebWorker: true,
           fileType: 'image/webp', // Force WebP for better compression
@@ -248,10 +240,10 @@ export default function CreatePostForm({ onPostCreated, onSuccess, societyId, co
         const compressedSizeMB = compressed.size / 1024 / 1024;
         console.log(`[compressFile] Compressed size: ${compressedSizeMB.toFixed(2)}MB`);
 
-        if (compressed.size > maxSizeInMB * 1024 * 1024) {
+        if (compressed.size > maxImageSizeInMB * 1024 * 1024) {
           toast({
             title: "File Too Large",
-            description: `Image is still ${compressedSizeMB.toFixed(1)}MB after compression. Please use a smaller image (max 4MB).`,
+            description: `Image is still ${compressedSizeMB.toFixed(1)}MB after compression. Please use a smaller image (max ${maxImageSizeInMB}MB).`,
             variant: "destructive",
           });
           return null;
@@ -260,10 +252,10 @@ export default function CreatePostForm({ onPostCreated, onSuccess, societyId, co
         return compressed;
       } else if (file.type.startsWith('video/')) {
         // Videos can't be compressed client-side effectively
-        if (fileSizeMB > maxSizeInMB) {
+        if (fileSizeMB > maxVideoSizeInMB) {
           toast({
             title: "Video Too Large",
-            description: `Video is ${fileSizeMB.toFixed(1)}MB. Please compress it to under 4MB before uploading.`,
+            description: `Video is ${fileSizeMB.toFixed(1)}MB. Please compress it to under ${maxVideoSizeInMB}MB before uploading.`,
             variant: "destructive",
           });
           return null;
@@ -513,6 +505,10 @@ export default function CreatePostForm({ onPostCreated, onSuccess, societyId, co
       }
 
       if (result.success && (result.post || result.issue || result.idea)) {
+        const createdItem = result.post || result.issue || result.idea;
+        console.log('[CreatePostForm] Post created successfully:', createdItem);
+        console.log('[CreatePostForm] Callbacks present:', { onPostCreated: !!onPostCreated, onSuccess: !!onSuccess });
+
         // Reset form
         setTitle('');
         setContent('');
@@ -526,9 +522,11 @@ export default function CreatePostForm({ onPostCreated, onSuccess, societyId, co
           title: "Success!",
           description: `Your ${postType} has been created.`,
         });
-        // Call the appropriate callback
-        onPostCreated?.(); // Legacy callback for existing uses
-        onSuccess?.(); // New callback for modal/battle context
+        // Call the appropriate callback with the created item
+        console.log('[CreatePostForm] Calling onPostCreated with:', createdItem);
+        onPostCreated?.(createdItem);
+        console.log('[CreatePostForm] Calling onSuccess with:', createdItem);
+        onSuccess?.(createdItem);
       } else {
         console.error(`Failed to create ${postType}:`, result.error);
         toast({
@@ -622,9 +620,9 @@ export default function CreatePostForm({ onPostCreated, onSuccess, societyId, co
 
           <div className="flex items-start space-x-3">
             <Avatar className="h-10 w-10 mt-1">
-              <AvatarImage 
-                src={getAvatarUrl(currentUser?.id, currentUser?.image)} 
-                alt={currentUser?.name || 'User'} 
+              <AvatarImage
+                src={getAvatarUrl(currentUser?.image)}
+                alt={currentUser?.name || 'User'}
               />
               <AvatarFallback>{fallback}</AvatarFallback>
             </Avatar>

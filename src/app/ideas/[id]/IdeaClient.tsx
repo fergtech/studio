@@ -30,6 +30,13 @@ const getLocationDisplay = (location: string | null | undefined): string | null 
   }
 };
 
+// Helper to detect if URL is a video file
+const isVideoFile = (url: string): boolean => {
+  const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.avi', '.mkv'];
+  const lowerUrl = url.toLowerCase();
+  return videoExtensions.some(ext => lowerUrl.includes(ext));
+};
+
 interface MediaItem {
   type: string;
   url: string;
@@ -88,9 +95,11 @@ export default function IdeaClient({ idea, currentUserId, initiallyChampioned }:
 
   const fallback = idea.creator?.name?.substring(0, 2).toUpperCase() || '??';
   const ideaTime = formatDistanceToNow(idea.createdAt, { addSuffix: true });
-  
+
   const hasMedia = idea.media && idea.media.length > 0;
-  const isImage = hasMedia && idea.media[0].type === 'image';
+  const firstMedia = hasMedia ? idea.media[0] : null;
+  const isVideo = firstMedia && (firstMedia.type === 'video' || isVideoFile(firstMedia.url));
+  const isImage = firstMedia && !isVideo;
 
   const handleChampion = async () => {
     if (!currentUserId) return;
@@ -305,7 +314,7 @@ export default function IdeaClient({ idea, currentUserId, initiallyChampioned }:
   return (
     <div className="w-full min-w-0 overflow-hidden">
       <AppSidebar 
-        widgets={['userControls', 'navigation', 'suggestions', 'location', 'resources', 'footer']}
+        widgets={['userControls', 'navigation', 'resources', 'footer']}
         context={{ type: 'idea' }}
         onCollapseChange={setSidebarCollapsed}
       />
@@ -384,11 +393,20 @@ export default function IdeaClient({ idea, currentUserId, initiallyChampioned }:
                 </div>
               </div>
 
-              {/* Media */}
-              {hasMedia && isImage && (
+              {/* Media - Mutually Exclusive */}
+              {isVideo ? (
                 <div className="rounded-lg overflow-hidden relative">
-                  <Image 
-                    src={idea.media[0].url} 
+                  <video
+                    src={idea.media[0].url}
+                    controls
+                    className="w-full h-auto max-h-96 object-cover"
+                    preload="metadata"
+                  />
+                </div>
+              ) : isImage ? (
+                <div className="rounded-lg overflow-hidden relative">
+                  <Image
+                    src={idea.media[0].url}
                     alt="Idea image"
                     width={600}
                     height={384}
@@ -396,7 +414,7 @@ export default function IdeaClient({ idea, currentUserId, initiallyChampioned }:
                     priority
                   />
                 </div>
-              )}
+              ) : null}
 
               {/* Description */}
               <div className="bg-card rounded-lg p-6">

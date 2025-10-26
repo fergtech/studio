@@ -7,7 +7,7 @@ import { uploadToR2, generateR2Key } from '@/lib/r2';
 
 // Using Cloudflare R2 for file storage (much higher limits than Vercel Blob)
 export const maxDuration = 60; // 60 seconds timeout
-export const maxRequestBodySize = '10mb'; // R2 supports much larger files
+export const maxRequestBodySize = '50mb'; // R2 supports much larger files
 
 export async function POST(request: NextRequest) {
   console.log("Upload API route hit - using Cloudflare R2");
@@ -73,13 +73,13 @@ export async function POST(request: NextRequest) {
     }
 
     // R2 supports much larger files than Vercel Blob
-    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB limit
+    const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB limit
     if (file.size > MAX_FILE_SIZE) {
       console.error(`File size exceeds limit: ${(file.size / 1024 / 1024).toFixed(2)}MB`);
       return NextResponse.json(
         {
           success: false,
-          message: `File size must be less than 10MB. Your file is ${(file.size / 1024 / 1024).toFixed(2)}MB. Please compress it before uploading.`
+          message: `File size must be less than 50MB. Your file is ${(file.size / 1024 / 1024).toFixed(2)}MB. Please compress it before uploading.`
         },
         { status: 413 } // 413 = Payload Too Large
       );

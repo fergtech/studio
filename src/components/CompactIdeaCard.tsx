@@ -1,8 +1,8 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Idea } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Lightbulb, MapPin } from 'lucide-react';
+import { Lightbulb, MapPin, Play } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -11,6 +11,14 @@ import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import { useSession } from 'next-auth/react';
 import { ContentCardMenu } from '@/components/ui/content-card-menu';
+
+// Helper function to detect video files
+const isVideoFile = (url: string) => {
+  if (!url) return false;
+  const videoExtensions = ['.mp4', '.webm', '.mov', '.avi', '.mkv', '.wmv', '.flv', '.m4v'];
+  const lowerUrl = url.toLowerCase();
+  return videoExtensions.some(ext => lowerUrl.includes(ext));
+};
 
 // Helper function to safely parse and display location
 const getLocationDisplay = (location: string | null | undefined): string | null => {
@@ -37,6 +45,11 @@ export function CompactIdeaCard({ idea, currentUserId, showTimeline = true }: Co
   const { data: session } = useSession();
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Video autoplay state
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [hasVideoStarted, setHasVideoStarted] = useState(false);
+  const [isInView, setIsInView] = useState(false);
+
   const creatorName = idea.creator?.name || 'Anonymous';
   const creatorAvatar = idea.creator?.image || undefined;
   const fallback = creatorName.substring(0, 2).toUpperCase();
@@ -55,11 +68,54 @@ export function CompactIdeaCard({ idea, currentUserId, showTimeline = true }: Co
   const locationDisplay = getLocationDisplay(idea.location);
   const isCreator = session?.user?.id === idea.creatorId;
 
+  // Debug logging
+  console.log('[CompactIdeaCard] Debug:', {
+    ideaId: idea.id,
+    sessionUserId: session?.user?.id,
+    ideaCreatorId: idea.creatorId,
+    isCreator,
+    sessionStatus: session ? 'loaded' : 'not loaded'
+  });
+
   // Determine background - use first media if available
   const hasMedia = idea.media && idea.media.length > 0;
-  const backgroundStyle = hasMedia
-    ? { backgroundImage: `url(${idea.media[0].url})` }
+  const firstMedia = hasMedia ? idea.media[0] : null;
+  const isVideo = firstMedia && isVideoFile(firstMedia.url);
+  const isImage = firstMedia && !isVideo;
+  
+  const backgroundStyle = isImage
+    ? { backgroundImage: `url(${firstMedia.url})` }
     : { background: 'linear-gradient(135deg, #4ecdc4 0%, #44a08d 100%)' }; // Teal gradient for ideas
+
+  // Intersection Observer for video autoplay optimization
+  useEffect(() => {
+    if (!isVideo || !videoRef.current) return;
+
+    const video = videoRef.current;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        setIsInView(entry.isIntersecting);
+        
+        if (entry.isIntersecting) {
+          // Only start playing when video comes into view
+          video.play().catch(() => {
+            console.log('Autoplay failed for video in view');
+          });
+        } else {
+          // Pause when out of view to save resources
+          video.pause();
+        }
+      },
+      { threshold: 0.5 } // Play when 50% of video is visible
+    );
+
+    observer.observe(video);
+
+    return () => {
+      observer.unobserve(video);
+    };
+  }, [isVideo]);
 
   const handleClick = () => {
     sessionStorage.setItem('scrollY', window.scrollY.toString());
@@ -79,6 +135,12 @@ export function CompactIdeaCard({ idea, currentUserId, showTimeline = true }: Co
       if (!response.ok) throw new Error('Failed to delete');
 
       toast({ title: "Idea deleted successfully" });
+
+      // Dispatch global delete event for immediate feed update
+      window.dispatchEvent(new CustomEvent('feed:itemDeleted', {
+        detail: { id: idea.id }
+      }));
+
       router.refresh();
     } catch (error) {
       toast({ title: "Failed to delete idea", variant: "destructive" });
@@ -131,11 +193,37 @@ export function CompactIdeaCard({ idea, currentUserId, showTimeline = true }: Co
         <div
           className="relative rounded-lg overflow-hidden h-32 group/card hover:shadow-lg transition-all"
         >
-          {/* Zoom on hover effect */}
-          <div
-            className="absolute inset-0 bg-cover bg-center transition-transform duration-300 group-hover/card:scale-105"
-            style={backgroundStyle}
-          />
+          {/* Video Background */}
+          {isVideo ? (
+            <div className="absolute inset-0">
+              <video
+                ref={videoRef}
+                src={firstMedia!.url}
+                className="w-full h-full object-cover transition-transform duration-300 group-hover/card:scale-105"
+                muted
+                playsInline
+                loop
+                preload="metadata"
+                onLoadedMetadata={(e) => {
+                  // Seek to 0.5 seconds to show a better preview frame
+                  const video = e.target as HTMLVideoElement;
+                  video.currentTime = 0.5;
+                }}
+              />
+              {/* Video Play Icon */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="bg-black/60 rounded-full p-3 backdrop-blur-sm">
+                  <Play className="w-5 h-5 text-white fill-white" />
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* Image/Gradient Background */
+            <div
+              className="absolute inset-0 bg-cover bg-center transition-transform duration-300 group-hover/card:scale-105"
+              style={backgroundStyle}
+            />
+          )}
 
           {/* Dark overlay */}
           <div className="absolute inset-0 bg-black/40" />

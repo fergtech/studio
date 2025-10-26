@@ -8,7 +8,26 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const { id } = await params;
     const society = await prisma.society.findUnique({
       where: { id },
-      include: { creator: true },
+      include: {
+        creator: {
+          select: {
+            id: true,
+            name: true,
+            image: true,
+          },
+        },
+        memberships: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                image: true,
+              },
+            },
+          },
+        },
+      },
     });
     if (!society) {
       return NextResponse.json({ error: 'Society not found' }, { status: 404 });

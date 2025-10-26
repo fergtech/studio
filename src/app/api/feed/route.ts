@@ -16,6 +16,35 @@ interface InitiativeWithCreator extends Prisma.InitiativeGetPayload<{
     society: {
       select: { id: true, name: true, image: true };
     };
+    memberships: {
+      select: {
+        id: true;
+        role: true;
+        user: {
+          select: { id: true, name: true, image: true };
+        };
+      };
+    };
+    goals: {
+      select: { id: true };
+    };
+  };
+}> {}
+
+interface SocietyWithCreatorForFeed extends Prisma.SocietyGetPayload<{
+  include: {
+    creator: {
+      select: { id: true, name: true, image: true };
+    };
+    memberships: {
+      select: {
+        id: true;
+        role: true;
+        user: {
+          select: { id:true, name: true, image: true };
+        }
+      }
+    }
   };
 }> {}
 
@@ -23,6 +52,15 @@ interface SocietyWithCreator extends Prisma.SocietyGetPayload<{
   include: {
     creator: {
       select: { id: true, name: true, image: true };
+    };
+    memberships: {
+      select: {
+        id: true;
+        role: true;
+        user: {
+          select: { id: true, name: true, image: true };
+        };
+      };
     };
   };
 }> {}
@@ -210,7 +248,7 @@ interface UnifiedFeedItem {
   type: FeedItemType;
   id: string;
   timestamp: Date;
-  data: InitiativeWithCreator | GeneralPostWithCreatorAndMedia | SocietyPostWithUserAndSociety | SocietyWithCreator | IssueWithCreator | IdeaWithCreator | DebateTopicWithCreatorAndStats | HotTakeBattleWithPosts | UpdateWithUserAndInitiative | UserFollowWithUsers | InitiativeMembershipWithUserAndInitiative | LiveNewsPost;
+  data: InitiativeWithCreator | GeneralPostWithCreatorAndMedia | SocietyPostWithUserAndSociety | SocietyWithCreatorForFeed | IssueWithCreator | IdeaWithCreator | DebateTopicWithCreatorAndStats | HotTakeBattleWithPosts | UpdateWithUserAndInitiative | UserFollowWithUsers | InitiativeMembershipWithUserAndInitiative | LiveNewsPost;
 }
 
 // Legacy type for backward compatibility
@@ -570,6 +608,18 @@ async function getUnifiedFeedItems(cursor?: string, pageSize: number = 20, inclu
             image: true,
           },
         },
+        memberships: {
+          select: {
+            id: true,
+            role: true,
+            user: {
+              select: { id: true, name: true, image: true },
+            },
+          },
+        },
+        goals: {
+          select: { id: true },
+        },
       },
       where: {
         createdAt: {
@@ -582,18 +632,7 @@ async function getUnifiedFeedItems(cursor?: string, pageSize: number = 20, inclu
       take: Math.ceil(pageSize / 4), // Distribute across content types
     }),
     prisma.generalPost.findMany({
-      select: {
-        id: true,
-        creatorId: true,
-        creatorName: true,
-        creatorAvatar: true,
-        content: true,
-        background: true,
-        timestamp: true,
-        linkedInitiativeId: true,
-        linkPreviewId: true,
-        linkUrl: true,
-        topics: true, // Include topics field
+      include: {
         creator: {
           select: {
             id: true,
@@ -631,24 +670,6 @@ async function getUnifiedFeedItems(cursor?: string, pageSize: number = 20, inclu
                 siteName: true,
                 favicon: true,
                 type: true,
-              },
-            },
-          },
-          orderBy: {
-            order: 'asc'
-          }
-        },
-        documents: {
-          include: {
-            document: {
-              select: {
-                url: true,
-                filename: true,
-                fileType: true,
-                fileSize: true,
-                extension: true,
-                title: true,
-                description: true,
               },
             },
           },
@@ -739,6 +760,15 @@ async function getUnifiedFeedItems(cursor?: string, pageSize: number = 20, inclu
             id: true,
             name: true,
             image: true,
+          },
+        },
+        memberships: {
+          select: {
+            id: true,
+            role: true,
+            user: {
+              select: { id: true, name: true, image: true },
+            },
           },
         },
       },
@@ -979,7 +1009,7 @@ async function getUnifiedFeedItems(cursor?: string, pageSize: number = 20, inclu
       type: 'generalPost' as const,
       id: p.id,
       timestamp: p.timestamp,
-      data: p
+      data: p as GeneralPostWithCreatorAndMedia
     })),
     ...societyPosts.map(sp => ({
       type: 'societyPost' as const,

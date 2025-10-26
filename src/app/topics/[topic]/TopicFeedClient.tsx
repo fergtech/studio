@@ -5,33 +5,74 @@ import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { GeneralPostCard } from '@/components/GeneralPostCard';
-import { HotTakeBattleCard } from '@/components/HotTakeBattleCard';
-import { TrendingBattlesWidget } from '@/components/TrendingBattlesWidget';
-import { Hash, TrendingUp, Users, ArrowLeft, Filter } from 'lucide-react';
+import { MobileDebateCard } from '@/components/MobileDebateCard';
+import { MobileFeedCard } from '@/components/MobileFeedCard';
+import { PostStatsProvider } from '@/context/PostStatsContext';
+import { Hash, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
-import AppSidebar, { getDefaultCollapsedState } from '@/components/AppSidebar';
 import { useModal } from '@/context/ModalContext';
 
 interface TopicFeedClientProps {
   topic: string;
 }
 
+interface DebateStats {
+  proVotes: number;
+  conVotes: number;
+  totalVotes: number;
+  proPercentage: number;
+  conPercentage: number;
+  argumentCount: number;
+}
+
+interface TopicDebate {
+  id: string;
+  title: string;
+  content: string;
+  imageUrl?: string;
+  creatorId: string;
+  topics: string[];
+  createdAt: string;
+  creator: {
+    id: string;
+    name: string;
+    image?: string;
+    username?: string;
+  };
+  stats: DebateStats;
+}
+
 interface TopicPost {
   id: string;
-  creatorId: string;
-  creatorName: string;
-  creatorAvatar?: string;
   content: string;
-  topics: string[];
-  timestamp: Date;
   background?: string;
-  media?: any[];
+  creatorId: string;
+  topics: string[];
+  timestamp: string;
+  creator: {
+    id: string;
+    name: string;
+    image?: string;
+    username?: string;
+  };
+  media: Array<{
+    id: string;
+    url: string;
+    type: string;
+  }>;
+  stats: {
+    likes: number;
+    comments: number;
+    shares: number;
+  };
+  type: 'post';
 }
 
 interface TopicStats {
+  totalDebates: number;
   totalPosts: number;
+  totalContent: number;
   activeBattles: number;
   topContributors: string[];
   relatedTopics: string[];
@@ -41,13 +82,10 @@ export function TopicFeedClient({ topic }: TopicFeedClientProps) {
   const { data: session } = useSession();
   const { toast } = useToast();
 
+  const [debates, setDebates] = useState<TopicDebate[]>([]);
   const [posts, setPosts] = useState<TopicPost[]>([]);
-  const [battles, setBattles] = useState([]);
   const [stats, setStats] = useState<TopicStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'posts' | 'battles'>('all');
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => getDefaultCollapsedState({ type: 'topic' }));
-  const { openCreateBattleResponseModal, openCreateTopicPostModal } = useModal();
 
   useEffect(() => {
     fetchTopicData();
@@ -70,19 +108,13 @@ export function TopicFeedClient({ topic }: TopicFeedClientProps) {
     try {
       setLoading(true);
 
-      // Fetch posts with this topic
-      const postsResponse = await fetch(`/api/topics/${encodeURIComponent(topic)}/posts`);
-      if (postsResponse.ok) {
-        const postsData = await postsResponse.json();
-        setPosts(postsData.posts || []);
-        setStats(postsData.stats || null);
-      }
-
-      // Fetch Hot Take Battles related to this topic
-      const battlesResponse = await fetch(`/api/hot-take-battles?topic=${encodeURIComponent(topic)}`);
-      if (battlesResponse.ok) {
-        const battlesData = await battlesResponse.json();
-        setBattles(battlesData.battles || []);
+      // Fetch debates and posts with this topic
+      const response = await fetch(`/api/topics/${encodeURIComponent(topic)}/posts`);
+      if (response.ok) {
+        const data = await response.json();
+        setDebates(data.debates || []);
+        setPosts(data.posts || []);
+        setStats(data.stats || null);
       }
     } catch (error) {
       console.error('Error fetching topic data:', error);
@@ -94,53 +126,6 @@ export function TopicFeedClient({ topic }: TopicFeedClientProps) {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleJoinBattle = async (battleId: string, stance: any) => {
-    try {
-      const response = await fetch(`/api/hot-take-battles/${battleId}/join`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stance }),
-      });
-
-      if (!response.ok) throw new Error('Failed to join battle');
-
-      toast({
-        title: "Joined the battle! 🔥",
-        description: "Your stance has been recorded",
-      });
-
-      // Refresh battles
-      fetchTopicData();
-    } catch (error) {
-      toast({
-        title: "Failed to join battle",
-        description: "Please try again later",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const handlePostDeleted = (postId: string) => {
-    setPosts(prev => prev.filter(p => p.id !== postId));
-  };
-
-  const filteredContent = () => {
-    if (filter === 'posts') {
-      return posts.map(p => ({ ...p, type: 'post', timestamp: new Date(p.timestamp) }));
-    }
-    if (filter === 'battles') {
-      return battles.map(b => ({ ...b, type: 'battle', timestamp: new Date(b.createdAt) }));
-    }
-
-    // Mix posts and battles by timestamp for 'all'
-    const mixed = [
-      ...posts.map(p => ({ ...p, type: 'post', timestamp: new Date(p.timestamp) })),
-      ...battles.map(b => ({ ...b, type: 'battle', timestamp: new Date(b.createdAt) }))
-    ].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-
-    return mixed;
   };
 
   if (loading) {
@@ -161,179 +146,129 @@ export function TopicFeedClient({ topic }: TopicFeedClientProps) {
     );
   }
 
-  const content = filteredContent();
-
   return (
-    <div className="w-full min-w-0 overflow-hidden">
-      {/* Sidebar */}
-      <AppSidebar
-        widgets={['userControls', 'navigation', 'suggestions', 'location', 'resources', 'footer']}
-        context={{ type: 'topic', topic }}
-        onCollapseChange={setSidebarCollapsed}
-      />
-      {/* Main Content - with dynamic left margin based on sidebar state */}
-      <div className={`min-h-screen bg-background transition-all duration-300 ${
-        sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'
-      }`}>
-        <div className="container mx-auto px-4 py-6">
-        {/* Header */}
-        <div className="mb-6">
-          <div className="flex items-center gap-4 mb-4">
-            <Link href="/">
-              <Button variant="ghost" size="sm">
-                <ArrowLeft className="h-4 w-4 mr-1" />
-                Back
-              </Button>
-            </Link>
-            <div className="flex items-center gap-2">
-              <Hash className="h-6 w-6 text-primary" />
-              <h1 className="text-3xl font-bold">{topic}</h1>
-            </div>
-          </div>
-
-          {/* Topic Stats */}
-          {stats && (
-            <Card className="mb-6">
-              <CardContent className="p-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-primary">{stats.totalPosts}</div>
-                    <div className="text-sm text-muted-foreground">Posts</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-orange-500">{stats.activeBattles}</div>
-                    <div className="text-sm text-muted-foreground">Active Battles</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-green-500">{stats.topContributors.length}</div>
-                    <div className="text-sm text-muted-foreground">Contributors</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-blue-500">{stats.relatedTopics.length}</div>
-                    <div className="text-sm text-muted-foreground">Related Topics</div>
-                  </div>
-                </div>
-
-                {/* Related Topics */}
-                {stats.relatedTopics.length > 0 && (
-                  <div className="mt-4 pt-4 border-t">
-                    <p className="text-sm font-medium text-muted-foreground mb-2">Related Topics:</p>
-                    <div className="flex flex-wrap gap-1">
-                      {stats.relatedTopics.slice(0, 5).map(relatedTopic => (
-                        <Link key={relatedTopic} href={`/topics/${encodeURIComponent(relatedTopic)}`}>
-                          <Badge variant="secondary" className="hover:bg-primary hover:text-primary-foreground cursor-pointer">
-                            #{relatedTopic}
-                          </Badge>
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Filter Tabs */}
-          <div className="flex items-center gap-2 mb-4">
-            <Filter className="h-4 w-4 text-muted-foreground" />
-            <Button
-              variant={filter === 'all' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setFilter('all')}
-            >
-              All ({posts.length + battles.length})
+    <PostStatsProvider>
+      <div className="w-full min-w-0 overflow-hidden">
+        <div className="px-4 lg:px-6 pt-20 lg:pt-6 pb-24">
+        <div className="flex items-center mb-4">
+          <Link href="/">
+            <Button variant="ghost" size="sm">
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Back
             </Button>
-            <Button
-              variant={filter === 'posts' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setFilter('posts')}
-            >
-              Posts ({posts.length})
-            </Button>
-            <Button
-              variant={filter === 'battles' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setFilter('battles')}
-            >
-              🔥 Battles ({battles.length})
-            </Button>
+          </Link>
+          <div className="flex items-center gap-2">
+            <Hash className="h-6 w-6 text-primary" />
+            <h1 className="text-3xl font-bold">{topic}</h1>
           </div>
         </div>
 
-        {/* Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Main Content */}
-          <div className="lg:col-span-3 space-y-4">
-            {content.length === 0 ? (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <Hash className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No content yet for #{topic}</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Be the first to start a discussion about this topic!
-                  </p>
-                  <Button onClick={() => openCreateTopicPostModal(topic)}>
-                    Create a Post
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : (
-              content.map((item: any) => (
-                <div key={`${item.type}-${item.id}`}>
-                  {item.type === 'post' ? (
-                    <div className="w-full max-w-[500px]">
-                      <GeneralPostCard
-                        post={item}
-                        currentUserId={session?.user?.id}
-                        onPostDeleted={handlePostDeleted}
-                      />
-                    </div>
-                  ) : (
-                    <div className="w-full max-w-[500px]">
-                      <HotTakeBattleCard
-                        battle={item}
-                        onJoinBattle={handleJoinBattle}
-                        onCreateTake={(battleId: string) => {
-                          openCreateBattleResponseModal(battleId, item.title);
-                        }}
-                        variant="feed"
-                      />
-                    </div>
-                  )}
+        {/* Topic Stats */}
+        {stats && (
+          <Card className="mb-6">
+            <CardContent className="p-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-purple-600">{stats.totalContent}</div>
+                  <div className="text-sm text-muted-foreground">Total Posts</div>
                 </div>
-              ))
-            )}
-          </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-500">{stats.totalDebates}</div>
+                  <div className="text-sm text-muted-foreground">Debates</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-500">{stats.totalPosts}</div>
+                  <div className="text-sm text-muted-foreground">Posts</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-orange-500">{stats.topContributors.length}</div>
+                  <div className="text-sm text-muted-foreground">Contributors</div>
+                </div>
+              </div>
 
-          {/* Sidebar */}
-          <div className="space-y-4">
-            <TrendingBattlesWidget limit={3} showHeader={true} />
+              {/* Related Topics */}
+              {stats.relatedTopics.length > 0 && (
+                <div className="mt-4 pt-4 border-t">
+                  <p className="text-sm font-medium text-muted-foreground mb-2">Related Topics:</p>
+                  <div className="flex flex-wrap gap-1">
+                    {stats.relatedTopics.slice(0, 5).map(relatedTopic => (
+                      <Link key={relatedTopic} href={`/topics/${encodeURIComponent(relatedTopic)}`}>
+                        <Badge variant="secondary" className="hover:bg-primary hover:text-primary-foreground cursor-pointer">
+                          #{relatedTopic}
+                        </Badge>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
-            {/* Topic Engagement CTA */}
+        {/* Content Feed - Debates and Posts */}
+        <div className="space-y-6 max-w-2xl mx-auto">
+          {debates.length === 0 && posts.length === 0 ? (
             <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  Join the Discussion
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-3">
-                  Share your thoughts on #{topic} and engage with the community.
+              <CardContent className="p-8 text-center">
+                <Hash className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No content yet for #{topic}</h3>
+                <p className="text-muted-foreground mb-4">
+                  Be the first to create a post or start a debate about this topic!
                 </p>
-                <Button
-                  size="sm"
-                  className="w-full"
-                  onClick={() => openCreateTopicPostModal(topic)}
-                >
-                  Create Post
-                </Button>
               </CardContent>
             </Card>
-          </div>
+          ) : (
+            <>
+              {/* Combine and sort all content chronologically */}
+              {[
+                ...debates.map(d => ({ ...d, type: 'debate' as const, sortDate: new Date(d.createdAt) })),
+                ...posts.map(p => ({ ...p, type: 'post' as const, sortDate: new Date(p.timestamp) }))
+              ]
+                .sort((a, b) => b.sortDate.getTime() - a.sortDate.getTime())
+                .map((item) => {
+                  if (item.type === 'debate') {
+                    return (
+                      <MobileDebateCard
+                        key={`debate-${item.id}`}
+                        id={item.id}
+                        title={item.title}
+                        content={item.content}
+                        imageUrl={item.imageUrl}
+                        createdAt={item.createdAt}
+                        creator={item.creator}
+                        stats={item.stats}
+                        currentUserId={session?.user?.id}
+                      />
+                    );
+                  } else {
+                    // General post
+                    return (
+                      <MobileFeedCard
+                        key={`post-${item.id}`}
+                        post={{
+                          id: item.id,
+                          creatorId: item.creatorId,
+                          creatorName: item.creator.name,
+                          creatorAvatar: item.creator.image,
+                          content: item.content,
+                          background: item.background,
+                          timestamp: new Date(item.timestamp),
+                          topics: item.topics,
+                          media: item.media,
+                          likesCount: item.stats.likes,
+                          commentsCount: item.stats.comments,
+                          sharesCount: item.stats.shares
+                        }}
+                        currentUserId={session?.user?.id}
+                      />
+                    );
+                  }
+                })}
+            </>
+          )}
         </div>
         </div>
       </div>
-    </div>
+    </PostStatsProvider>
   );
 }

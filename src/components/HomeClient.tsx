@@ -1,11 +1,15 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react'; // Import React hooks
+import React, { useState, useEffect, useCallback, useRef } from 'react'; // Import React hooks
+import ResourcesWidget from '@/components/ResourcesWidget';
 import { useRouter } from 'next/navigation';
 import { InitiativeCard } from "@/components/InitiativeCard";
 import { CompactInitiativeCard } from "@/components/CompactInitiativeCard";
 import { GeneralPostCard } from "@/components/GeneralPostCard";
 import { CompactPostCard } from "@/components/CompactPostCard";
+import { MobileFeedCard } from "@/components/MobileFeedCard";
+import { MobileFeedCardWrapper } from "@/components/MobileFeedCardWrapper";
+import { MobileDebateCard } from "@/components/MobileDebateCard";
 import { MetaActionCard } from "@/components/MetaActionCard";
 import { CollapsiblePostComposer } from "@/components/CollapsiblePostComposer";
 import type { Initiative as PrismaInitiative, GeneralPost as PrismaGeneralPost, User as PrismaUser, MediaItem as PrismaMediaItem, Issue as PrismaIssue, Idea as PrismaIdea } from '@prisma/client';
@@ -23,14 +27,13 @@ import { IssueCard } from "@/components/IssueCard";
 import { CompactIdeaCard } from "@/components/CompactIdeaCard";
 import { CompactIssueCard } from "@/components/CompactIssueCard";
 import ActivityFeed from "@/components/ActivityFeed";
-import AppSidebar, { getDefaultCollapsedState } from "@/components/AppSidebar";
 import { useToast } from "@/hooks/use-toast";
 import { useWindowScrollPosition } from "@/hooks/useScrollPosition";
 import { restoreScrollPosition } from "@/utils/navigation";
 // import { io, Socket } from 'socket.io-client'; // Temporarily disabled for Vercel deployment
 import { MainFeedSocietyPostCard } from './MainFeedSocietyPostCard';
 import { CompactSocietyPostCard } from './CompactSocietyPostCard';
-import { CompactSocietyCard } from './CompactSocietyCard';
+import { SocietyCard } from './SocietyCard';
 import { DebateTopicCard } from './DebateTopicCard';
 import { TrendingTopicsWidget } from './TrendingTopicsWidget';
 import { HotTakeBattleCard } from './HotTakeBattleCard';
@@ -40,19 +43,23 @@ import { useModal } from '@/context/ModalContext';
 import { NewsColumn } from './NewsColumn';
 import LocationBasedWidget from './LocationBasedWidget';
 import SmartSuggestionsWidget from './SmartSuggestionsWidget';
-
-// Temporary mock user avatars for fallback
-const mockUserAvatars: Record<string, string | undefined> = {
-  "user1": "https://i.pravatar.cc/40?u=user1",
-  "user3": "https://i.pravatar.cc/40?u=user3",
-  "user5": "https://i.pravatar.cc/40?u=user5",
-  "user7": "https://i.pravatar.cc/40?u=user7",
-};
+import { TikTokHomeFeed } from './TikTokHomeFeed';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { TikTokPostDetail } from './TikTokPostDetail';
+import { TikTokIssueDetail } from './TikTokIssueDetail';
+import { TikTokIdeaDetail } from './TikTokIdeaDetail';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import { PullToRefreshIndicator } from './PullToRefresh';
 
 // Define extended types that include the relations we'll fetch
 type InitiativeWithCreator = PrismaInitiative & {
   creator: PrismaUser | null;
   society: { id: string; name: string; image: string | null } | null;
+  memberships?: any[];
+  updates?: any[];
+  chatMessages?: any[];
+  goals?: any[];
+  milestones?: any[];
 };
 type GeneralPostWithCreatorAndMedia = PrismaGeneralPost & { creator: PrismaUser | null; media: PrismaMediaItem[] };
 type IssueWithCreator = PrismaIssue & { creator: PrismaUser | null; media: PrismaMediaItem[]; championCount: number };
@@ -97,7 +104,7 @@ interface UpdateWithUserAndInitiative {
     id: string;
     name: string | null;
     image: string | null;
-    username?: string | null; // Added for backward compatibility
+    username: string | null; // Match MetaActionCard type
   };
   initiative: {
     id: string;
@@ -112,13 +119,13 @@ interface UserFollowWithUsers {
     id: string;
     name: string | null;
     image: string | null;
-    username?: string | null; // Added for backward compatibility
+    username: string | null; // Match MetaActionCard type
   };
   following: {
     id: string;
     name: string | null;
     image: string | null;
-    username?: string | null; // Added for backward compatibility
+    username: string | null; // Match MetaActionCard type
   };
 }
 
@@ -131,7 +138,7 @@ interface InitiativeMembershipWithUserAndInitiative {
     id: string;
     name: string | null;
     image: string | null;
-    username?: string | null; // Added for backward compatibility
+    username: string | null; // Match MetaActionCard type
   };
   initiative: {
     id: string;
@@ -246,7 +253,7 @@ function isInitiative(item: FeedItemDb): item is InitiativeWithCreator {
 
 // New helper to identify items that are either Issue or Idea
 function isTaggedContent(item: FeedItemDb): item is IssueWithCreator | IdeaWithCreator {
-    return 'tags' in item && !('content' in item) && !('status' in item);
+  return 'tags' in item && !('content' in item) && !('status' in item);
 }
 
 // Helper function to check if an item is a Debate
@@ -317,31 +324,36 @@ interface HomeClientProps {
 }
 
 
-type FeedFilterType = 'all' | 'initiatives' | 'societies' | 'generalPosts' | 'ideas' | 'issues' | 'community';
+type FeedFilterType = 'all' | 'initiatives' | 'societies' | 'generalPosts' | 'debates' | 'ideas' | 'issues' | 'community';
 
 export function HomeClient({ currentUserId, username }: HomeClientProps) {
   const router = useRouter();
   const [allFeedItems, setAllFeedItems] = useState<UnifiedFeedItem[]>([]);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => getDefaultCollapsedState({ type: 'home' }));
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [feedFilter, setFeedFilter] = useState<FeedFilterType>(() => {
-    // Restore filter state if returning from a post
-    if (typeof window !== 'undefined') {
-      const savedFilter = sessionStorage.getItem('feedFilter');
-      if (savedFilter && ['all', 'initiatives', 'societies', 'generalPosts', 'ideas', 'issues', 'community'].includes(savedFilter)) {
-        return savedFilter as FeedFilterType;
-      }
-    }
-    return 'all';
-  });
+  const [feedFilter, setFeedFilter] = useState<FeedFilterType>('debates');
   const [filterSwitching, setFilterSwitching] = useState(false);
   const { toast } = useToast();
   const { openCreateBattleResponseModal, openCreateSocietyModal, openCreateInitiativeModal, openCreateDebateTopicModal } = useModal();
   const [showMoreNews, setShowMoreNews] = useState(false);
+
+  // TikTok Post Detail Modal State
+  const [selectedPost, setSelectedPost] = useState<any>(null);
+  const [isTikTokDetailOpen, setIsTikTokDetailOpen] = useState(false);
+
+  // TikTok Issue Detail Modal State
+  const [selectedIssue, setSelectedIssue] = useState<any>(null);
+  const [isTikTokIssueDetailOpen, setIsTikTokIssueDetailOpen] = useState(false);
+
+  // Infinite scroll ref
+  const infiniteScrollRef = useRef<HTMLDivElement | null>(null);
+
+  // TikTok Idea Detail Modal State
+  const [selectedIdea, setSelectedIdea] = useState<any>(null);
+  const [isTikTokIdeaDetailOpen, setIsTikTokIdeaDetailOpen] = useState(false);
 
 
   // Deduplicate feed items by ID (keep first occurrence)
@@ -355,26 +367,8 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
 
   // Filter feed items based on selected filter - Instant client-side filtering
   const filteredFeedItems = deduplicatedFeedItems.filter((item) => {
-    switch (feedFilter) {
-      case 'initiatives':
-        return item.type === 'initiative' || (isMetaAction(item) && (item.type === 'update' || item.type === 'initiativeJoin'));
-      case 'societies':
-        return item.type === 'societyPost' || item.type === 'societyCreate';
-      case 'generalPosts':
-        return item.type === 'generalPost' || item.type === 'debate' || item.type === 'hotTakeBattle';
-      case 'ideas':
-        return item.type === 'idea';
-      case 'issues':
-        return item.type === 'issue';
-      case 'community':
-        // Show all social/community activities: follows, joins, updates, and creations
-        return (isMetaAction(item) && (item.type === 'follow' || item.type === 'initiativeJoin' || item.type === 'update'))
-          || item.type === 'societyCreate'
-          || item.type === 'initiative';
-      case 'all':
-      default:
-        return true;
-    }
+    // Show all content types in mixed feed
+    return true;
   });
 
   // Add this handler in HomeClient
@@ -382,7 +376,158 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
     setAllFeedItems(prev => prev.filter(item => !(isContentItem(item) && isGeneralPost(item.data as any) && item.data.id === postId)));
   };
 
-  // Handle tab switching with smooth UX
+  // Handle opening posts in TikTok-style detail modal
+  const handlePostClick = (post: any) => {
+    // Extract media URL from the media array
+    const mediaUrl = post.media && post.media.length > 0 ? post.media[0].url :
+                    (post.mediaUrl && typeof post.mediaUrl === 'string') ? post.mediaUrl :
+                    undefined;
+
+    // Extract media type from the media array
+    const mediaType = post.media && post.media.length > 0 ? post.media[0].type :
+                     post.mediaType;
+
+    // Transform GeneralPost to TikTokPost format
+    const transformedPost = {
+      id: post.id,
+      content: post.content,
+      title: post.title,
+      type: post.type || 'general' as const,
+      mediaUrl: mediaUrl,
+      mediaType: mediaType,
+      userId: post.creatorId,
+      user: {
+        id: post.creatorId,
+        name: post.creatorName || 'Anonymous',
+        username: post.creatorName?.toLowerCase().replace(/\s+/g, '') || 'anonymous',
+        image: post.creatorAvatar
+      },
+      createdAt: post.timestamp || post.createdAt || new Date().toISOString(),
+      likes: post.likes || post._count?.likes || 0,
+      shares: post.shares || post._count?.shares || 0,
+      comments: post.comments || [],
+      isLiked: post.isLiked || false,
+      isShared: post.isShared || false,
+      // Pass society/initiative information
+      linkedInitiativeId: post.linkedInitiativeId,
+      society: post.society ? {
+        id: post.society.id || post.societyId,
+        name: post.society.name
+      } : null,
+      initiative: post.linkedInitiativeId && post.initiative ? {
+        id: post.initiative.id || post.linkedInitiativeId,
+        name: post.initiative.name
+      } : null
+    };
+
+    setSelectedPost(transformedPost);
+    setIsTikTokDetailOpen(true);
+  };
+
+  // Handle opening issues in TikTok-style detail modal
+  const handleIssueClick = (issue: any) => {
+    // Extract media URL from the media array
+    const mediaUrl = issue.media && issue.media.length > 0 ? issue.media[0].url : undefined;
+    const mediaType = issue.media && issue.media.length > 0 ? issue.media[0].type : undefined;
+
+    // Transform Issue to TikTokIssue format
+    const transformedIssue = {
+      id: issue.id,
+      title: issue.title,
+      description: issue.description,
+      location: issue.location,
+      tags: issue.tags || [],
+      mediaUrl: mediaUrl,
+      mediaType: mediaType,
+      userId: issue.creatorId,
+      user: {
+        id: issue.creatorId,
+        name: issue.creator?.name || 'Anonymous',
+        username: issue.creator?.name?.toLowerCase().replace(/\s+/g, '') || 'anonymous',
+        image: issue.creator?.image
+      },
+      createdAt: issue.createdAt || new Date().toISOString(),
+      interests: 0, // Will be loaded from API
+      shares: 0, // Will be loaded from API
+      comments: [], // Will be loaded from API
+      championCount: issue.championCount || 0,
+      isInterested: false,
+      isShared: false,
+      championedBy: issue.championedBy,
+      championedByInitiativeId: issue.championedByInitiativeId
+    };
+
+    setSelectedIssue(transformedIssue);
+    setIsTikTokIssueDetailOpen(true);
+  };
+
+  // Handle opening ideas in TikTok-style detail modal
+  const handleIdeaClick = (idea: any) => {
+    // Extract media URL from the media array
+    const mediaUrl = idea.media && idea.media.length > 0 ? idea.media[0].url : undefined;
+    const mediaType = idea.media && idea.media.length > 0 ? idea.media[0].type : undefined;
+
+    // Transform Idea to TikTokIdea format (similar to Issue)
+    const transformedIdea = {
+      id: idea.id,
+      title: idea.title,
+      description: idea.description,
+      location: idea.location,
+      tags: idea.tags || [],
+      mediaUrl: mediaUrl,
+      mediaType: mediaType,
+      userId: idea.creatorId,
+      user: {
+        id: idea.creatorId,
+        name: idea.creator?.name || 'Anonymous',
+        username: idea.creator?.name?.toLowerCase().replace(/\s+/g, '') || 'anonymous',
+        image: idea.creator?.image
+      },
+      createdAt: idea.createdAt || new Date().toISOString(),
+      likes: 0, // Will be loaded from API
+      shares: 0, // Will be loaded from API
+      comments: [], // Will be loaded from API
+      championCount: idea.championCount || 0,
+      isLiked: false,
+      isShared: false,
+      championedBy: idea.championedBy,
+      championedByInitiativeId: idea.championedByInitiativeId
+    };
+
+    setSelectedIdea(transformedIdea);
+    setIsTikTokIdeaDetailOpen(true);
+  };
+
+  // Pull-to-refresh handler
+  const handleRefresh = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/feed?unified=true&limit=20&type=content`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch feed items: ${response.statusText}`);
+      }
+      const data = await response.json();
+
+      // Handle both new paginated format and legacy format
+      if (data.items && data.pagination) {
+        setAllFeedItems(data.items);
+        setNextCursor(data.pagination.nextCursor);
+        setHasMore(data.pagination.hasMore);
+      } else {
+        setAllFeedItems(Array.isArray(data) ? data : []);
+        setHasMore(false);
+      }
+    } catch (err: any) {
+      console.error('Error refreshing feed:', err);
+    }
+  }, []);
+
+  // Pull-to-refresh hook (only on mobile)
+  const isMobile = useIsMobile();
+  const { isPulling, isRefreshing, pullDistance, progress } = usePullToRefresh({
+    onRefresh: handleRefresh,
+    threshold: 80,
+  });
+
   const handleTabSwitch = (newFilter: typeof feedFilter) => {
     if (newFilter === feedFilter) return;
 
@@ -463,6 +608,7 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
   useEffect(() => {
     const handleFeedItemCreated = (event: CustomEvent) => {
       const item = event.detail;
+      console.log('[HomeClient] feed:itemCreated event received:', item);
 
       // Infer type based on item shape - improve the logic to correctly distinguish all content types
       let type: FeedItemType | undefined;
@@ -588,9 +734,46 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
     // Scroll position saved for future enhancement
   };
 
+  // Infinite scroll observer - auto-load more when sentinel is visible
+  useEffect(() => {
+    if (!hasMore || loadingMore || filterSwitching) return;
 
-  const handlePostCreated = async () => {
-    // Use Next.js router.refresh() for modern, smooth updates
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          loadMorePosts();
+        }
+      },
+      { root: null, rootMargin: '200px', threshold: 0.1 }
+    );
+
+    const target = infiniteScrollRef.current;
+    if (target) observer.observe(target);
+
+    return () => {
+      if (target) observer.unobserve(target);
+    };
+  }, [hasMore, loadingMore, filterSwitching, loadMorePosts]);
+
+  const handlePostCreated = async (post?: any) => {
+    console.log('[HomeClient] handlePostCreated called with post:', post);
+
+    // Dispatch custom event to immediately add post to feed
+    if (post) {
+      // Ensure userId is set (post already has creator info from server)
+      const enrichedPost = {
+        ...post,
+        creatorId: post.creatorId || currentUserId,
+        authorId: post.authorId || currentUserId,
+      };
+
+      console.log('[HomeClient] Dispatching feed:itemCreated event with enriched post:', enrichedPost.id);
+      window.dispatchEvent(new CustomEvent('feed:itemCreated', { detail: enrichedPost }));
+    } else {
+      console.warn('[HomeClient] No post data received, only refreshing router');
+    }
+
+    // Also refresh server data for widgets and counts
     router.refresh();
   };
 
@@ -603,18 +786,21 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
   }
 
   return (
-    <div className="w-full min-w-0 overflow-hidden">
-      {/* Sidebar */}
-      <AppSidebar
-        widgets={['userControls', 'navigation', 'resources', 'footer']}
-        context={{ type: 'home' }}
-        onCollapseChange={setSidebarCollapsed}
-      />
+      <div className="w-full min-w-0 overflow-hidden relative">
+        {/* ResourcesWidget: only visible on desktop, fixed to right */}
+        <ResourcesWidget />
+      {/* Pull-to-refresh indicator (mobile only) */}
+      {isMobile && (
+        <PullToRefreshIndicator
+          isPulling={isPulling}
+          isRefreshing={isRefreshing}
+          pullDistance={pullDistance}
+          progress={progress}
+        />
+      )}
 
-      {/* Main Content Area - with dynamic left margin based on sidebar state and top padding for mobile sidebar toggle */}
-      <div className={`min-w-0 transition-all duration-300 pt-20 lg:pt-6 ${
-        sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'
-      }`}>
+      {/* Main Content Area - with top padding for mobile navigation */}
+      <div className={`min-w-0 transition-all duration-300 pt-20 lg:pt-6 lg:ml-0`}>
         {/* Trending Topics Widget - Full width */}
         <div className="w-full px-2 sm:px-4 lg:px-6 mb-6">
           <div className="max-w-7xl mx-auto">
@@ -626,7 +812,7 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
         <div className="flex w-full justify-center">
           {/* Main Feed - Centered */}
           <div className="flex-shrink-0 w-full max-w-3xl px-4 pb-24">
-            <div className="flex flex-col space-y-6">
+            <div className="flex flex-col space-y-8">
               {/* Hero Section - Within feed column - HIDDEN */}
               <div className="w-full mb-2 hidden">
                 <div className="relative isolate overflow-hidden rounded-3xl px-6 py-12 sm:py-16 text-center shadow-2xl">
@@ -652,8 +838,8 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
                   </div>
                 </div>
               </div>
-          {/* Feed Filter Controls - Horizontal Scrollable Tabs */}
-          <div className="w-full">
+          {/* Feed Filter Controls - Centered Tabs - HIDDEN */}
+          <div className="w-full flex justify-center hidden">
             <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent hover:scrollbar-thumb-primary/50">
               <Filter className="h-4 w-4 text-muted-foreground flex-shrink-0" />
               <button
@@ -670,25 +856,23 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
               <button
                 onClick={() => handleTabSwitch('initiatives')}
                 disabled={filterSwitching}
-                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 flex items-center gap-2 flex-shrink-0 ${
+                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 flex-shrink-0 ${
                   feedFilter === 'initiatives'
                     ? 'bg-blue-500/10 text-blue-600 border border-blue-500/20 shadow-sm'
                     : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-border/50'
                 }`}
               >
-                <Target className="h-3.5 w-3.5" />
                 Initiatives
               </button>
               <button
                 onClick={() => handleTabSwitch('societies')}
                 disabled={filterSwitching}
-                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 flex items-center gap-2 flex-shrink-0 ${
+                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 flex-shrink-0 ${
                   feedFilter === 'societies'
                     ? 'bg-purple-500/10 text-purple-600 border border-purple-500/20 shadow-sm'
                     : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-border/50'
                 }`}
               >
-                <Users className="h-3.5 w-3.5" />
                 Societies
               </button>
               <button
@@ -701,6 +885,17 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
                 }`}
               >
                 Posts
+              </button>
+              <button
+                onClick={() => handleTabSwitch('debates')}
+                disabled={filterSwitching}
+                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 flex-shrink-0 ${
+                  feedFilter === 'debates'
+                    ? 'bg-purple-500/10 text-purple-600 border border-purple-500/20 shadow-sm'
+                    : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-border/50'
+                }`}
+              >
+                Debates
               </button>
               <button
                 onClick={() => handleTabSwitch('ideas')}
@@ -727,9 +922,9 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
               <button
                 onClick={() => handleTabSwitch('community')}
                 disabled={filterSwitching}
-                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 flex-shrink-0 ${
+                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 flex-shrink-0 hidden ${
                   feedFilter === 'community'
-                    ? 'bg-purple-500/10 text-purple-600 border border-purple-500/20 shadow-sm'
+                    ? 'bg-cyan-500/10 text-cyan-600 border border-cyan-500/20 shadow-sm'
                     : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-border/50'
                 }`}
               >
@@ -738,98 +933,76 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
             </div>
           </div>
 
+          {/* Mobile-First Feed Container with Scroll Snap */}
+          <div className="w-full h-full overflow-y-auto snap-y snap-mandatory scroll-smooth flex flex-col items-center space-y-6">
           {filteredFeedItems.map((item, index) => {
             // Generate a safe key that works for all item types
             const itemKey = item.id || `item-${index}-${item.type || 'unknown'}`;
-
-            // Skip live news items - they're handled in the dedicated news column
-            if (isLiveNews(item)) {
-              return null;
-            }
-
-            // Handle meta actions
-            if (isMetaAction(item)) {
-              const metaAction = patchMetaActionUsernames(convertToMetaAction(item));
-              return (
-                <div key={`${item.type}-${itemKey}`} className="w-full">
-                  <MetaActionCard action={metaAction} currentUserId={currentUserId} />
-                </div>
-              );
-            }
 
             // Handle content items
             if (isContentItem(item)) {
               const contentData = item.data as FeedItemDb;
 
+              // SOCIETY POSTS - Transform to MobileFeedCard
               if (item.type === 'societyPost' && isSocietyPost(item.data)) {
-                return (
-                  <CompactSocietyPostCard key={`${item.type}-${itemKey}`} post={item.data as SocietyPostWithUserAndSociety} showTimeline={true} />
-                );
-              } else if (item.type === 'societyCreate') {
-                // Handle society creation events
-                const societyData = item.data as any; // Type from API: SocietyWithCreator
-                return (
-                  <CompactSocietyCard
-                    key={`${item.type}-${itemKey}`}
-                    society={societyData}
-                    showTimeline={true}
-                  />
-                );
-              } else if (item.type === 'hotTakeBattle') {
-                const battleItem = contentData as HotTakeBattleWithCreator;
+                const societyPostData = item.data as SocietyPostWithUserAndSociety;
+                const displayPost: GeneralPost = {
+                  id: societyPostData.id,
+                  creatorId: societyPostData.user.id,
+                  creatorName: societyPostData.user.name,
+                  creatorAvatar: societyPostData.user.image,
+                  content: societyPostData.content,
+                  timestamp: new Date(societyPostData.createdAt),
+                  media: societyPostData.imageUrl ? [{
+                    id: `${societyPostData.id}-media`,
+                    url: societyPostData.imageUrl,
+                    type: 'image' as const,
+                    issueId: null,
+                    ideaId: null
+                  }] : [],
+                  society: societyPostData.society,
+                };
                 return (
                   <div key={`${item.type}-${itemKey}`} className="w-full">
-                    <HotTakeBattleCard
-                      battle={battleItem}
-                      onJoinBattle={async (battleId: string, stance: any) => {
-                        try {
-                          const response = await fetch(`/api/hot-take-battles/${battleId}/join`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ stance }),
-                          });
-
-                          if (!response.ok) throw new Error('Failed to join battle');
-
-                          // Refresh the specific battle in feed
-                          const updatedResponse = await fetch(`/api/hot-take-battles/${battleId}`);
-                          if (updatedResponse.ok) {
-                            const updatedBattle = await updatedResponse.json();
-                            setAllFeedItems(prev => prev.map(feedItem =>
-                              feedItem.type === 'hotTakeBattle' && feedItem.data.id === battleId
-                                ? { ...feedItem, data: updatedBattle }
-                                : feedItem
-                            ));
-                          }
-                        } catch (error) {
-                          console.error('Error joining battle:', error);
-                        }
-                      }}
-                      onCreateTake={(battleId: string) => {
-                        openCreateBattleResponseModal(battleId, battleItem.title);
-                      }}
-                      variant="feed"
+                    <MobileFeedCard
+                      post={displayPost}
+                      currentUserId={currentUserId}
+                      onPostClick={handlePostClick}
+                      society={societyPostData.society}
                     />
                   </div>
                 );
-              } else if (contentData && isDebate(contentData)) {
-                const debateItem = contentData; // Type is DebateTopicWithCreatorAndStats
+              }
 
-                // Calculate stats for the debate
+              // SOCIETY CREATIONS - SocietyCard
+              else if (item.type === 'societyCreate') {
+                const societyData = item.data as any;
+                return (
+                  <div key={`${item.type}-${itemKey}`} className="w-full">
+                    <SocietyCard
+                      society={societyData}
+                      creatorName={societyData.creator?.name || 'Anonymous'}
+                      creatorAvatarUrl={societyData.creator?.image || undefined}
+                      currentUserId={currentUserId || undefined}
+                      className="mx-4 mb-4"
+                    />
+                  </div>
+                );
+              }
+
+              // DEBATES - MobileDebateCard
+              else if (contentData && isDebate(contentData)) {
+                const debateItem = contentData;
                 const proVotes = debateItem.votes.filter(v => v.side === 'PRO').length;
                 const conVotes = debateItem.votes.filter(v => v.side === 'CON').length;
                 const totalVotes = proVotes + conVotes;
-                const proPercentage = totalVotes > 0 ? Math.round((proVotes / totalVotes) * 100) : 0;
-                const conPercentage = totalVotes > 0 ? Math.round((conVotes / totalVotes) * 100) : 0;
-                const argumentCount = debateItem.arguments.length;
-
                 const stats = {
                   proVotes,
                   conVotes,
                   totalVotes,
-                  proPercentage,
-                  conPercentage,
-                  argumentCount,
+                  proPercentage: totalVotes > 0 ? Math.round((proVotes / totalVotes) * 100) : 0,
+                  conPercentage: totalVotes > 0 ? Math.round((conVotes / totalVotes) * 100) : 0,
+                  argumentCount: debateItem.arguments.length,
                 };
 
                 const creatorForDebate = debateItem.creator
@@ -837,18 +1010,16 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
                       id: debateItem.creator.id,
                       name: debateItem.creator.name || 'Anonymous',
                       image: debateItem.creator.image || undefined,
-                      username: undefined,
                     }
                   : {
                       id: debateItem.creatorId || 'anonymous-creator',
                       name: 'Anonymous',
                       image: undefined,
-                      username: undefined,
                     };
 
                 return (
                   <div key={`${item.type}-${itemKey}`} className="w-full">
-                    <DebateTopicCard
+                    <MobileDebateCard
                       id={debateItem.id}
                       title={debateItem.title}
                       content={debateItem.content}
@@ -856,19 +1027,21 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
                       creator={creatorForDebate}
                       createdAt={debateItem.createdAt}
                       stats={stats}
+                      currentUserId={currentUserId}
                     />
                   </div>
                 );
-              } else if (contentData && isGeneralPost(contentData)) {
-                const postCreatorName = contentData.creator?.name || 'Anonymous';
-                const postCreatorAvatar = contentData.creator?.image || mockUserAvatars[contentData.creatorId] || "https://i.pravatar.cc/40?u=anonymous";
+              }
+
+              // GENERAL POSTS - MobileFeedCard
+              else if (contentData && isGeneralPost(contentData)) {
                 const displayPost: GeneralPost = {
                   id: contentData.id,
                   creatorId: contentData.creatorId,
-                  creatorName: postCreatorName,
-                  creatorAvatar: postCreatorAvatar,
+                  creatorName: contentData.creator?.name || 'Anonymous',
+                  creatorAvatar: contentData.creator?.image || undefined,
                   content: contentData.content,
-                  topics: contentData.topics || [], // Add topics field
+                  topics: contentData.topics || [],
                   timestamp: contentData.timestamp,
                   background: contentData.background || undefined,
                   linkedInitiativeId: contentData.linkedInitiativeId || undefined,
@@ -876,25 +1049,26 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
                 };
                 return (
                   <div key={`${item.type}-${itemKey}`} className="w-full">
-                    <CompactPostCard post={displayPost} currentUserId={currentUserId} showTimeline={true} />
+                    <MobileFeedCard
+                      post={displayPost}
+                      currentUserId={currentUserId}
+                      onPostClick={handlePostClick}
+                    />
                   </div>
                 );
-              } else if (contentData && isInitiative(contentData)) {
+              }
+
+              // INITIATIVES - InitiativeCard (TikTok-style)
+              else if (contentData && isInitiative(contentData)) {
                 const initiativeItem = contentData;
-                const initiativeCreatorName = initiativeItem.creator?.name || 'Unknown Creator';
-                const initiativeCreatorAvatar = initiativeItem.creator?.image || mockUserAvatars[initiativeItem.creatorId] || "https://i.pravatar.cc/40?u=unknown";
-
-                const processedRoles: string[] = initiativeItem.roles || []; // roles is already string[] from PrismaInitiative
-
-                // Ensure creatorForCard is always UserForDisplay, providing a default if initiativeItem.creator is null
                 const creatorForCard: UserForDisplay = initiativeItem.creator
                   ? {
                       id: initiativeItem.creator.id,
-                      name: initiativeItem.creator.name, // PrismaUser.name is string | null, compatible
-                      image: initiativeItem.creator.image, // PrismaUser.image is string | null, compatible
+                      name: initiativeItem.creator.name,
+                      image: initiativeItem.creator.image,
                     }
                   : {
-                      id: initiativeItem.creatorId || 'unknown-creator', // Use creatorId if available, else a fallback
+                      id: initiativeItem.creatorId || 'unknown-creator',
                       name: 'Unknown Creator',
                       image: null,
                     };
@@ -906,166 +1080,92 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
                   imageUrl: initiativeItem.imageUrl,
                   status: initiativeItem.status as InitiativeStatus,
                   createdAt: initiativeItem.createdAt,
-                  updatedAt: initiativeItem.updatedAt, // Use updatedAt from initiativeItem
+                  updatedAt: initiativeItem.updatedAt,
                   creatorId: initiativeItem.creatorId,
-                  roles: processedRoles, // Now correctly typed as string[]
-                  creator: creatorForCard, // Now always a UserForDisplay object
-                  memberships: [],
-                  updates: [],
-                  chatMessages: [],
-                  goals: [],
-                  milestones: [],
+                  roles: initiativeItem.roles || [],
+                  creator: creatorForCard,
+                  memberships: initiativeItem.memberships || [],
+                  updates: initiativeItem.updates || [],
+                  chatMessages: initiativeItem.chatMessages || [],
+                  goals: initiativeItem.goals || [],
+                  milestones: initiativeItem.milestones || [],
                   societyId: initiativeItem.societyId || null,
                   society: initiativeItem.society || null,
                 };
 
                 return (
                   <div key={`${item.type}-${itemKey}`} className="w-full">
-                    <CompactInitiativeCard
+                    <InitiativeCard
                       initiative={initiativeForCard}
-                      creatorName={initiativeCreatorName}
-                      creatorAvatarUrl={initiativeCreatorAvatar}
+                      creatorName={initiativeItem.creator?.name || 'Unknown Creator'}
+                      creatorAvatarUrl={initiativeItem.creator?.image || undefined}
                       currentUserId={currentUserId}
-                      showTimeline={true}
+                      className="w-full h-[calc(100vh-8rem)] md:h-[600px] md:max-w-md md:mx-auto md:mb-6"
                     />
                   </div>
                 );
-              } else if (contentData && isTaggedContent(contentData)) {
-                const taggedItem = contentData; // Type is now IssueWithCreator | IdeaWithCreator
-                const taggedItemCreatorName = taggedItem.creator?.name || 'Anonymous';
-                const taggedItemCreatorAvatar = taggedItem.creator?.image || mockUserAvatars[taggedItem.creatorId] || "https://i.pravatar.cc/40?u=anonymous";
-                const timeAgo = taggedItem.createdAt ?
-                  formatDistanceToNow(
-                    typeof taggedItem.createdAt === 'string'
-                      ? parseISO(taggedItem.createdAt)
-                      : taggedItem.createdAt instanceof Date
-                        ? taggedItem.createdAt
-                        : new Date(taggedItem.createdAt as any),
-                  { addSuffix: true }
-                ) : '';
+              }
 
-                // Use the item.type to determine if it's an issue or idea
+              // IDEAS & ISSUES - Transform to MobileFeedCard
+              else if (contentData && isTaggedContent(contentData)) {
+                const taggedItem = contentData;
                 const isCurrentItemAnIssue = item.type === 'issue';
+                const creatorForDisplay: UserForDisplay = taggedItem.creator
+                  ? {
+                      id: taggedItem.creator.id,
+                      name: taggedItem.creator.name,
+                      image: taggedItem.creator.image,
+                    }
+                  : {
+                      id: taggedItem.creatorId || 'anonymous',
+                      name: 'Anonymous',
+                      image: null,
+                    };
 
-                const hasMedia = taggedItem.media && taggedItem.media.length > 0 && taggedItem.media[0].url; // Check for media
-                const mediaUrl = hasMedia ? taggedItem.media![0].url : undefined;
-
-                // Transform taggedItem to conform to the expected type for PostActions
-                const creatorForPostActions: UserForDisplay = taggedItem.creator
-                ? {
-                    id: taggedItem.creator.id,
-                    name: taggedItem.creator.name || 'Anonymous', // Handle null name
-                    image: taggedItem.creator.image,
-                  }
-                : {
-                    id: taggedItem.creatorId || 'anonymous-creator',
-                    name: 'Anonymous',
-                    image: null,
-                  };
-
-                const postForActions = {
-                  ...taggedItem,
-                  creator: creatorForPostActions,
-                  // Ensure all fields expected by Initiative | Issue | Idea are present
-                  // For Issue:
-                  ...(isCurrentItemAnIssue && {
-                    // Assuming 'location' and other Issue-specific fields are already in taggedItem
-                  }),
-                  // For Idea:
-                  ...(!isCurrentItemAnIssue && {
-                    // Assuming Idea-specific fields are already in taggedItem
-                  }),
-                  // Fields potentially missing or needing type adjustment for PostActions:
-                  // Add any other fields required by the union type Initiative | Issue | Idea
-                  // that might not be directly on taggedItem or need transformation.
-                  // For example, if PostActions expects a specific structure for 'tags' or other properties.
-                  // Based on the error, the primary issue is 'creator', which is addressed above.
+                const transformedData = {
+                  id: taggedItem.id,
+                  title: taggedItem.title,
+                  description: taggedItem.description,
+                  creatorId: taggedItem.creatorId,
+                  createdAt: taggedItem.createdAt,
+                  tags: taggedItem.tags || [],
+                  location: taggedItem.location,
+                  media: taggedItem.media || [],
+                  championCount: taggedItem.championCount || 0,
+                  championedBy: null,
+                  championedByInitiativeId: taggedItem.championedByInitiativeId,
+                  creator: creatorForDisplay,
                 };
 
+                const displayPost: GeneralPost = {
+                  id: transformedData.id,
+                  creatorId: transformedData.creatorId,
+                  creatorName: transformedData.creator.name || 'Anonymous',
+                  creatorAvatar: transformedData.creator.image || undefined,
+                  content: `${transformedData.title}\n\n${transformedData.description}`,
+                  topics: transformedData.tags,
+                  timestamp: transformedData.createdAt,
+                  media: transformedData.media,
+                };
 
-                // Transform the data to match the expected types for the card components
-                if (isCurrentItemAnIssue) {
-                  const creatorForDisplay: UserForDisplay = taggedItem.creator
-                    ? {
-                        id: taggedItem.creator.id,
-                        name: taggedItem.creator.name,
-                        image: taggedItem.creator.image,
-                      }
-                    : {
-                        id: taggedItem.creatorId || 'anonymous',
-                        name: 'Anonymous',
-                        image: null,
-                      };
-
-                  const issueData = {
-                    id: taggedItem.id,
-                    title: taggedItem.title,
-                    description: taggedItem.description,
-                    creatorId: taggedItem.creatorId,
-                    createdAt: taggedItem.createdAt,
-                    tags: taggedItem.tags || [],
-                    location: taggedItem.location,
-                    media: taggedItem.media || [],
-                    championCount: taggedItem.championCount || 0,
-                    championedBy: null, // Will be populated if needed
-                    championedByInitiativeId: taggedItem.championedByInitiativeId,
-                    creator: creatorForDisplay,
-                  };
-
-                  return (
-                    <div key={`issue-${itemKey}`} className="w-full">
-                      <CompactIssueCard
-                        issue={issueData}
-                        currentUserId={currentUserId}
-                        showTimeline={true}
-                      />
-                    </div>
-                  );
-                } else {
-                  const creatorForDisplay: UserForDisplay = taggedItem.creator
-                    ? {
-                        id: taggedItem.creator.id,
-                        name: taggedItem.creator.name,
-                        image: taggedItem.creator.image,
-                      }
-                    : {
-                        id: taggedItem.creatorId || 'anonymous',
-                        name: 'Anonymous',
-                        image: null,
-                      };
-
-                  const ideaData = {
-                    id: taggedItem.id,
-                    title: taggedItem.title,
-                    description: taggedItem.description,
-                    creatorId: taggedItem.creatorId,
-                    createdAt: taggedItem.createdAt,
-                    tags: taggedItem.tags || [],
-                    location: taggedItem.location,
-                    media: taggedItem.media || [],
-                    championCount: taggedItem.championCount || 0,
-                    championedBy: null, // Will be populated if needed
-                    championedByInitiativeId: taggedItem.championedByInitiativeId,
-                    creator: creatorForDisplay,
-                  };
-
-                  return (
-                    <div key={`idea-${itemKey}`} className="w-full">
-                      <CompactIdeaCard
-                        idea={ideaData}
-                        currentUserId={currentUserId}
-                        showTimeline={true}
-                      />
-                    </div>
-                  );
-                }
+                return (
+                  <div key={`${item.type}-${itemKey}`} className="w-full">
+                    <MobileFeedCard
+                      post={displayPost}
+                      currentUserId={currentUserId}
+                      onPostClick={() => isCurrentItemAnIssue ? handleIssueClick(transformedData) : handleIdeaClick(transformedData)}
+                    />
+                  </div>
+                );
               }
             }
 
-            // Fallback for any other unexpected item types
-            console.warn("Unknown feed item type:", item);
+            // Fallback for unknown types
             return null;
           })}
+          </div>
+          {/* End Mobile-First Scroll Snap Container */}
+
           {/* Show loading state for filter switching */}
           {filterSwitching && (
             <div className="flex justify-center items-center py-4">
@@ -1081,6 +1181,7 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
                 {feedFilter === 'initiatives' && "No initiatives found. Create your first initiative!"}
                 {feedFilter === 'societies' && "No society activity found. Create your first society!"}
                 {feedFilter === 'generalPosts' && "No posts found. Share something with the community!"}
+                {feedFilter === 'debates' && "No debates found. Start the first debate!"}
                 {feedFilter === 'ideas' && "No ideas found. Submit your first idea!"}
                 {feedFilter === 'issues' && "No issues found. Report your first issue!"}
                 {feedFilter === 'community' && "No community activity yet."}
@@ -1098,56 +1199,93 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
             </div>
           )}
 
-          {/* Load More Button */}
+          {/* Infinite Scroll Sentinel */}
           {hasMore && allFeedItems.length > 0 && !filterSwitching && (
-            <div className="flex justify-center py-8 w-full">
-              <Button
-                onClick={loadMorePosts}
-                disabled={loadingMore}
-                variant="outline"
-                className="min-w-32"
-              >
-                {loadingMore ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    Loading...
-                  </>
-                ) : (
-                  'Load More Posts'
-                )}
-              </Button>
+            <div ref={infiniteScrollRef} className="flex flex-col items-center justify-center py-8 w-full gap-3">
+              {loadingMore ? (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span className="text-sm">Loading more...</span>
+                </div>
+              ) : (
+                <>
+                  <span className="text-sm text-muted-foreground">Scroll to load more</span>
+                  {/* Fallback manual button */}
+                  <Button
+                    onClick={loadMorePosts}
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    Or click to load
+                  </Button>
+                </>
+              )}
             </div>
           )}
-            </div>
+          </div>
           </div>
 
-          {/* Right Sidebar - Local Content & Smart Suggestions */}
-          <aside className="hidden xl:block flex-shrink-0 w-80 xl:w-96 pl-6 pr-6">
-            {/* NewsColumn TEMPORARILY DISABLED - Will be re-enabled with improved MVP news (actionable local/global news) */}
-            {/* <NewsColumn limit={5} showMore={showMoreNews} onShowMore={() => setShowMoreNews(!showMoreNews)} /> */}
-
-            {/* Local Content Section */}
+          {/* Right Sidebar - TEMPORARILY HIDDEN for mobile-first redesign */}
+          {/* Will be accessible via gesture/swipe later */}
+          {/* <aside className="hidden xl:block flex-shrink-0 w-80 xl:w-96 pl-6 pr-6">
             <div>
               <LocationBasedWidget />
             </div>
-
-            {/* Smart Suggestions Section */}
             <div className="mt-6">
               <SmartSuggestionsWidget />
             </div>
-          </aside>
+          </aside> */}
         </div>
       </div>
 
-      {/* Collapsible Post Composer - Fixed at bottom */}
-      <CollapsiblePostComposer
-        onPostCreated={handlePostCreated}
-        onSuccess={handlePostCreated}
-        context="general"
-        onOpenSocietyModal={openCreateSocietyModal}
-        onOpenInitiativeModal={() => openCreateInitiativeModal()}
-        onOpenDebateTopicModal={() => openCreateDebateTopicModal()}
-      />
+      {/* Collapsible Post Composer - Fixed at bottom - HIDDEN FOR V1 */}
+      <div className="hidden">
+        <CollapsiblePostComposer
+          onPostCreated={handlePostCreated}
+          onSuccess={handlePostCreated}
+          context="general"
+          onOpenSocietyModal={openCreateSocietyModal}
+          onOpenInitiativeModal={() => openCreateInitiativeModal()}
+          onOpenDebateTopicModal={() => openCreateDebateTopicModal()}
+        />
+      </div>
+
+      {/* TikTok-style Post Detail Modal */}
+      {selectedPost && (
+        <TikTokPostDetail
+          post={selectedPost}
+          isOpen={isTikTokDetailOpen}
+          onClose={() => {
+            setIsTikTokDetailOpen(false);
+            setSelectedPost(null);
+          }}
+        />
+      )}
+
+      {/* TikTok-style Issue Detail Modal */}
+      {selectedIssue && (
+        <TikTokIssueDetail
+          issue={selectedIssue}
+          isOpen={isTikTokIssueDetailOpen}
+          onClose={() => {
+            setIsTikTokIssueDetailOpen(false);
+            setSelectedIssue(null);
+          }}
+        />
+      )}
+
+      {/* TikTok-style Idea Detail Modal */}
+      {selectedIdea && (
+        <TikTokIdeaDetail
+          idea={selectedIdea}
+          isOpen={isTikTokIdeaDetailOpen}
+          onClose={() => {
+            setIsTikTokIdeaDetailOpen(false);
+            setSelectedIdea(null);
+          }}
+        />
+      )}
     </div>
   );
 }

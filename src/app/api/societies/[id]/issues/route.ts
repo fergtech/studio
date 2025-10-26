@@ -51,6 +51,7 @@ export async function GET(
       tags: issue.tags,
       location: issue.location,
       createdAt: issue.createdAt.toISOString(),
+      creatorId: issue.creator?.id, // Add creatorId field
       creator: issue.creator,
       media: issue.media.map((media, index) => ({
         id: media.id,

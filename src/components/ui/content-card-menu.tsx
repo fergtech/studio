@@ -3,16 +3,17 @@
 import { useState } from 'react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, Share2, Bookmark, Flag, Trash2, Instagram } from 'lucide-react';
+import { MoreHorizontal, Share2, Bookmark, Flag, Trash2, Instagram, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { SocialShareDialog } from '@/components/social/SocialShareDialog';
 import type { ContentType } from '@/types/social';
 
 interface ContentCardMenuProps {
   itemId: string;
-  itemType: 'society' | 'post' | 'idea' | 'issue' | 'initiative' | 'battle';
+  itemType: 'society' | 'post' | 'idea' | 'issue' | 'initiative' | 'battle' | 'debate';
   itemName?: string;
   isCreator?: boolean;
+  onEdit?: () => void | Promise<void>;
   onDelete?: () => void | Promise<void>;
   shareUrl?: string;
 }
@@ -22,6 +23,7 @@ export function ContentCardMenu({
   itemType,
   itemName,
   isCreator = false,
+  onEdit,
   onDelete,
   shareUrl,
 }: ContentCardMenuProps) {
@@ -136,13 +138,21 @@ export function ContentCardMenu({
             <Flag className="h-4 w-4 mr-2" />
             Report
           </DropdownMenuItem>
-          {isCreator && onDelete && (
+          {isCreator && (onEdit || onDelete) && (
             <>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={onDelete} className="text-destructive">
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete
-              </DropdownMenuItem>
+              {onEdit && (
+                <DropdownMenuItem onClick={onEdit}>
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit
+                </DropdownMenuItem>
+              )}
+              {onDelete && (
+                <DropdownMenuItem onClick={onDelete} className="text-destructive">
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </DropdownMenuItem>
+              )}
             </>
           )}
         </DropdownMenuContent>

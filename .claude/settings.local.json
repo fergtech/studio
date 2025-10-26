@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(curl:*)",
-      "Bash(npx next dev:*)"
+      "Bash(npx next dev:*)",
+      "Read(//c/Users/tdyfr/OneDrive - UMGC/Pictures/Screenshots/**)",
+      "Bash(psql:*)"
     ],
     "deny": [],
     "ask": []

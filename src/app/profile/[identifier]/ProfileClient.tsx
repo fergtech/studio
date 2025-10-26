@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import AppSidebar, { getDefaultCollapsedState } from '@/components/AppSidebar';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -33,7 +32,6 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
   const [isFollowing, setIsFollowing] = useState(user.isFollowing);
   const [followersCount, setFollowersCount] = useState(user.followersCount ?? 0);
   const [isFollowLoading, setIsFollowLoading] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => getDefaultCollapsedState({ type: 'profile' }));
   const { toast } = useToast();
   const [showFollowersModal, setShowFollowersModal] = useState(false);
   const [showFollowingModal, setShowFollowingModal] = useState(false);
@@ -428,17 +426,8 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
   return (
     <div className="min-h-screen bg-background">
       <div className="w-full">
-        {/* Sidebar */}
-        <AppSidebar 
-          widgets={['userControls', 'navigation', 'resources', 'footer']}
-          context={{ type: 'profile' }}
-          onCollapseChange={setSidebarCollapsed}
-        />
-        
-        {/* Main Profile Content - with dynamic left margin based on sidebar state */}
-        <div className={`transition-all duration-300 px-4 lg:px-6 pt-20 lg:pt-6 ${
-          sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'
-        }`}>
+        {/* Main Profile Content */}
+        <div className="px-4 lg:px-6 pt-20 lg:pt-6 pb-24">
           {/* Community Profile Header */}
           <div className="relative w-full mb-8">
         {/* Banner */}

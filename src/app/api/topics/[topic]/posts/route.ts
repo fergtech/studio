@@ -10,49 +10,123 @@ export async function GET(
     const { topic } = await params;
     const decodedTopic = decodeURIComponent(topic);
 
-    // Fetch posts using the new relational system
-    const posts = await prisma.generalPost.findMany({
+    // Fetch debates using the new relational system
+    const debates = await prisma.debateTopic.findMany({
       where: {
-        moderationStatus: 'approved',
         OR: [
-          // New relational system
-          {
-            postTopics: {
-              some: {
-                topic: {
-                  name: {
-                    equals: decodedTopic,
-                    mode: 'insensitive'
+          { moderationStatus: 'approved' },
+          { moderationStatus: null }
+        ],
+        AND: {
+          OR: [
+            // New relational system
+            {
+              debateTopics: {
+                some: {
+                  topic: {
+                    name: {
+                      equals: decodedTopic,
+                      mode: 'insensitive'
+                    }
                   }
                 }
               }
+            },
+            // Fallback to old array system for compatibility
+            {
+              topics: {
+                has: decodedTopic
+              }
             }
-          },
-          // Fallback to old array system for compatibility
-          {
-            topics: {
-              has: decodedTopic
-            }
-          }
-        ]
+          ]
+        }
       },
-      select: {
-        id: true,
-        creatorId: true,
-        creatorName: true,
-        creatorAvatar: true,
-        content: true,
-        topics: true,
-        timestamp: true,
-        background: true,
-        media: {
+      include: {
+        creator: {
           select: {
             id: true,
-            url: true,
-            type: true,
+            name: true,
+            image: true,
+            username: true,
+          }
+        },
+        votes: {
+          select: {
+            side: true,
+          }
+        },
+        _count: {
+          select: {
+            arguments: true,
           }
         },
         // Include relational topics
+        debateTopics: {
+          select: {
+            topic: {
+              select: {
+                name: true,
+                category: true
+              }
+            },
+            confidence: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      take: 50 // Limit to 50 debates
+    });
+
+    // Fetch general posts using the new relational system
+    const posts = await prisma.generalPost.findMany({
+      where: {
+        OR: [
+          { moderationStatus: 'approved' },
+          { moderationStatus: null }
+        ],
+        AND: {
+          OR: [
+            // New relational system
+            {
+              postTopics: {
+                some: {
+                  topic: {
+                    name: {
+                      equals: decodedTopic,
+                      mode: 'insensitive'
+                    }
+                  }
+                }
+              }
+            },
+            // Fallback to old array system for compatibility
+            {
+              topics: {
+                has: decodedTopic
+              }
+            }
+          ]
+        }
+      },
+      include: {
+        creator: {
+          select: {
+            id: true,
+            name: true,
+            image: true,
+            username: true,
+          }
+        },
+        media: true,
+        _count: {
+          select: {
+            likes: true,
+            comments: true,
+            shares: true
+          }
+        },
         postTopics: {
           select: {
             topic: {
@@ -72,54 +146,83 @@ export async function GET(
     });
 
     // Get topic statistics
+    const totalDebates = debates.length;
     const totalPosts = posts.length;
 
-    // Get Hot Take Battles for this topic
-    const activeBattles = await prisma.hotTakeBattle.count({
-      where: {
-        topic: decodedTopic,
-        status: 'ACTIVE'
-      }
+    // Get top contributors (users who create most content about this topic - debates + posts)
+    const allContributorIds = [
+      ...debates.map(d => d.creatorId),
+      ...posts.map(p => p.creatorId)
+    ];
+
+    const contributorCountMap = new Map<string, number>();
+    allContributorIds.forEach(id => {
+      contributorCountMap.set(id, (contributorCountMap.get(id) || 0) + 1);
     });
 
-    // Get top contributors (users who post most about this topic)
-    const contributorCounts = await prisma.generalPost.groupBy({
-      by: ['creatorName'],
-      where: {
-        topics: {
-          has: decodedTopic
-        }
-      },
-      _count: {
-        id: true
-      },
-      orderBy: {
-        _count: {
-          id: 'desc'
-        }
-      },
-      take: 5
-    });
+    const topContributorIds = Array.from(contributorCountMap.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([id]) => id);
 
-    const topContributors = contributorCounts.map(c => c.creatorName);
+    const contributors = await prisma.user.findMany({
+      where: { id: { in: topContributorIds } },
+      select: { id: true, name: true }
+    });
+    const contributorMap = new Map(contributors.map(c => [c.id, c.name || 'Anonymous']));
+    const topContributors = topContributorIds.map(id => contributorMap.get(id) || 'Anonymous');
 
     // Get related topics (topics that appear together with this topic)
-    const relatedTopicsQuery = await prisma.generalPost.findMany({
+    const relatedTopicsQuery = await prisma.debateTopic.findMany({
       where: {
-        topics: {
-          has: decodedTopic
-        }
+        moderationStatus: 'approved',
+        OR: [
+          {
+            debateTopics: {
+              some: {
+                topic: {
+                  name: {
+                    equals: decodedTopic,
+                    mode: 'insensitive'
+                  }
+                }
+              }
+            }
+          },
+          {
+            topics: {
+              has: decodedTopic
+            }
+          }
+        ]
       },
       select: {
-        topics: true
+        topics: true,
+        debateTopics: {
+          select: {
+            topic: {
+              select: {
+                name: true
+              }
+            }
+          }
+        }
       }
     });
 
     const topicCounts = new Map<string, number>();
-    relatedTopicsQuery.forEach(post => {
-      post.topics.forEach(postTopic => {
-        if (postTopic !== decodedTopic) {
-          topicCounts.set(postTopic, (topicCounts.get(postTopic) || 0) + 1);
+    relatedTopicsQuery.forEach(debate => {
+      // Count from old topics array
+      debate.topics.forEach(debateTopic => {
+        if (debateTopic !== decodedTopic) {
+          topicCounts.set(debateTopic, (topicCounts.get(debateTopic) || 0) + 1);
+        }
+      });
+      // Count from new relational topics
+      debate.debateTopics.forEach(dt => {
+        const topicName = dt.topic.name;
+        if (topicName !== decodedTopic) {
+          topicCounts.set(topicName, (topicCounts.get(topicName) || 0) + 1);
         }
       });
     });
@@ -130,31 +233,82 @@ export async function GET(
       .map(([topic]) => topic);
 
     const stats = {
+      totalDebates,
       totalPosts,
-      activeBattles,
+      totalContent: totalDebates + totalPosts,
+      activeBattles: 0, // No longer showing battles
       topContributors,
       relatedTopics
     };
 
-    return NextResponse.json({
-      posts: posts.map(post => {
-        // Merge old topics array with new relational topics
-        const relationalTopics = post.postTopics.map(pt => pt.topic.name);
-        const allTopics = [...new Set([...post.topics, ...relationalTopics])]; // Remove duplicates
+    // Calculate vote statistics for each debate
+    const debatesWithStats = debates.map(debate => {
+      const proVotes = debate.votes.filter(vote => vote.side === 'PRO').length;
+      const conVotes = debate.votes.filter(vote => vote.side === 'CON').length;
+      const totalVotes = proVotes + conVotes;
 
-        return {
-          ...post,
-          topics: allTopics, // Use combined topics
-          timestamp: post.timestamp.toISOString()
-        };
-      }),
+      // Merge old topics array with new relational topics
+      const relationalTopics = debate.debateTopics.map(dt => dt.topic.name);
+      const allTopics = [...new Set([...debate.topics, ...relationalTopics])]; // Remove duplicates
+
+      return {
+        id: debate.id,
+        title: debate.title,
+        content: debate.content,
+        imageUrl: debate.imageUrl,
+        creatorId: debate.creatorId,
+        topics: allTopics,
+        createdAt: debate.createdAt.toISOString(),
+        creator: debate.creator,
+        stats: {
+          proVotes,
+          conVotes,
+          totalVotes,
+          proPercentage: totalVotes > 0 ? Math.round((proVotes / totalVotes) * 100) : 0,
+          conPercentage: totalVotes > 0 ? Math.round((conVotes / totalVotes) * 100) : 0,
+          argumentCount: debate._count.arguments,
+        },
+      };
+    });
+
+    // Transform general posts to match expected format
+    const postsTransformed = posts.map(post => {
+      // Merge old topics array with new relational topics
+      const relationalTopics = post.postTopics.map(pt => pt.topic.name);
+      const allTopics = [...new Set([...post.topics, ...relationalTopics])]; // Remove duplicates
+
+      return {
+        id: post.id,
+        content: post.content,
+        background: post.background,
+        creatorId: post.creatorId,
+        topics: allTopics,
+        timestamp: post.timestamp.toISOString(),
+        creator: post.creator,
+        media: post.media.map(m => ({
+          id: m.id,
+          url: m.url,
+          type: m.type.toLowerCase()
+        })),
+        stats: {
+          likes: post._count.likes,
+          comments: post._count.comments,
+          shares: post._count.shares
+        },
+        type: 'post' // Add type to distinguish from debates
+      };
+    });
+
+    return NextResponse.json({
+      debates: debatesWithStats,
+      posts: postsTransformed,
       stats
     });
 
   } catch (error) {
-    console.error('Error fetching topic posts:', error);
+    console.error('Error fetching topic debates:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch topic posts' },
+      { error: 'Failed to fetch topic debates' },
       { status: 500 }
     );
   }

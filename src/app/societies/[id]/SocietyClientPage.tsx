@@ -27,7 +27,6 @@ import { VideoPlayer } from '@/components/ui/video-player';
 import { AudioPlayer } from '@/components/ui/audio-player';
 import { LinkPreview } from '@/components/ui/link-preview';
 import { DocumentPreview } from '@/components/ui/document-preview';
-import AppSidebar, { getDefaultCollapsedState } from '@/components/AppSidebar';
 import { updateSocietyPostContent, deleteSocietyPost } from '@/app/actions/postActions';
 import { LazySocietyStats } from '@/components/LazySocietyStats';
 import SocietyPostReactions from '@/components/SocietyPostReactions';
@@ -68,8 +67,7 @@ export function SocietyClientPage({ society: initialSociety, members, posts: ini
   const { toast } = useToast();
   const router = useRouter();
   const [isCreateInitiativeOpen, setIsCreateInitiativeOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => getDefaultCollapsedState({ type: 'society' }));
-  
+
   // Scroll position restoration for society feed
   const { saveScrollPosition } = useScrollPosition({ key: `societyFeed_${society.id}` });
 
@@ -740,12 +738,6 @@ export function SocietyClientPage({ society: initialSociety, members, posts: ini
 
   return (
     <>
-      <AppSidebar 
-        context={{ type: 'society', data: society }}
-        className="z-30"
-        onCollapseChange={setSidebarCollapsed}
-      />
-      
       {/* Fixed Society Sidebar for Desktop */}
       {!isMobile && (
         <div className="fixed right-4 top-6 z-30 w-80 h-[calc(100vh-3rem)] overflow-y-auto bg-background/95 backdrop-blur-sm border rounded-lg shadow-lg p-4">
@@ -753,9 +745,7 @@ export function SocietyClientPage({ society: initialSociety, members, posts: ini
         </div>
       )}
 
-      <div className={`relative min-h-screen transition-all duration-300 ${
-        sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'
-      } lg:pr-[22rem]`}>
+      <div className="relative min-h-screen px-4 lg:px-6 pt-20 lg:pt-6 pb-24 lg:pr-[22rem]">
         {/* Overlay for Mobile Sidebar */}
         {isMobile && isSidebarOpen && (
           <div

@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { GeneralPost } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,13 @@ import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import { useSession } from 'next-auth/react';
 import { ContentCardMenu } from '@/components/ui/content-card-menu';
+import { deletePostAction } from '@/app/actions/postActions';
+import { AuthGate } from '@/components/AuthGate';
+import { useSwipeGestures } from '@/hooks/useSwipeGestures';
+import { LikeAnimation, SwipeIndicator } from '@/components/animations/LikeAnimation';
+import { motion, AnimatePresence } from 'framer-motion';
+import { triggerHaptic, hapticPatterns } from '@/lib/animations';
+import { usePostStats } from '@/context/PostStatsContext';
 
 // Helper function to detect video files
 const isVideoFile = (url: string) => {
@@ -33,6 +40,16 @@ export function CompactPostCard({ post, currentUserId, showTimeline = true }: Co
   const { data: session } = useSession();
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Video autoplay state
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [hasVideoStarted, setHasVideoStarted] = useState(false);
+  const [isInView, setIsInView] = useState(false);
+
+  // Mobile-first gesture states
+  const [showLikeAnimation, setShowLikeAnimation] = useState(false);
+  const [showSwipeLeft, setShowSwipeLeft] = useState(false);
+  const [showSwipeRight, setShowSwipeRight] = useState(false);
+
   const fallback = post.creatorName?.substring(0, 2).toUpperCase() || '??';
 
   // Safely handle timestamp formatting
@@ -48,49 +65,69 @@ export function CompactPostCard({ post, currentUserId, showTimeline = true }: Co
 
   const isCreator = session?.user?.id === post.creatorId;
 
-  // Social stats
-  const [interestCount, setInterestCount] = useState(0);
-  const [isInterested, setIsInterested] = useState(false);
-  const [shareCount, setShareCount] = useState(0);
-  const [commentsCount, setCommentsCount] = useState(0);
+  // Use batch stats context for efficient data fetching
+  const { getStats, registerPost, updateLike: updateLikeInContext } = usePostStats();
+
+  // Register this post for batch fetching on mount
+  useEffect(() => {
+    registerPost(post.id);
+  }, [post.id, registerPost]);
+
+  // Get stats from context
+  const stats = getStats(post.id);
+  const interestCount = stats?.likes.count || 0;
+  const isInterested = stats?.likes.liked || false;
+  const shareCount = stats?.shares.count || 0;
+  const commentsCount = stats?.comments.count || 0;
 
   // Detect media types
   const hasMedia = post.media && post.media.length > 0;
-  const firstMedia = hasMedia ? post.media[0] : null;
+  const firstMedia = hasMedia && post.media ? post.media[0] : null;
   const isVideo = firstMedia && isVideoFile(firstMedia.url);
 
-  // Fetch social data
+  // Intersection Observer for video autoplay optimization
   useEffect(() => {
-    async function fetchSocialData() {
-      try {
-        const [likeRes, shareRes, commentRes] = await Promise.all([
-          fetch(`/api/general-posts/likes?postId=${post.id}&userId=${currentUserId || ''}`),
-          fetch(`/api/general-posts/shares?postId=${post.id}&userId=${currentUserId || ''}`),
-          fetch(`/api/general-posts/comments?postId=${post.id}`)
-        ]);
+    if (!isVideo || !videoRef.current) return;
 
-        const [likeData, shareData, commentData] = await Promise.all([
-          likeRes.json(),
-          shareRes.json(),
-          commentRes.json()
-        ]);
+    const video = videoRef.current;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        setIsInView(entry.isIntersecting);
 
-        setInterestCount(likeData.count || 0);
-        setIsInterested(likeData.liked || false);
-        setShareCount(shareData.count || 0);
-        setCommentsCount(commentData.allComments ? commentData.allComments.length : 0);
-      } catch (error) {
-        console.error('Error fetching social data:', error);
-      }
-    }
-    fetchSocialData();
-  }, [post.id, currentUserId]);
+        if (entry.isIntersecting) {
+          // Only start playing when video comes into view
+          video.play().catch(() => {
+            console.log('Autoplay failed for video in view');
+          });
+        } else {
+          // Pause when out of view to save resources
+          video.pause();
+        }
+      },
+      { threshold: 0.5 } // Play when 50% of video is visible
+    );
 
-  const handleLike = async (e: React.MouseEvent) => {
-    e.stopPropagation();
+    observer.observe(video);
+
+    return () => {
+      observer.unobserve(video);
+    };
+  }, [isVideo]);
+
+  const handleLike = async (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+
+    // Only allow if user is authenticated
+    if (!currentUserId) return;
+
     const newState = !isInterested;
-    setIsInterested(newState);
-    setInterestCount(prev => newState ? prev + 1 : prev - 1);
+
+    // Optimistically update in context
+    updateLikeInContext(post.id, newState);
+
+    // Haptic feedback
+    triggerHaptic(newState ? hapticPatterns.success : hapticPatterns.light);
 
     try {
       await fetch('/api/general-posts/likes', {
@@ -100,10 +137,77 @@ export function CompactPostCard({ post, currentUserId, showTimeline = true }: Co
       });
     } catch (error) {
       // Revert on error
-      setIsInterested(!newState);
-      setInterestCount(prev => newState ? prev - 1 : prev + 1);
+      updateLikeInContext(post.id, !newState);
     }
   };
+
+  const handleDoubleTap = () => {
+    console.log('🎯 Double-tap detected on post:', post.id);
+    // Only allow if user is authenticated
+    if (!currentUserId) {
+      console.log('⚠️ User not authenticated - showing auth gate');
+      return;
+    }
+
+    // If already liked, just show animation
+    if (isInterested) {
+      console.log('❤️ Already liked - showing animation only');
+      setShowLikeAnimation(true);
+      triggerHaptic(hapticPatterns.doubleTap);
+      return;
+    }
+
+    // Like the post
+    console.log('💗 Liking post with animation');
+    setShowLikeAnimation(true);
+    handleLike();
+  };
+
+  const handleShare = async () => {
+    // Haptic feedback
+    triggerHaptic(hapticPatterns.medium);
+
+    // Check if Web Share API is available
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `${post.creatorName}'s post`,
+          text: post.content.substring(0, 100),
+          url: window.location.origin + `/posts/${post.id}`,
+        });
+      } catch (error) {
+        // User cancelled or error occurred
+        console.log('Share cancelled or failed');
+      }
+    } else {
+      // Fallback: Copy to clipboard
+      try {
+        await navigator.clipboard.writeText(window.location.origin + `/posts/${post.id}`);
+        toast({ title: 'Link copied to clipboard!' });
+      } catch (error) {
+        toast({ title: 'Could not share post', variant: 'destructive' });
+      }
+    }
+  };
+
+  // Setup swipe gestures
+  const { ref: swipeRef } = useSwipeGestures({
+    onDoubleTap: handleDoubleTap,
+    onSwipeLeft: () => {
+      if (!currentUserId) return;
+      setShowSwipeLeft(true);
+      setTimeout(() => setShowSwipeLeft(false), 300);
+      handleShare();
+    },
+    onSwipeRight: () => {
+      if (!currentUserId) return;
+      setShowSwipeRight(true);
+      setTimeout(() => setShowSwipeRight(false), 300);
+      if (!isInterested) {
+        handleLike();
+      }
+    },
+  });
 
   const navigateToPost = () => {
     sessionStorage.setItem('scrollY', window.scrollY.toString());
@@ -119,11 +223,20 @@ export function CompactPostCard({ post, currentUserId, showTimeline = true }: Co
 
     setIsDeleting(true);
     try {
-      const response = await fetch(`/api/general-posts/${post.id}`, { method: 'DELETE' });
-      if (!response.ok) throw new Error('Failed to delete');
+      const result = await deletePostAction(post.id);
+      if (result.error) {
+        toast({ title: result.error, variant: "destructive" });
+        setIsDeleting(false);
+      } else {
+        toast({ title: "Post deleted successfully" });
 
-      toast({ title: "Post deleted successfully" });
-      router.refresh();
+        // Dispatch global delete event for immediate feed update
+        window.dispatchEvent(new CustomEvent('feed:itemDeleted', {
+          detail: { id: post.id }
+        }));
+
+        router.refresh();
+      }
     } catch (error) {
       toast({ title: "Failed to delete post", variant: "destructive" });
       setIsDeleting(false);
@@ -143,13 +256,35 @@ export function CompactPostCard({ post, currentUserId, showTimeline = true }: Co
       )}
 
       {/* Content */}
-      <div
+      <motion.div
+        ref={swipeRef}
         className={cn(
-          "flex-1 pb-6 cursor-pointer hover:bg-muted/5 -mx-2 px-2 rounded-lg transition-colors",
+          "flex-1 pb-6 cursor-pointer hover:bg-muted/5 -mx-2 px-2 rounded-lg transition-colors relative",
           !showTimeline && "ml-11" // Indent if no timeline
         )}
         onClick={navigateToPost}
+        whileTap={{ scale: 0.98 }}
+        transition={{ duration: 0.1 }}
       >
+        {/* Like Animation Overlay */}
+        <LikeAnimation
+          show={showLikeAnimation}
+          onComplete={() => setShowLikeAnimation(false)}
+        />
+
+        {/* Swipe Indicators */}
+        <SwipeIndicator
+          direction="left"
+          icon={<Share2 className="w-6 h-6 text-white" />}
+          color="bg-vibrant-share"
+          show={showSwipeLeft}
+        />
+        <SwipeIndicator
+          direction="right"
+          icon={<ThumbsUp className="w-6 h-6 text-white fill-white" />}
+          color="bg-vibrant-like"
+          show={showSwipeRight}
+        />
         {/* Header */}
         <div className="flex items-start justify-between mb-2">
           <div className="flex items-center gap-2">
@@ -195,11 +330,18 @@ export function CompactPostCard({ post, currentUserId, showTimeline = true }: Co
               {isVideo ? (
                 <div className="relative w-full h-full">
                   <video
+                    ref={videoRef}
                     src={firstMedia!.url}
                     className="w-full h-full object-cover"
                     muted
+                    playsInline
+                    loop
                     preload="metadata"
-                    poster={`${firstMedia!.url}#t=0.1`}
+                    onLoadedMetadata={(e) => {
+                      // Seek to 0.5 seconds to show a better preview frame
+                      const video = e.target as HTMLVideoElement;
+                      video.currentTime = 0.5;
+                    }}
                   />
                   <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
                     <div className="bg-black/60 rounded-full p-3 backdrop-blur-sm">
@@ -225,45 +367,70 @@ export function CompactPostCard({ post, currentUserId, showTimeline = true }: Co
           )}
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-4 mt-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            className={cn("h-8 gap-1.5", isInterested && "text-primary")}
-            onClick={handleLike}
-          >
-            <ThumbsUp className={cn("h-4 w-4", isInterested && "fill-current")} />
-            {interestCount > 0 && <span className="text-xs">{interestCount}</span>}
-          </Button>
+        {/* Actions - Vibrant Mobile-First Style */}
+        <div className="flex items-center gap-3 mt-4">
+          <AuthGate currentUserId={currentUserId} action="like this post">
+            <motion.div whileTap={{ scale: 0.92 }} className="flex-1">
+              <Button
+                variant="ghost"
+                size="lg"
+                className={cn(
+                  "h-11 gap-2 rounded-full transition-all w-full font-bold text-base shadow-md",
+                  isInterested
+                    ? "bg-gradient-to-r from-pink-600 to-rose-600 text-white hover:from-pink-700 hover:to-rose-700 shadow-[0_0_20px_rgba(236,72,153,0.5)] border-2 border-pink-400"
+                    : "bg-pink-500/15 text-pink-300 hover:bg-pink-500/25 hover:text-pink-200 border border-pink-500/30"
+                )}
+                onClick={handleLike}
+                disabled={!currentUserId}
+              >
+                <ThumbsUp className={cn("h-5 w-5", isInterested && "fill-current drop-shadow-lg")} />
+                <span className="drop-shadow-sm">{interestCount > 0 ? interestCount : 'Like'}</span>
+              </Button>
+            </motion.div>
+          </AuthGate>
 
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 gap-1.5"
-            onClick={(e) => {
-              e.stopPropagation();
-              navigateToPost();
-            }}
-          >
-            <MessageSquare className="h-4 w-4" />
-            {commentsCount > 0 && <span className="text-xs">{commentsCount}</span>}
-          </Button>
+          <motion.div whileTap={{ scale: 0.92 }} className="flex-1">
+            <Button
+              variant="ghost"
+              size="lg"
+              className={cn(
+                "h-11 gap-2 rounded-full transition-all w-full font-bold text-base shadow-md",
+                commentsCount > 0
+                  ? "bg-gradient-to-r from-purple-600 to-violet-600 text-white hover:from-purple-700 hover:to-violet-700 shadow-[0_0_20px_rgba(168,85,247,0.5)] border-2 border-purple-400"
+                  : "bg-purple-500/15 text-purple-300 hover:bg-purple-500/25 hover:text-purple-200 border border-purple-500/30"
+              )}
+              onClick={(e) => {
+                e.stopPropagation();
+                triggerHaptic(hapticPatterns.light);
+                navigateToPost();
+              }}
+            >
+              <MessageSquare className="h-5 w-5" />
+              <span className="drop-shadow-sm">{commentsCount > 0 ? commentsCount : 'Reply'}</span>
+            </Button>
+          </motion.div>
 
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 gap-1.5"
-            onClick={(e) => {
-              e.stopPropagation();
-              // TODO: Share functionality
-            }}
-          >
-            <Share2 className="h-4 w-4" />
-            {shareCount > 0 && <span className="text-xs">{shareCount}</span>}
-          </Button>
+          <motion.div whileTap={{ scale: 0.92 }} className="flex-1">
+            <Button
+              variant="ghost"
+              size="lg"
+              className={cn(
+                "h-11 gap-2 rounded-full transition-all w-full font-bold text-base shadow-md",
+                shareCount > 0
+                  ? "bg-gradient-to-r from-cyan-600 to-blue-600 text-white hover:from-cyan-700 hover:to-blue-700 shadow-[0_0_20px_rgba(6,182,212,0.5)] border-2 border-cyan-400"
+                  : "bg-cyan-500/15 text-cyan-300 hover:bg-cyan-500/25 hover:text-cyan-200 border border-cyan-500/30"
+              )}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleShare();
+              }}
+            >
+              <Share2 className="h-5 w-5" />
+              <span className="drop-shadow-sm">{shareCount > 0 ? shareCount : 'Share'}</span>
+            </Button>
+          </motion.div>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }

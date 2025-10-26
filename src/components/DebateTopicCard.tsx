@@ -5,12 +5,14 @@ import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { MessageCircle, Users, TrendingUp, Play, Volume2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { MessageCircle, Users, TrendingUp, Play, Volume2, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { ContentCardMenu } from '@/components/ui/content-card-menu';
+import { checkDebateUnlockStatus } from '@/lib/gamification';
 
 // Helper function to detect video files
 const isVideoFile = (url: string) => {
@@ -70,10 +72,7 @@ export function DebateTopicCard({
 
   const isCreator = session?.user?.id === creator.id;
 
-  const handleDelete = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-
+  const handleDelete = async () => {
     if (!isCreator || isDeleting) return;
 
     if (!confirm(`Are you sure you want to delete "${title}"? This action cannot be undone.`)) {
@@ -95,6 +94,11 @@ export function DebateTopicCard({
         title: 'Debate Deleted',
         description: 'Your debate topic has been successfully deleted.',
       });
+
+      // Dispatch global delete event for immediate feed update
+      window.dispatchEvent(new CustomEvent('feed:itemDeleted', {
+        detail: { id }
+      }));
 
       // Call the onDelete callback if provided
       onDelete?.(id);
@@ -133,17 +137,9 @@ export function DebateTopicCard({
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
 
-  // Mock user avatars matching main feed pattern
-  const mockUserAvatars: Record<string, string | undefined> = {
-    "user1": "https://i.pravatar.cc/40?u=user1",
-    "user3": "https://i.pravatar.cc/40?u=user3",
-    "user5": "https://i.pravatar.cc/40?u=user5",
-    "user7": "https://i.pravatar.cc/40?u=user7",
-  };
-
-  // Get avatar URL with fallback pattern matching main feed
-  const getAvatarUrl = (userId?: string, sessionImage?: string | null) => {
-    return sessionImage || mockUserAvatars[userId || ''] || "https://i.pravatar.cc/40?u=anonymous";
+  // Get avatar URL with fallback to user initials (no mock data)
+  const getAvatarUrl = (sessionImage?: string | null) => {
+    return sessionImage || undefined;
   };
 
   // Determine media type
@@ -151,6 +147,23 @@ export function DebateTopicCard({
   const isVideo = hasMedia && isVideoFile(imageUrl);
   const isAudio = hasMedia && isAudioFile(imageUrl);
   const isImage = hasMedia && !isVideo && !isAudio;
+
+  // Check if this debate has reached the threshold to unlock Initiative creation
+  const unlockStatus = checkDebateUnlockStatus(stats.proVotes, stats.conVotes);
+
+  const handleCreateInitiative = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Pre-fill initiative creation with debate context
+    const params = new URLSearchParams({
+      fromDebate: id,
+      title: title,
+      description: content,
+    });
+
+    router.push(`/?createInitiative=true&${params.toString()}`);
+  };
 
   return (
     <Link href={`/debates/${id}`}>
@@ -215,7 +228,7 @@ export function DebateTopicCard({
         <div className="flex items-center gap-3 mb-3">
           <Avatar className="w-8 h-8">
             <AvatarImage
-              src={getAvatarUrl(creator.id, creator.image)}
+              src={getAvatarUrl(creator.image)}
               alt={creator.name}
             />
             <AvatarFallback className="text-xs">
@@ -231,9 +244,11 @@ export function DebateTopicCard({
           </Badge>
           {isCreator && (
             <ContentCardMenu
+              itemId={id}
+              itemName={title}
               onDelete={handleDelete}
-              itemType="debate topic"
-              isDeleting={isDeleting}
+              itemType="debate"
+              isCreator={isCreator}
             />
           )}
         </div>
@@ -310,6 +325,32 @@ export function DebateTopicCard({
             </div>
           )}
         </div>
+
+        {/* Initiative Unlock Button (Progressive Disclosure!) */}
+        {unlockStatus.canUnlockSociety && (
+          <div className="mt-4 pt-4 border-t border-border">
+            <div className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/30 rounded-lg p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles className="w-4 h-4 text-purple-500" />
+                <span className="text-sm font-semibold text-purple-700 dark:text-purple-300">
+                  Unlock Achieved!
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mb-3">
+                This debate reached {stats.totalVotes} votes with {unlockStatus.currentAgreementPct}% agreement!
+                You can now start an initiative to address this topic.
+              </p>
+              <Button
+                onClick={handleCreateInitiative}
+                size="sm"
+                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+              >
+                <Users className="w-4 h-4 mr-2" />
+                Create Initiative
+              </Button>
+            </div>
+          </div>
+        )}
         </div>
       </div>
     </Link>

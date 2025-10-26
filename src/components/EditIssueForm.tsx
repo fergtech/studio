@@ -138,7 +138,7 @@ export function EditIssueForm({ setOpen, issue }: EditIssueFormProps) {
       const result = await updateIssue({
         issueId: issue.id,
         ...values,
-        mediaUrl: finalMediaUrl, // Pass the potentially updated or cleared mediaUrl
+        mediaUrl: finalMediaUrl || undefined, // Convert null to undefined for type compatibility
       });
 
       if (result.error) {

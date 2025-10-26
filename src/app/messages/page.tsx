@@ -8,7 +8,6 @@ import { Card } from '@/components/ui/card';
 import { MessageCircle, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { formatDistanceToNow } from 'date-fns';
-import AppSidebar, { getDefaultCollapsedState } from "@/components/AppSidebar";
 
 interface Conversation {
   userId: string;
@@ -28,7 +27,6 @@ export default function MessagesPage() {
   const [filteredConversations, setFilteredConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(getDefaultCollapsedState());
   const router = useRouter();
   const { data: session, status } = useSession();
 
@@ -90,16 +88,8 @@ export default function MessagesPage() {
 
   return (
     <>
-      {/* App Sidebar */}
-      <AppSidebar
-        widgets={['userControls', 'navigation', 'resources', 'footer']}
-        context={{ type: 'messages' }}
-        onCollapseChange={setSidebarCollapsed}
-      />
-
       {/* Main Content Area */}
-      <div className={`min-w-0 transition-all duration-300 pt-20 lg:pt-6 ${
-        sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'
+      <div className="px-4 lg:px-6 pt-20 lg:pt-6 pb-24" aria-live="polite" aria-busy={`${loading
       }`}>
         {loading ? (
           <div className="container max-w-3xl mx-auto p-4">

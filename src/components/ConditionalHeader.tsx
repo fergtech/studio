@@ -20,7 +20,9 @@ export function ConditionalHeader() {
     '/issues',
     '/ideas',
     '/posts',
-    '/topics'
+    '/topics',
+    '/login',
+    '/register'
   ];
 
   // Check if current path should hide header

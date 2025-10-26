@@ -181,10 +181,12 @@ export async function getCachedTopics<T>(
   // Cache miss - call detection function
   const result = await detectFn();
 
-  // Store in cache (fire and forget)
-  kvPut(cacheKey, result, { expirationTtl: ttl }).catch(err =>
-    console.error('Failed to cache topic result:', err)
-  );
+  // Store in cache (fire and forget) - only if KV is configured
+  if (ACCOUNT_ID && NAMESPACE_ID && API_TOKEN) {
+    kvPut(cacheKey, result, { expirationTtl: ttl }).catch(err =>
+      console.warn('Failed to cache topic result (KV not configured):', err.message)
+    );
+  }
 
   return result;
 }

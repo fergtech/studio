@@ -77,8 +77,8 @@ export function CompactInitiativeCard({
   const locationDisplay = getLocationDisplay(initiative.location);
 
   // Determine background image or gradient
-  const backgroundStyle = initiative.featuredImageUrl
-    ? { backgroundImage: `url(${initiative.featuredImageUrl})` }
+  const backgroundStyle = initiative.imageUrl
+    ? { backgroundImage: `url(${initiative.imageUrl})` }
     : { background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' };
 
   const handleClick = () => {
@@ -99,6 +99,12 @@ export function CompactInitiativeCard({
       if (!response.ok) throw new Error('Failed to delete');
 
       toast({ title: "Initiative deleted successfully" });
+
+      // Dispatch global delete event for immediate feed update
+      window.dispatchEvent(new CustomEvent('feed:itemDeleted', {
+        detail: { id: initiative.id }
+      }));
+
       router.refresh();
     } catch (error) {
       toast({ title: "Failed to delete initiative", variant: "destructive" });

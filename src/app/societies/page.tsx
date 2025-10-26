@@ -3,14 +3,12 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import AppSidebar, { getDefaultCollapsedState } from '@/components/AppSidebar';
 
 export const dynamic = 'force-dynamic';
 
 export default function SocietiesPage() {
   const [societies, setSocieties] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => getDefaultCollapsedState({ type: 'societies' }));
 
   useEffect(() => {
     const fetchSocieties = async () => {
@@ -34,14 +32,7 @@ export default function SocietiesPage() {
   if (loading) {
     return (
       <div className="w-full min-w-0 overflow-hidden">
-        <AppSidebar 
-          widgets={['userControls', 'navigation', 'resources', 'footer']}
-          context={{ type: 'societies' }}
-          onCollapseChange={setSidebarCollapsed}
-        />
-        <div className={`transition-all duration-300 px-4 lg:px-6 pt-20 lg:pt-6 ${
-          sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'
-        }`}>
+        <div className="px-4 lg:px-6 pt-20 lg:pt-6 pb-24">
           <div className="max-w-4xl mx-auto py-10">
             <div className="text-center">Loading societies...</div>
           </div>
@@ -52,14 +43,7 @@ export default function SocietiesPage() {
 
   return (
     <div className="w-full min-w-0 overflow-hidden">
-      <AppSidebar 
-        widgets={['userControls', 'navigation', 'resources', 'footer']}
-        context={{ type: 'societies' }}
-        onCollapseChange={setSidebarCollapsed}
-      />
-      <div className={`transition-all duration-300 px-4 lg:px-6 pt-20 lg:pt-6 ${
-        sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'
-      }`}>
+      <div className="px-4 lg:px-6 pt-20 lg:pt-6 pb-24">
         <div className="max-w-4xl mx-auto py-10">
           <h1 className="text-3xl font-bold mb-6">All Societies</h1>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">

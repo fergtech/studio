@@ -400,6 +400,7 @@ export default function GoalDetailPage() {
     if (date instanceof Date) {
       setSelectedDate(date);
       setNewAction({ ...newAction, dueDate: date.toISOString() });
+      setDueDatePickerOpen(false); // Close the popover after selection
     }
   };
 
@@ -407,8 +408,8 @@ export default function GoalDetailPage() {
     return (
       <div className="w-full min-w-0 overflow-hidden">
         <AppSidebar 
-          widgets={['userControls', 'navigation', 'suggestions', 'location', 'resources', 'footer']}
-          context={{ type: 'goal', goalId: params.goalId as string }}
+          widgets={['userControls', 'navigation', 'resources', 'footer']}
+          context={{ type: 'goal', data: { goalId: params.goalId } }}
           onCollapseChange={setSidebarCollapsed}
         />
         <div className={`transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'}`}>
@@ -427,8 +428,8 @@ export default function GoalDetailPage() {
     return (
       <div className="w-full min-w-0 overflow-hidden">
         <AppSidebar 
-          widgets={['userControls', 'navigation', 'suggestions', 'location', 'resources', 'footer']}
-          context={{ type: 'error' }}
+          widgets={['userControls', 'navigation', 'resources', 'footer']}
+          context={{ type: 'goal' }}
           onCollapseChange={setSidebarCollapsed}
         />
         <div className={`transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'}`}>
@@ -466,8 +467,8 @@ export default function GoalDetailPage() {
   return (
     <div className="w-full min-w-0 overflow-hidden">
       <AppSidebar 
-        widgets={['userControls', 'navigation', 'suggestions', 'location', 'resources', 'footer']}
-        context={{ type: 'goal', goalId: goal.id, initiativeId: initiative.id }}
+        widgets={['userControls', 'navigation', 'resources', 'footer']}
+        context={{ type: 'goal', data: { goalId: goal.id, initiativeId: initiative.id } }}
         onCollapseChange={setSidebarCollapsed}
       />
       

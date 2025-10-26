@@ -15,12 +15,14 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { useToast } from "@/hooks/use-toast";
 // Use Prisma's InitiativeStatus for type safety with the server action & Zod schema
 import { InitiativeStatus as PrismaInitiativeStatus } from '@prisma/client';
-import { Upload, X, Plus, Tag, AlertCircle, Palette, MapPin, Globe, Users } from 'lucide-react';
+import { Upload, X, Plus, Tag, AlertCircle, Palette, MapPin, Globe, Users, Lock } from 'lucide-react';
 import { createInitiative } from '@/app/actions/initiativeActions'; // Import the server action
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import imageCompression from 'browser-image-compression';
 import LocationInput from '@/components/LocationInput';
 import { ResolvedLocation } from '@/services/location';
+import { UnlockProgress } from '@/components/UnlockProgress';
+import { UserUnlockStatus } from '@/lib/gamification';
 
 // Define fallback enum values in case Prisma client is not available during build
 const FALLBACK_INITIATIVE_STATUS = {
@@ -98,6 +100,8 @@ export function CreateInitiativeForm({
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
   const [selectedBackground, setSelectedBackground] = useState<string>(backgroundOptions[1]);
   const [selectedLocation, setSelectedLocation] = useState<'user' | 'global' | 'custom'>('user');
+  const [unlockStatus, setUnlockStatus] = useState<(UserUnlockStatus & { activityScore: number }) | null>(null);
+  const [isLoadingUnlockStatus, setIsLoadingUnlockStatus] = useState(true);
   const [userLocation, setUserLocation] = useState<ResolvedLocation | null>(null);
   const [customLocation, setCustomLocation] = useState<ResolvedLocation | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -117,6 +121,40 @@ export function CreateInitiativeForm({
       status: PrismaInitiativeStatus.PLANNING,
     },
   });
+
+  // Check if coming from a debate that unlocked initiative creation
+  const fromDebate = searchParams.get('fromDebate');
+  const isUnlockedViaDebate = Boolean(fromDebate);
+
+  // Fetch user's unlock status (only if NOT coming from a debate)
+  useEffect(() => {
+    // Skip unlock check if coming from a debate that hit threshold
+    if (isUnlockedViaDebate) {
+      setIsLoadingUnlockStatus(false);
+      return;
+    }
+
+    const fetchUnlockStatus = async () => {
+      if (!session?.user?.id) {
+        setIsLoadingUnlockStatus(false);
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/user/unlock-status');
+        if (response.ok) {
+          const data = await response.json();
+          setUnlockStatus(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch unlock status:', error);
+      } finally {
+        setIsLoadingUnlockStatus(false);
+      }
+    };
+
+    fetchUnlockStatus();
+  }, [session?.user?.id, isUnlockedViaDebate]);
 
   // Fetch user's location data
   useEffect(() => {
@@ -367,6 +405,42 @@ export function CreateInitiativeForm({
         <p className="text-lg font-medium">Authentication Required</p>
         <p className="text-sm text-muted-foreground">Please log in to create an initiative.</p>
         <Button onClick={() => router.push('/login')} className="mt-4">Login</Button>
+      </div>
+    );
+  }
+
+  // Show loading state while checking unlock status
+  if (isLoadingUnlockStatus) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-sm text-muted-foreground">Checking eligibility...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show unlock progress if user hasn't unlocked initiative creation yet
+  // UNLESS they're coming from a debate that hit the threshold
+  if (!isUnlockedViaDebate && unlockStatus && !unlockStatus.canCreateInitiative) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+          <Lock className="h-5 w-5 text-amber-600" />
+          <p className="text-sm text-amber-900 dark:text-amber-100">
+            Initiative creation is locked. Engage with debates to unlock this feature!
+          </p>
+        </div>
+        <UnlockProgress
+          unlockStatus={unlockStatus}
+          activityScore={unlockStatus.activityScore}
+        />
+        <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+          <p className="text-sm text-blue-900 dark:text-blue-100">
+            💡 <strong>Tip:</strong> When a debate reaches 3 votes with 75% agreement, you can create an Initiative directly from it!
+          </p>
+        </div>
       </div>
     );
   }

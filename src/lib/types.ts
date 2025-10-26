@@ -1,4 +1,4 @@
-import type { User as PrismaUser, Initiative as PrismaInitiative, Milestone as PrismaMilestone, Goal as PrismaGoal, Update as PrismaUpdate, ChatMessage as PrismaChatMessage, MediaItem as PrismaMediaItem, InitiativeRoleType as PrismaInitiativeRoleType, UpdateType as PrismaUpdateType, MediaType as PrismaMediaType, InitiativeStatus as PrismaInitiativeStatus } from '@prisma/client';
+import type { User as PrismaUser, Initiative as PrismaInitiative, Milestone as PrismaMilestone, Goal as PrismaGoal, Update as PrismaUpdate, ChatMessage as PrismaChatMessage, MediaItem as PrismaMediaItem, InitiativeRoleType as PrismaInitiativeRoleType, UpdateType as PrismaUpdateType, MediaType as PrismaMediaType, InitiativeStatus as PrismaInitiativeStatus, Society as PrismaSociety, SocietyMembership as PrismaSocietyMembership } from '@prisma/client';
 
 // Re-export PrismaInitiativeRoleType as InitiativeRoleType for use in other modules
 export type InitiativeRoleType = PrismaInitiativeRoleType;
@@ -33,6 +33,15 @@ export interface InitiativeMembershipClient {
   initiativeId: string;
   customRole?: string | null;
   // joinedAt?: Date; // Optional: if needed from Prisma model
+}
+
+// Client-side representation of a society membership.
+export interface SocietyMembershipClient {
+  user: UserForDisplay;
+  role: string | null;
+  userId: string;
+  societyId: string;
+  customRole?: string | null;
 }
 
 export interface MediaItem extends Omit<PrismaMediaItem, 'initiativeId' | 'updateId' | 'chatMessageId' | 'postId'> {
@@ -90,6 +99,19 @@ export interface Goal extends Omit<PrismaGoal,
 //   'milestone_status' |   
 //   'goal_creation' |      
 //   'goal_status'; 
+
+export interface Society {
+  id: string;
+  name: string;
+  description: string | null;
+  image: string | null;
+  createdAt: Date;
+  creator: UserForDisplay;
+  location: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  memberships: SocietyMembershipClient[];
+}
 
 export interface Update {
   id: string;
@@ -228,6 +250,11 @@ export interface GeneralPost {
   background?: string;
   timestamp: Date;
   linkedInitiativeId?: string;
+  society?: {
+    id: string;
+    name: string;
+    image?: string;
+  };
   linkUrl?: string; // Deprecated - kept for backward compatibility
   linkPreview?: {    // Deprecated - kept for backward compatibility
     url: string;

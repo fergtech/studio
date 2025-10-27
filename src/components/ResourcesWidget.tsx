@@ -40,12 +40,12 @@ export default function ResourcesWidget() {
     },
   ];
 
-  return (
-    <aside className="hidden lg:block fixed top-36 right-10 w-80 z-30">
-      <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl shadow-xl p-6 flex flex-col gap-4 border border-gray-700">
-        <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-          <BookOpen className="text-blue-400" /> Resources
-        </h3>
+    return (
+      <aside className="hidden lg:block fixed top-36 right-10 w-72 z-20">
+        <div className="bg-gray-900/70 rounded-2xl shadow-sm p-4 flex flex-col gap-3 border border-gray-700/50">
+          <h3 className="text-lg font-semibold text-blue-200 mb-1 flex items-center gap-2">
+            <BookOpen className="text-blue-300" /> Resources
+          </h3>
 
         <div className="space-y-2">
           {resourceItems.map((item) => {
@@ -63,7 +63,7 @@ export default function ResourcesWidget() {
                 </>
               );
 
-              const linkClasses = "flex items-start gap-3 px-3 py-3 rounded-lg transition-all duration-200 hover:bg-gray-700/50 group";
+                const linkClasses = "flex items-start gap-2 px-2 py-2 rounded-md transition-all duration-200 hover:bg-gray-700/30 group";
 
               return isExternal ? (
                 <a
@@ -91,7 +91,7 @@ export default function ResourcesWidget() {
         </div>
 
         {/* Company info footer */}
-        <div className="mt-4 border-t border-gray-700 pt-4 text-xs text-gray-400 flex flex-col gap-2">
+          <div className="mt-3 border-t border-gray-700/50 pt-3 text-xs text-gray-500 flex flex-col gap-1">
           <div className="text-center">© 2025 society+ (SocietyPlus)</div>
           <div className="flex flex-wrap justify-center gap-3">
             <a href="https://sp-info.pages.dev/privacy" target="_blank" rel="noopener noreferrer" className="hover:underline hover:text-gray-300">Privacy</a>

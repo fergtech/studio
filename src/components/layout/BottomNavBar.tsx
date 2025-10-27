@@ -20,7 +20,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '../ui/button';
 import { SearchModal } from '../SearchModal';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { CreateDrawerModal } from './CreateDrawerModal';
 import NotificationBell from '@/components/NotificationBell';
 
 // Mock user avatars matching main feed pattern
@@ -64,9 +64,8 @@ export function BottomNavBar() {
   const isLoading = status === 'loading';
 
   // Handle create option selection
-  const handleCreateOption = (type: 'debate' | 'initiative' | 'society' | 'idea' | 'issue' | 'post') => {
+  const handleCreateOption = (type: 'debate' | 'initiative' | 'society' | 'post') => {
     setShowCreateSheet(false);
-
     switch (type) {
       case 'debate':
         openCreateDebateTopicModal();
@@ -76,12 +75,6 @@ export function BottomNavBar() {
         break;
       case 'society':
         openCreateSocietyModal();
-        break;
-      case 'idea':
-        openCreateIdeaModal();
-        break;
-      case 'issue':
-        openCreateIssueModal();
         break;
       case 'post':
         openCreateTopicPostModal('general');
@@ -302,82 +295,11 @@ export function BottomNavBar() {
       </div>
 
       {/* Create Content Bottom Sheet (Mobile) & Modal (Desktop) */}
-      <Sheet open={showCreateSheet} onOpenChange={setShowCreateSheet}>
-        <SheetContent side="bottom" className="h-auto max-h-[80vh] rounded-t-3xl">
-          <SheetHeader className="pb-6">
-            <SheetTitle className="text-center text-xl font-bold">What do you want to create?</SheetTitle>
-          </SheetHeader>
-
-          {/* Grid of Create Options */}
-          <div className="grid grid-cols-3 gap-6 pb-8 px-4">
-            {/* Debate */}
-            <button
-              onClick={() => handleCreateOption('debate')}
-              className="flex flex-col items-center gap-3 p-4 rounded-2xl hover:bg-purple-500/10 active:scale-95 transition-all group"
-            >
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-lg group-hover:shadow-purple-500/50 transition-shadow">
-                <MessageSquare className="w-8 h-8 text-white" />
-              </div>
-              <span className="text-sm font-semibold text-foreground">Debate</span>
-            </button>
-
-            {/* Initiative */}
-            <button
-              onClick={() => handleCreateOption('initiative')}
-              className="flex flex-col items-center gap-3 p-4 rounded-2xl hover:bg-blue-500/10 active:scale-95 transition-all group"
-            >
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg group-hover:shadow-blue-500/50 transition-shadow">
-                <Target className="w-8 h-8 text-white" />
-              </div>
-              <span className="text-sm font-semibold text-foreground">Initiative</span>
-            </button>
-
-            {/* Society */}
-            <button
-              onClick={() => handleCreateOption('society')}
-              className="flex flex-col items-center gap-3 p-4 rounded-2xl hover:bg-emerald-500/10 active:scale-95 transition-all group"
-            >
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg group-hover:shadow-emerald-500/50 transition-shadow">
-                <Users className="w-8 h-8 text-white" />
-              </div>
-              <span className="text-sm font-semibold text-foreground">Society</span>
-            </button>
-
-            {/* Idea */}
-            <button
-              onClick={() => handleCreateOption('idea')}
-              className="flex flex-col items-center gap-3 p-4 rounded-2xl hover:bg-yellow-500/10 active:scale-95 transition-all group"
-            >
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-yellow-500 to-yellow-600 flex items-center justify-center shadow-lg group-hover:shadow-yellow-500/50 transition-shadow">
-                <Lightbulb className="w-8 h-8 text-white" />
-              </div>
-              <span className="text-sm font-semibold text-foreground">Idea</span>
-            </button>
-
-            {/* Issue */}
-            <button
-              onClick={() => handleCreateOption('issue')}
-              className="flex flex-col items-center gap-3 p-4 rounded-2xl hover:bg-red-500/10 active:scale-95 transition-all group"
-            >
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center shadow-lg group-hover:shadow-red-500/50 transition-shadow">
-                <AlertTriangle className="w-8 h-8 text-white" />
-              </div>
-              <span className="text-sm font-semibold text-foreground">Issue</span>
-            </button>
-
-            {/* Post */}
-            <button
-              onClick={() => handleCreateOption('post')}
-              className="flex flex-col items-center gap-3 p-4 rounded-2xl hover:bg-cyan-500/10 active:scale-95 transition-all group"
-            >
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-cyan-500 to-cyan-600 flex items-center justify-center shadow-lg group-hover:shadow-cyan-500/50 transition-shadow">
-                <FileText className="w-8 h-8 text-white" />
-              </div>
-              <span className="text-sm font-semibold text-foreground">Post</span>
-            </button>
-          </div>
-        </SheetContent>
-      </Sheet>
+      <CreateDrawerModal
+        open={showCreateSheet}
+        onOpenChange={setShowCreateSheet}
+        onSelect={handleCreateOption}
+      />
     </>
   );
 }

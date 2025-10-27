@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from "@/components/ui/button";
@@ -423,6 +423,25 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
     }
   };
 
+  // Parallax effect for banner
+  const [bannerOffset, setBannerOffset] = useState(0);
+  const bannerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!bannerRef.current) return;
+      // Get scroll position relative to banner
+      const rect = bannerRef.current.getBoundingClientRect();
+      const scrollY = window.scrollY || window.pageYOffset;
+      // Only apply parallax while banner is visible
+      if (rect.bottom > 0) {
+        setBannerOffset(scrollY * 0.4); // 0.4 = slower than scroll
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   return (
     <div className="min-h-screen bg-background">
       <div className="w-full">
@@ -430,12 +449,21 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
         <div className="px-4 lg:px-6 pt-20 lg:pt-6 pb-32">
           {/* Community Profile Header */}
           <div className="relative w-full mb-8">
-        {/* Banner */}
-        <div className="relative h-56 sm:h-72 md:h-96 w-full rounded-t-xl overflow-hidden bg-muted">
+        {/* Banner with Parallax */}
+        <div ref={bannerRef} className="relative h-56 sm:h-72 md:h-96 w-full rounded-t-xl overflow-hidden bg-muted">
           {user.bannerImageUrl ? (
-            <Image src={user.bannerImageUrl} alt="Profile banner" fill className="object-cover w-full h-full" />
+            <Image 
+              src={user.bannerImageUrl} 
+              alt="Profile banner" 
+              fill 
+              className="object-cover w-full h-full will-change-transform"
+              style={{ transform: `translateY(${bannerOffset * 0.5}px)` }}
+            />
           ) : (
-            <div className="w-full h-full bg-gradient-to-r from-blue-500 via-blue-600 to-green-500" />
+            <div 
+              className="w-full h-full bg-gradient-to-r from-blue-500 via-blue-600 to-green-500 will-change-transform"
+              style={{ transform: `translateY(${bannerOffset * 0.5}px)` }}
+            />
           )}
         </div>
         

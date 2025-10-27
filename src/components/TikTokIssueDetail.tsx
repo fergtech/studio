@@ -317,7 +317,8 @@ export function TikTokIssueDetail({ issue, isOpen, onClose }: TikTokIssueDetailP
                   <video
                     ref={videoRef}
                     src={issue.mediaUrl}
-                    className="max-w-full max-h-full object-contain"
+                    className="max-w-full max-h-[80vh] w-auto h-auto object-contain"
+                    style={{ maxWidth: '100vw', maxHeight: '80vh' }}
                     loop
                     muted={isMuted}
                     playsInline

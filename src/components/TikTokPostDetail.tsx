@@ -363,7 +363,8 @@ export function TikTokPostDetail({
                   <video
                     ref={videoRef}
                     src={post.mediaUrl}
-                    className="max-w-full max-h-[90vh] object-contain"
+                    className="max-w-full max-h-[80vh] w-auto h-auto object-contain"
+                    style={{ maxWidth: '100vw', maxHeight: '80vh' }}
                     loop
                     muted={isMuted}
                     playsInline

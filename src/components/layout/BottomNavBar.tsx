@@ -103,6 +103,7 @@ export function BottomNavBar() {
 
         {/* Create Button */}
         <button
+          suppressHydrationWarning={true}
           onClick={() => setShowCreateSheet(true)}
           className="flex flex-col items-center gap-1 text-muted-foreground transition-colors hover:text-primary"
         >

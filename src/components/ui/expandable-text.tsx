@@ -55,15 +55,27 @@ export function ExpandableText({
 
   return (
     <div className="space-y-2">
-      <p
-        className={cn(
+      {isExpanded ? (
+        <div className={cn(
           'whitespace-pre-wrap break-words leading-relaxed',
-          getLineClampClass(),
+          'max-h-48 overflow-y-auto pr-1', // scrollable when expanded
           className
         )}
-      >
-        {text}
-      </p>
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
+          {text}
+        </div>
+      ) : (
+        <p
+          className={cn(
+            'whitespace-pre-wrap break-words leading-relaxed',
+            getLineClampClass(),
+            className
+          )}
+        >
+          {text}
+        </p>
+      )}
 
       {(isLongText || showButton) && (
         <Button
@@ -99,11 +111,12 @@ export function ExpandableText({
 export function ExpandableTextModal({
   text,
   className,
-}: Omit<ExpandableTextProps, 'maxLines' | 'expandButtonText' | 'collapseButtonText'>) {
+  maxLines = 10,
+}: Omit<ExpandableTextProps, 'expandButtonText' | 'collapseButtonText'> & { maxLines?: number }) {
   return (
     <ExpandableText
       text={text}
-      maxLines={10}
+      maxLines={maxLines}
       className={className}
       expandButtonText="Read More"
       collapseButtonText="Show Less"

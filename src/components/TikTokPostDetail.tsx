@@ -124,6 +124,27 @@ export function TikTokPostDetail({
     }
   }, [isOpen, isVideo]);
 
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+      document.body.style.height = '100%';
+    } else {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.height = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.height = '';
+    };
+  }, [isOpen]);
+
   // Load comments when modal opens
   useEffect(() => {
     if (isOpen && post.id) {
@@ -272,17 +293,27 @@ export function TikTokPostDetail({
     router.push(`/profile/${post.user.username}`);
   };
 
-  if (!isOpen) return null;
-
   return (
     <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[9999] bg-black flex"
-        onClick={onClose}
-      >
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="fixed inset-0 z-[99999] bg-black flex"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            zIndex: 99999
+          }}
+          onClick={onClose}
+        >
         {/* Main content area */}
         <motion.div
           drag="y"
@@ -371,6 +402,7 @@ export function TikTokPostDetail({
                   <ExpandableTextModal
                     text={post.content}
                     className="text-lg text-gray-200 leading-relaxed"
+                    maxLines={3}
                   />
                 </div>
               </div>
@@ -475,6 +507,7 @@ export function TikTokPostDetail({
                 <ExpandableTextModal
                   text={post.content}
                   className="text-sm text-gray-200 leading-relaxed"
+                  maxLines={3}
                 />
 
                 {/* Society/Initiative Context */}
@@ -513,23 +546,24 @@ export function TikTokPostDetail({
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="absolute bottom-0 left-0 right-0 bg-black/90 backdrop-blur-sm max-h-[60vh] z-50"
+              className="absolute bottom-0 left-0 right-0 bg-black/90 backdrop-blur-sm h-[60vh] max-h-[60vh] z-[100] flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="h-full flex flex-col">
-                <div className="p-4 border-b border-gray-700 flex items-center justify-between">
-                  <h3 className="text-white font-semibold">Comments ({comments.length})</h3>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setShowComments(false)}
-                    className="text-white hover:bg-white/10"
-                  >
-                    <ChevronDown className="h-5 w-5" />
-                  </Button>
-                </div>
+              {/* Header */}
+              <div className="flex-shrink-0 p-4 border-b border-gray-700 flex items-center justify-between">
+                <h3 className="text-white font-semibold">Comments ({comments.length})</h3>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowComments(false)}
+                  className="text-white hover:bg-white/10"
+                >
+                  <ChevronDown className="h-5 w-5" />
+                </Button>
+              </div>
 
-                <div className="flex-1 overflow-y-auto p-4 space-y-3 max-h-64">
+              {/* Comments list */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
                   {comments.length === 0 ? (
                     <div className="text-center text-gray-400 py-8">
                       <MessageCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
@@ -556,37 +590,37 @@ export function TikTokPostDetail({
                       </div>
                     ))
                   )}
-                </div>
-
-                {/* Comment input at bottom */}
-                {session?.user && (
-                  <div className="p-4 border-t border-gray-700">
-                    <div className="flex gap-2">
-                      <Input
-                        value={newComment}
-                        onChange={(e) => setNewComment(e.target.value)}
-                        placeholder="Add a comment..."
-                        className="flex-1 bg-white/10 border-white/20 text-white placeholder-gray-400"
-                        onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleComment()}
-                        disabled={isSubmittingComment}
-                      />
-                      <Button
-                        onClick={handleComment}
-                        size="icon"
-                        variant="ghost"
-                        disabled={!newComment.trim() || isSubmittingComment}
-                        className="text-white hover:bg-white/10"
-                      >
-                        <Send className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                )}
               </div>
+
+              {/* Comment input at bottom - always visible */}
+              {session?.user && (
+                <div className="flex-shrink-0 p-4 border-t border-gray-700 bg-black/90">
+                  <div className="flex gap-2">
+                    <Input
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      placeholder="Add a comment..."
+                      className="flex-1 bg-white/10 border-white/20 text-white placeholder-gray-400"
+                      onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleComment()}
+                      disabled={isSubmittingComment}
+                    />
+                    <Button
+                      onClick={handleComment}
+                      size="icon"
+                      variant="ghost"
+                      disabled={!newComment.trim() || isSubmittingComment}
+                      className="text-white hover:bg-white/10"
+                    >
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
-      </motion.div>
+        </motion.div>
+      )}
     </AnimatePresence>
   );
 }

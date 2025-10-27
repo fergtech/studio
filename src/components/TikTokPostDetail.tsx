@@ -22,6 +22,7 @@ import {
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
+import { formatDistanceToNow } from 'date-fns';
 import { usePostStats } from '@/context/PostStatsContext';
 import { ExpandableTextModal } from '@/components/ui/expandable-text';
 import { ContextBadge } from '@/components/ui/context-badge';
@@ -279,7 +280,7 @@ export function TikTokPostDetail({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black z-50 flex"
+        className="fixed inset-0 z-[9999] bg-black flex"
         onClick={onClose}
       >
         {/* Main content area */}
@@ -331,7 +332,7 @@ export function TikTokPostDetail({
                   <video
                     ref={videoRef}
                     src={post.mediaUrl}
-                    className="max-w-full max-h-full object-contain"
+                    className="max-w-full max-h-[90vh] object-contain"
                     loop
                     muted={isMuted}
                     playsInline
@@ -375,75 +376,111 @@ export function TikTokPostDetail({
               </div>
             )}
 
-            {/* Floating actions sidebar */}
-            <div className="absolute right-4 bottom-1/3 flex flex-col gap-6">
+            {/* Right sidebar with actions and info */}
+            <motion.div
+              className="absolute right-4 bottom-1/3 flex flex-col items-center space-y-4 z-40"
+              drag="y"
+              dragConstraints={{ top: 0, bottom: 0 }}
+              onDragEnd={handleDragEnd}
+            >
+              {/* User info */}
+              <div className="flex flex-col items-center space-y-2">
+                <div className="flex items-center gap-3 mb-3" onClick={handleUserClick}>
+                  <Avatar className="w-12 h-12 cursor-pointer border-2 border-white">
+                    <AvatarImage src={post.user?.image || ''} alt={post.user?.name || ''} />
+                    <AvatarFallback>{post.user?.name?.substring(0, 2) || '?'}</AvatarFallback>
+                  </Avatar>
+                </div>
+                <div className="text-center">
+                  <p className="text-white font-semibold text-sm cursor-pointer" onClick={handleUserClick}>
+                    {post.user.name}
+                  </p>
+                  <p className="text-gray-300 text-xs">
+                    {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
+                  </p>
+                </div>
+              </div>
+
               {/* Like button */}
-              <motion.div 
-                className="flex flex-col items-center gap-1"
-                whileTap={{ scale: 0.8 }}
-              >
+              <div className="flex flex-col items-center">
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={handleLike}
                   className={cn(
-                    "w-12 h-12 rounded-full bg-black/50 hover:bg-black/70",
-                    isLiked && "bg-red-500 hover:bg-red-600"
+                    "rounded-full w-12 h-12 transition-all",
+                    isLiked
+                      ? "bg-red-500 text-white hover:bg-red-600"
+                      : "bg-black/50 text-white hover:bg-black/70"
                   )}
                 >
-                  <Heart className={cn("h-6 w-6", isLiked ? "fill-white text-white" : "text-white")} />
+                  <Heart className={cn("h-6 w-6", isLiked && "fill-current")} />
                 </Button>
-                <span className="text-white text-xs font-medium">{likes}</span>
-              </motion.div>
+                <span className="text-white text-xs mt-1">{likes}</span>
+              </div>
 
-              {/* Comment button */}
-              <motion.div 
-                className="flex flex-col items-center gap-1"
-                whileTap={{ scale: 0.8 }}
-              >
+              {/* Comments button */}
+              <div className="flex flex-col items-center">
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => setShowComments(true)}
-                  className="w-12 h-12 rounded-full bg-black/50 hover:bg-black/70 text-white"
+                  onClick={() => setShowComments(!showComments)}
+                  className="bg-black/50 text-white hover:bg-black/70 rounded-full w-12 h-12"
                 >
                   <MessageCircle className="h-6 w-6" />
                 </Button>
-                <span className="text-white text-xs font-medium">{comments.length}</span>
-              </motion.div>
+                <span className="text-white text-xs mt-1">{comments.length}</span>
+              </div>
 
               {/* Share button */}
-              <motion.div 
-                className="flex flex-col items-center gap-1"
-                whileTap={{ scale: 0.8 }}
-              >
+              <div className="flex flex-col items-center">
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={handleShare}
-                  className="w-12 h-12 rounded-full bg-black/50 hover:bg-black/70 text-white"
+                  className="bg-black/50 text-white hover:bg-black/70 rounded-full w-12 h-12"
                 >
                   <Share className="h-6 w-6" />
                 </Button>
-                <span className="text-white text-xs font-medium">{post.shares}</span>
-              </motion.div>
-            </div>
+                <span className="text-white text-xs mt-1">{post.shares}</span>
+              </div>
 
-            {/* Post metadata overlay */}
-            <div className="absolute bottom-0 left-0 right-0 p-6 pr-20 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
-              {/* User info */}
-              <div className="flex items-center gap-3 mb-3" onClick={handleUserClick}>
-                <Avatar className="w-10 h-10 cursor-pointer">
-                  <AvatarImage src={post.user.image} alt={post.user.name} />
-                  <AvatarFallback>{post.user.name.substring(0, 2)}</AvatarFallback>
-                </Avatar>
-                <div className="cursor-pointer flex-1">
-                  <p className="text-white font-semibold">{post.user.name}</p>
-                  <p className="text-gray-300 text-sm">@{post.user.username}</p>
+              {/* More actions */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="bg-black/50 text-white hover:bg-black/70 rounded-full w-12 h-12"
+              >
+                <MoreHorizontal className="h-6 w-6" />
+              </Button>
+            </motion.div>
 
-                  {/* Society/Initiative Context */}
-                  {post.society && (
-                    <div className="mt-1">
+            {/* Bottom metadata overlay - shows content when media is present */}
+            {post.mediaUrl && (
+              <div className="absolute bottom-0 left-0 right-0 p-6 pr-20 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
+                <div className="mb-2">
+                  <Badge
+                    variant={
+                      post.type === 'issue' ? 'destructive' :
+                      post.type === 'idea' ? 'default' : 'secondary'
+                    }
+                    className="mb-3"
+                  >
+                    {post.type === 'issue' ? '🚨 Issue' :
+                     post.type === 'idea' ? '💡 Idea' :
+                     '📝 General'}
+                  </Badge>
+                </div>
+                {post.title && <h2 className="text-xl font-bold text-white mb-2">{post.title}</h2>}
+                <ExpandableTextModal
+                  text={post.content}
+                  className="text-sm text-gray-200 leading-relaxed"
+                />
+
+                {/* Society/Initiative Context */}
+                {(post.society || post.initiative) && (
+                  <div className="flex items-center gap-2 mt-3">
+                    {post.society && (
                       <ContextBadge
                         type="society"
                         id={post.society.id}
@@ -451,10 +488,8 @@ export function TikTokPostDetail({
                         variant="minimal"
                         className="text-gray-300 hover:text-white text-xs"
                       />
-                    </div>
-                  )}
-                  {post.initiative && !post.society && (
-                    <div className="mt-1">
+                    )}
+                    {post.initiative && !post.society && (
                       <ContextBadge
                         type="initiative"
                         id={post.initiative.id}
@@ -462,46 +497,11 @@ export function TikTokPostDetail({
                         variant="minimal"
                         className="text-gray-300 hover:text-white text-xs"
                       />
-                    </div>
-                  )}
-                </div>
-                <Badge
-                  variant={
-                    post.type === 'issue' ? 'destructive' :
-                    post.type === 'idea' ? 'default' : 'secondary'
-                  }
-                  className="ml-auto"
-                >
-                  {post.type === 'issue' ? '🚨 Issue' :
-                   post.type === 'idea' ? '💡 Idea' : '📝 General'}
-                </Badge>
+                    )}
+                  </div>
+                )}
               </div>
-
-              {/* Post content */}
-              {post.mediaUrl && (
-                <div className="mb-2">
-                  {post.title && <h3 className="text-white font-semibold mb-1">{post.title}</h3>}
-                  <ExpandableTextModal
-                    text={post.content}
-                    className="text-gray-200 text-sm leading-relaxed"
-                  />
-                </div>
-              )}
-
-              {/* Comment input */}
-              <div className="flex gap-2 mt-4">
-                <Input
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  placeholder="Add a comment..."
-                  className="flex-1 bg-white/10 border-white/20 text-white placeholder-gray-400"
-                  onKeyPress={(e) => e.key === 'Enter' && handleComment()}
-                />
-                <Button onClick={handleComment} size="icon" variant="ghost">
-                  <Send className="h-4 w-4 text-white" />
-                </Button>
-              </div>
-            </div>
+            )}
           </div>
         </motion.div>
 
@@ -509,82 +509,79 @@ export function TikTokPostDetail({
         <AnimatePresence>
           {showComments && (
             <motion.div
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              className="absolute right-0 top-0 bottom-0 w-96 bg-background border-l border-border"
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="absolute bottom-0 left-0 right-0 bg-black/90 backdrop-blur-sm max-h-[60vh] z-50"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="h-full flex flex-col">
-                <div className="p-4 border-b border-border flex items-center justify-between">
-                  <h3 className="font-semibold">Comments</h3>
+                <div className="p-4 border-b border-gray-700 flex items-center justify-between">
+                  <h3 className="text-white font-semibold">Comments ({comments.length})</h3>
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => setShowComments(false)}
+                    className="text-white hover:bg-white/10"
                   >
-                    <X className="h-4 w-4" />
+                    <ChevronDown className="h-5 w-5" />
                   </Button>
                 </div>
-                
-                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+
+                <div className="flex-1 overflow-y-auto p-4 space-y-3 max-h-64">
                   {comments.length === 0 ? (
-                    <div className="text-center text-muted-foreground py-8">
+                    <div className="text-center text-gray-400 py-8">
                       <MessageCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
                       <p>No comments yet. Be the first to comment!</p>
                     </div>
                   ) : (
                     comments.map((comment) => (
                       <div key={comment.id} className="flex gap-3">
-                        <Avatar className="w-8 h-8">
+                        <Avatar className="w-8 h-8 flex-shrink-0">
                           <AvatarImage src={comment.user.image} alt={comment.user.name} />
                           <AvatarFallback className="text-xs">
                             {comment.user.name.substring(0, 2)}
                           </AvatarFallback>
                         </Avatar>
-                        <div className="flex-1">
-                          <div className="bg-muted rounded-lg p-3">
-                            <p className="font-medium text-sm">{comment.user.name}</p>
-                            <p className="text-sm">{comment.content}</p>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-white font-medium text-sm">{comment.user.name}</span>
+                            <span className="text-gray-400 text-xs">
+                              {new Date(comment.createdAt).toLocaleTimeString()}
+                            </span>
                           </div>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {new Date(comment.createdAt).toLocaleTimeString()}
-                          </p>
+                          <p className="text-gray-200 text-sm break-words">{comment.content}</p>
                         </div>
                       </div>
                     ))
                   )}
                 </div>
-                
+
                 {/* Comment input at bottom */}
-                <div className="p-4 border-t border-border">
-                  <div className="flex gap-2">
-                    <Avatar className="w-8 h-8">
-                      <AvatarImage src={session?.user?.image} alt={session?.user?.name || 'You'} />
-                      <AvatarFallback className="text-xs">
-                        {session?.user?.name?.substring(0, 2) || 'U'}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 flex gap-2">
+                {session?.user && (
+                  <div className="p-4 border-t border-gray-700">
+                    <div className="flex gap-2">
                       <Input
                         value={newComment}
                         onChange={(e) => setNewComment(e.target.value)}
                         placeholder="Add a comment..."
-                        className="flex-1"
+                        className="flex-1 bg-white/10 border-white/20 text-white placeholder-gray-400"
                         onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleComment()}
                         disabled={isSubmittingComment}
                       />
-                      <Button 
-                        onClick={handleComment} 
-                        size="icon" 
+                      <Button
+                        onClick={handleComment}
+                        size="icon"
                         variant="ghost"
                         disabled={!newComment.trim() || isSubmittingComment}
+                        className="text-white hover:bg-white/10"
                       >
                         <Send className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
-                </div>
+                )}
               </div>
             </motion.div>
           )}

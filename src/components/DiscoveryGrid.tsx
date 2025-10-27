@@ -12,6 +12,7 @@ import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { TikTokPostDetail } from './TikTokPostDetail';
+import { PostStatsProvider } from '@/context/PostStatsContext';
 
 interface SearchUser {
   id: string;
@@ -34,7 +35,7 @@ interface SearchPost {
   title?: string;
   content: string;
   description?: string;
-  type: 'general' | 'issue' | 'idea';
+  type: 'general' | 'issue' | 'idea' | 'debate';
   mediaUrl?: string;
   mediaType?: string;
   userId: string;
@@ -53,7 +54,7 @@ interface SearchSociety {
   memberCount: number;
 }
 
-type ContentType = 'all' | 'users' | 'posts' | 'initiatives' | 'societies';
+type ContentType = 'all' | 'users' | 'posts' | 'debates' | 'initiatives' | 'societies';
 
 interface DiscoveryGridProps {
   searchResults: {
@@ -61,6 +62,7 @@ interface DiscoveryGridProps {
     initiatives: SearchInitiative[];
     posts: SearchPost[];
     societies: SearchSociety[];
+    debates?: SearchPost[]; // debates as post type
   };
   isSearching: boolean;
   hasSearched: boolean;
@@ -87,6 +89,7 @@ export function DiscoveryGrid({ searchResults, isSearching, hasSearched }: Disco
   const allContent = [
     ...searchResults.users.map(item => ({ ...item, _type: 'user' as const })),
     ...searchResults.posts.map(item => ({ ...item, _type: 'post' as const })),
+    ...(searchResults.debates ? searchResults.debates.map(item => ({ ...item, _type: 'post' as const, type: 'debate' })) : []),
     ...searchResults.initiatives.map(item => ({ ...item, _type: 'initiative' as const })),
     ...searchResults.societies.map(item => ({ ...item, _type: 'society' as const }))
   ].sort(() => Math.random() - 0.5); // Shuffle for discovery
@@ -94,7 +97,10 @@ export function DiscoveryGrid({ searchResults, isSearching, hasSearched }: Disco
   const getFilteredContent = () => {
     switch (activeCategory) {
       case 'users': return searchResults.users.map(item => ({ ...item, _type: 'user' as const }));
-      case 'posts': return searchResults.posts.map(item => ({ ...item, _type: 'post' as const }));
+      case 'posts':
+        return searchResults.posts.map(item => ({ ...item, _type: 'post' as const }));
+      case 'debates':
+        return (searchResults.debates || []).map(item => ({ ...item, _type: 'post' as const, type: 'debate' }));
       case 'initiatives': return searchResults.initiatives.map(item => ({ ...item, _type: 'initiative' as const }));
       case 'societies': return searchResults.societies.map(item => ({ ...item, _type: 'society' as const }));
       default: return allContent;
@@ -108,6 +114,12 @@ export function DiscoveryGrid({ searchResults, isSearching, hasSearched }: Disco
       // Use TikTok-style detail for posts
       setSelectedPost({
         ...item,
+        user: {
+          id: item.userId || item.user?.id || 'unknown',
+          name: item.user?.name || 'Anonymous',
+          username: item.user?.username || 'anonymous',
+          image: item.user?.image
+        },
         likes: 0, // Will be loaded from API
         shares: 0, // Will be loaded from API
         comments: [], // Will be loaded from API
@@ -128,7 +140,8 @@ export function DiscoveryGrid({ searchResults, isSearching, hasSearched }: Disco
   // Instagram-style grid item component
   const GridItem = ({ item, index }: { item: any; index: number }) => {
     const isUser = item._type === 'user';
-    const isPost = item._type === 'post';
+  const isPost = item._type === 'post';
+  const isDebate = isPost && item.type === 'debate';
     const isInitiative = item._type === 'initiative';
     const isSociety = item._type === 'society';
 
@@ -196,7 +209,7 @@ export function DiscoveryGrid({ searchResults, isSearching, hasSearched }: Disco
           <div className="flex justify-between items-start">
             <Badge variant="secondary" className="bg-black/20 text-white border-0 text-xs">
               {isUser && "👤 User"}
-              {isPost && "📝 Post"}
+              {isDebate ? "🔥 Debate" : isPost && "📝 Post"}
               {isInitiative && "🎯 Initiative"}
               {isSociety && "🏛️ Society"}
             </Badge>
@@ -225,7 +238,20 @@ export function DiscoveryGrid({ searchResults, isSearching, hasSearched }: Disco
               </>
             )}
 
-            {isPost && (
+            {isDebate && (
+              <>
+                <p className="text-sm font-semibold line-clamp-2">{item.content}</p>
+                <div className="flex items-center gap-2 text-xs opacity-80">
+                  <Avatar className="w-4 h-4">
+                    <AvatarImage src={item.user?.image || ''} alt={item.user?.name || ''} />
+                    <AvatarFallback className="text-[8px]">{item.user?.name?.substring(0, 1) || '?'}</AvatarFallback>
+                  </Avatar>
+                  <span>{item.user?.name || 'Unknown'}</span>
+                  <span className="ml-2 text-xs text-orange-400">Debate</span>
+                </div>
+              </>
+            )}
+            {!isDebate && isPost && (
               <>
                 <p className="text-sm font-semibold line-clamp-2">{item.content}</p>
                 <div className="flex items-center gap-2 text-xs opacity-80">
@@ -611,6 +637,7 @@ export function DiscoveryGrid({ searchResults, isSearching, hasSearched }: Disco
           { key: 'all', label: 'All', icon: '🔍' },
           { key: 'users', label: 'People', icon: '👤' },
           { key: 'posts', label: 'Posts', icon: '📝' },
+          { key: 'debates', label: 'Debates', icon: '🔥' },
           { key: 'initiatives', label: 'Initiatives', icon: '🎯' },
           { key: 'societies', label: 'Societies', icon: '🏛️' }
         ].map(({ key, label, icon }) => (
@@ -628,7 +655,7 @@ export function DiscoveryGrid({ searchResults, isSearching, hasSearched }: Disco
             {label}
             {key !== 'all' && (
               <Badge variant="secondary" className="ml-1 h-4 text-xs">
-                {searchResults[key as keyof typeof searchResults].length}
+                {(searchResults[key as keyof typeof searchResults] || []).length}
               </Badge>
             )}
           </Button>
@@ -678,14 +705,16 @@ export function DiscoveryGrid({ searchResults, isSearching, hasSearched }: Disco
       
       {/* TikTok-style Post Detail */}
       {selectedPost && (
-        <TikTokPostDetail
-          post={selectedPost}
-          isOpen={isTikTokDetailOpen}
-          onClose={() => {
-            setIsTikTokDetailOpen(false);
-            setSelectedPost(null);
-          }}
-        />
+        <PostStatsProvider>
+          <TikTokPostDetail
+            post={selectedPost}
+            isOpen={isTikTokDetailOpen}
+            onClose={() => {
+              setIsTikTokDetailOpen(false);
+              setSelectedPost(null);
+            }}
+          />
+        </PostStatsProvider>
       )}
     </div>
   );

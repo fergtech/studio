@@ -6,6 +6,17 @@ body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
+/* Ensure content isn't blocked by bottom nav */
+.page-container {
+  padding-bottom: 8rem; /* Increased from 6rem (pb-24) to 8rem (pb-32) */
+}
+
+@media (min-width: 768px) {
+  .page-container {
+    padding-bottom: 6rem; /* Desktop uses floating nav, less padding needed */
+  }
+}
+
 @layer base {
   :root {
     /* Impact Labs Theme - Dark (Enhanced Contrast & Vibrancy) */

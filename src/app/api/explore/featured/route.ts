@@ -4,7 +4,75 @@ import { prisma } from '@/lib/prisma';
 export async function GET(req: NextRequest) {
   try {
     // Get featured/trending content for initial explore page load
-    
+
+    // Get recent debates
+    const featuredDebates = await prisma.debateTopic.findMany({
+      where: {
+        OR: [
+          { moderationStatus: 'approved' },
+          { moderationStatus: null }
+        ],
+      },
+      select: {
+        id: true,
+        title: true,
+        content: true,
+        imageUrl: true,
+        creatorId: true,
+        createdAt: true,
+        creator: {
+          select: {
+            id: true,
+            name: true,
+            username: true,
+            image: true,
+          },
+        },
+        votes: {
+          select: {
+            side: true,
+          },
+        },
+        _count: {
+          select: {
+            arguments: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 12,
+    });
+
+    // Transform debates to match expected format
+    const transformedDebates = featuredDebates.map((debate) => {
+      const proVotes = debate.votes.filter((v) => v.side === 'PRO').length;
+      const conVotes = debate.votes.filter((v) => v.side === 'CON').length;
+
+      return {
+        id: debate.id,
+        title: debate.title,
+        content: debate.content,
+        type: 'debate' as const,
+        mediaUrl: debate.imageUrl,
+        userId: debate.creatorId,
+        createdAt: debate.createdAt,
+        user: debate.creator ? {
+          id: debate.creator.id,
+          name: debate.creator.name || 'Anonymous',
+          username: debate.creator.username || 'anonymous',
+          image: debate.creator.image,
+        } : {
+          id: debate.creatorId || 'unknown',
+          name: 'Anonymous',
+          username: 'anonymous',
+        },
+        stats: {
+          totalVotes: proVotes + conVotes,
+          argumentCount: debate._count.arguments,
+        },
+      };
+    });
+
     // Get recent initiatives
     const featuredInitiatives = await prisma.initiative.findMany({
       select: {
@@ -103,6 +171,7 @@ export async function GET(req: NextRequest) {
     }));
 
     return NextResponse.json({
+      debates: transformedDebates,
       initiatives: featuredInitiatives,
       societies: transformedSocieties,
       posts: transformedPosts,

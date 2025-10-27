@@ -81,7 +81,7 @@ export default function IssuesPage() {
 
   return (
     <div className="w-full min-w-0 overflow-hidden">
-      <div className="px-4 lg:px-6 pt-20 lg:pt-6 pb-24">
+      <div className="px-4 lg:px-6 pt-20 lg:pt-6 pb-32">
         <div className="max-w-5xl mx-auto py-10">
           {/* Header */}
           <div className="flex flex-col sm:flex-row items-center justify-between mb-8">

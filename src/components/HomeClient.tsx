@@ -50,6 +50,7 @@ import { TikTokIssueDetail } from './TikTokIssueDetail';
 import { TikTokIdeaDetail } from './TikTokIdeaDetail';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { PullToRefreshIndicator } from './PullToRefresh';
+import { PostStatsProvider } from '@/context/PostStatsContext';
 
 // Define extended types that include the relations we'll fetch
 type InitiativeWithCreator = PrismaInitiative & {
@@ -811,7 +812,7 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
         {/* Main Layout: Feed centered, News pushed to far right */}
         <div className="flex w-full justify-center">
           {/* Main Feed - Centered */}
-          <div className="flex-shrink-0 w-full max-w-3xl px-4 pb-24">
+          <div className="flex-shrink-0 w-full max-w-3xl px-4 pb-32">
             <div className="flex flex-col space-y-8">
               {/* Hero Section - Within feed column - HIDDEN */}
               <div className="w-full mb-2 hidden">
@@ -1253,14 +1254,16 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
 
       {/* TikTok-style Post Detail Modal */}
       {selectedPost && (
-        <TikTokPostDetail
-          post={selectedPost}
-          isOpen={isTikTokDetailOpen}
-          onClose={() => {
-            setIsTikTokDetailOpen(false);
-            setSelectedPost(null);
-          }}
-        />
+        <PostStatsProvider>
+          <TikTokPostDetail
+            post={selectedPost}
+            isOpen={isTikTokDetailOpen}
+            onClose={() => {
+              setIsTikTokDetailOpen(false);
+              setSelectedPost(null);
+            }}
+          />
+        </PostStatsProvider>
       )}
 
       {/* TikTok-style Issue Detail Modal */}

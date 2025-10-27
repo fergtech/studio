@@ -113,7 +113,7 @@ export default function InitiativesPage() {
   if (loading) {
     return (
       <div className="w-full min-w-0 overflow-hidden">
-        <div className="px-4 lg:px-6 pt-20 lg:pt-6 pb-24">
+        <div className="px-4 lg:px-6 pt-20 lg:pt-6 pb-32">
           <div className="max-w-6xl mx-auto py-10">
             <div className="text-center">Loading initiatives...</div>
           </div>
@@ -127,7 +127,7 @@ export default function InitiativesPage() {
       <div className={`transition-all duration-300 ${
         isMobile
           ? 'pt-0' // No padding for mobile full-screen experience
-          : 'px-4 lg:px-6 pt-20 lg:pt-6 pb-24'
+          : 'px-4 lg:px-6 pt-20 lg:pt-6 pb-32'
       }`}>
         {isMobile ? (
           // Mobile: TikTok-style full-screen feed

@@ -434,7 +434,7 @@ export default function PostDetailClient({
   return (
     <div className="min-h-screen bg-background">
       {/* Main Content - blur when comment panel open */}
-      <div className={`px-4 lg:px-6 pt-20 lg:pt-6 pb-24 ${commentPanelOpen ? 'blur-sm pointer-events-none' : ''}`}>
+      <div className={`px-4 lg:px-6 pt-20 lg:pt-6 pb-32 ${commentPanelOpen ? 'blur-sm pointer-events-none' : ''}`}>
         {/* Close Button - positioned on the right */}
         <div className="max-w-6xl mx-auto pt-6 px-4 flex items-center justify-end mb-4">
           <Button variant="ghost" size="icon" onClick={() => router.back()}>

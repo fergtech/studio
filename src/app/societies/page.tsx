@@ -32,7 +32,7 @@ export default function SocietiesPage() {
   if (loading) {
     return (
       <div className="w-full min-w-0 overflow-hidden">
-        <div className="px-4 lg:px-6 pt-20 lg:pt-6 pb-24">
+        <div className="px-4 lg:px-6 pt-20 lg:pt-6 pb-32">
           <div className="max-w-4xl mx-auto py-10">
             <div className="text-center">Loading societies...</div>
           </div>
@@ -43,7 +43,7 @@ export default function SocietiesPage() {
 
   return (
     <div className="w-full min-w-0 overflow-hidden">
-      <div className="px-4 lg:px-6 pt-20 lg:pt-6 pb-24">
+      <div className="px-4 lg:px-6 pt-20 lg:pt-6 pb-32">
         <div className="max-w-4xl mx-auto py-10">
           <h1 className="text-3xl font-bold mb-6">All Societies</h1>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">

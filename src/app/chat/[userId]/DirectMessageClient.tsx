@@ -9,7 +9,7 @@ import { ArrowLeft, User2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useToast } from '@/components/ui/use-toast';
 // import { io, Socket } from 'socket.io-client'; // Temporarily disabled for Vercel deployment
-import AppSidebar, { getDefaultCollapsedState } from '@/components/AppSidebar';
+
 import Image from 'next/image';
 import { FileIcon, Send, Paperclip, X, Smile, MoreVertical, Reply, Trash2 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -42,7 +42,7 @@ export default function DirectMessageClient({
   const [replyingTo, setReplyingTo] = useState<any | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   // const [socket, setSocket] = useState<Socket | null>(null); // Temporarily disabled
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => getDefaultCollapsedState({ type: 'chat' }));
+  // Sidebar state removed; always full width
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const { toast } = useToast();
@@ -228,14 +228,8 @@ export default function DirectMessageClient({
 
   return (
     <div className="flex h-screen">
-      <AppSidebar 
-        widgets={['userControls', 'navigation', 'resources', 'footer']}
-        context={{ type: 'chat' }}
-        onCollapseChange={setSidebarCollapsed}
-      />
-      <div className={`flex-1 flex flex-col transition-all duration-300 ${
-        sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'
-      }`}>
+      
+      <div className="flex-1 flex flex-col w-full">
         {/* Header */}
         <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
           <div className="container mx-auto px-4 py-4">
@@ -356,7 +350,7 @@ export default function DirectMessageClient({
 
                       {/* Reactions display */}
                       {message.reactions && message.reactions.length > 0 && (
-                        <div className="flex gap-1 flex-wrap mt-1">
+                         <div className="flex gap-1 flex-wrap mt-1">
                           {Object.entries(
                             message.reactions.reduce((acc: Record<string, number>, r: any) => {
                               acc[r.emoji] = (acc[r.emoji] || 0) + 1;
@@ -364,10 +358,10 @@ export default function DirectMessageClient({
                             }, {})
                           ).map(([emoji, count]) => (
                             <span
-                              key={emoji}
+                              key={emoji as string}
                               className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted text-xs"
                             >
-                              {emoji} {count}
+                              {emoji as string} {count as number}
                             </span>
                           ))}
                         </div>
@@ -381,7 +375,7 @@ export default function DirectMessageClient({
           </div>
           
           {/* Message Input */}
-          <div className="flex-shrink-0 border-t bg-background p-4">
+          <div className="flex-shrink-0 border-t bg-background p-4 mb-20">
             {/* Reply indicator */}
             {replyingTo && (
               <div className="mb-2 p-2 bg-muted rounded flex items-center justify-between">

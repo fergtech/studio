@@ -311,7 +311,7 @@ export default function IssueClient({ issue, currentUserId, initiallyChampioned 
 
   return (
     <div className="w-full min-w-0 overflow-hidden">
-      <div className="px-4 lg:px-6 pt-20 lg:pt-6 pb-24">
+      <div className="px-4 lg:px-6 pt-20 lg:pt-6 pb-32">
         <div className="max-w-4xl mx-auto py-6">
           {/* Header with close button and type indicator on right */}
           <div className="flex items-center justify-end gap-4 mb-6">

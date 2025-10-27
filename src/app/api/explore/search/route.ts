@@ -5,7 +5,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const q = searchParams.get('q')?.trim();
   if (!q) {
-    return NextResponse.json({ users: [], initiatives: [], posts: [], societies: [] });
+    return NextResponse.json({ users: [], initiatives: [], posts: [], debates: [], societies: [] });
   }
 
   // Users: name, skills, interests
@@ -135,6 +135,17 @@ export async function GET(req: NextRequest) {
       id: true,
       title: true,
       content: true,
+      imageUrl: true,
+      creatorId: true,
+      createdAt: true,
+      creator: {
+        select: {
+          id: true,
+          name: true,
+          username: true,
+          image: true,
+        },
+      },
       votes: {
         select: {
           side: true,
@@ -161,6 +172,20 @@ export async function GET(req: NextRequest) {
       id: debate.id,
       title: debate.title,
       content: debate.content,
+      type: 'debate' as const,
+      mediaUrl: debate.imageUrl,
+      userId: debate.creatorId,
+      createdAt: debate.createdAt,
+      user: debate.creator ? {
+        id: debate.creator.id,
+        name: debate.creator.name || 'Anonymous',
+        username: debate.creator.username || 'anonymous',
+        image: debate.creator.image,
+      } : {
+        id: debate.creatorId || 'unknown',
+        name: 'Anonymous',
+        username: 'anonymous',
+      },
       stats: {
         totalVotes: proVotes + conVotes,
         argumentCount: debate._count.arguments,

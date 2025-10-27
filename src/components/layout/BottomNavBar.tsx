@@ -101,6 +101,20 @@ export function BottomNavBar() {
           <span className="text-xs">Home</span>
         </Link>
 
+        {/* Create Button */}
+        <button
+          onClick={() => setShowCreateSheet(true)}
+          className="flex flex-col items-center gap-1 text-muted-foreground transition-colors hover:text-primary"
+        >
+          <div className="relative">
+            <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping" style={{ animationDuration: '3s' }} />
+            <div className="relative w-10 h-10 rounded-full bg-gradient-to-br from-primary via-primary to-primary/90 flex items-center justify-center">
+              <Plus className="h-5 w-5 text-primary-foreground" />
+            </div>
+          </div>
+          <span className="text-xs">Create</span>
+        </button>
+
         <Link href="/explore" className={cn("flex flex-col items-center gap-1 text-muted-foreground transition-colors", pathname === '/explore' && 'text-primary')}>
           <Search className="h-6 w-6" />
           <span className="text-xs">Explore</span>
@@ -170,30 +184,6 @@ export function BottomNavBar() {
           </Link>
         )}
       </div>
-
-      {/* Mobile "Create" FAB - moved higher to avoid overlap with nav bar */}
-      <div className="fixed bottom-20 left-1/2 -translate-x-1/2 md:hidden z-50">
-        <div className="relative">
-          {/* Subtle pulsing ring */}
-          <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping" style={{ animationDuration: '3s' }} />
-
-          {/* Main FAB button */}
-          <button
-            onClick={() => setShowCreateSheet(true)}
-            className="relative flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-primary via-primary to-primary/90 text-primary-foreground shadow-lg hover:shadow-xl hover:scale-105 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-all active:scale-95 group overflow-hidden"
-            aria-label="Create new content"
-          >
-            {/* Subtle shimmer effect */}
-            <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
-
-            {/* Plus icon */}
-            <Plus className={cn("w-8 h-8 transition-transform relative z-10", showCreateSheet && "rotate-45")} />
-          </button>
-        </div>
-      </div>
-
-      {/* Spacer for Mobile */}
-      <div className="h-28 md:hidden" />
 
       {/* Desktop Floating Nav Bar */}
       <div className="hidden md:flex fixed bottom-4 left-1/2 -translate-x-1/2 z-50">

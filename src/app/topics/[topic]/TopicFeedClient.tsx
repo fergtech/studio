@@ -149,7 +149,7 @@ export function TopicFeedClient({ topic }: TopicFeedClientProps) {
   return (
     <PostStatsProvider>
       <div className="w-full min-w-0 overflow-hidden">
-        <div className="px-4 lg:px-6 pt-20 lg:pt-6 pb-24">
+        <div className="px-4 lg:px-6 pt-20 lg:pt-6 pb-32">
         <div className="flex items-center mb-4">
           <Link href="/">
             <Button variant="ghost" size="sm">

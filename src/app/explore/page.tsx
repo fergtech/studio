@@ -35,7 +35,7 @@ interface SearchPost {
   title?: string;
   content: string;
   description?: string;
-  type: 'general' | 'issue' | 'idea';
+  type: 'general' | 'issue' | 'idea' | 'debate';
   mediaUrl?: string;
   mediaType?: string;
   userId: string;
@@ -58,6 +58,7 @@ interface SearchResults {
   users: SearchUser[];
   initiatives: SearchInitiative[];
   posts: SearchPost[];
+  debates?: SearchPost[];
   societies: SearchSociety[];
 }
 
@@ -67,7 +68,7 @@ function ExplorePageInner() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [results, setResults] = useState<SearchResults>({ users: [], initiatives: [], posts: [], societies: [] });
+  const [results, setResults] = useState<SearchResults>({ users: [], initiatives: [], posts: [], debates: [], societies: [] });
   const [hasSearched, setHasSearched] = useState(false);
   const [isLoadingFeatured, setIsLoadingFeatured] = useState(true);
   const isMobile = useIsMobile();
@@ -107,7 +108,7 @@ function ExplorePageInner() {
       const data = await response.json();
       setResults(data);
     } else {
-      setResults({ users: [], initiatives: [], posts: [], societies: [] });
+      setResults({ users: [], initiatives: [], posts: [], debates: [], societies: [] });
     }
     setIsLoading(false);
   };
@@ -259,7 +260,7 @@ function ExplorePageInner() {
   return (
     <div className="w-full min-w-0 overflow-hidden">
       {/* AppSidebar removed for mobile-first redesign */}
-      <div className="px-4 lg:px-6 pt-20 lg:pt-6 pb-24">
+      <div className="px-4 lg:px-6 pt-20 lg:pt-6 pb-32">
         <div className="max-w-5xl mx-auto py-10">
           <div className="flex flex-col sm:flex-row items-center justify-center mb-2 gap-4">
             {/* Networking image above or right of Explore header */}

@@ -745,7 +745,7 @@ export function SocietyClientPage({ society: initialSociety, members, posts: ini
         </div>
       )}
 
-      <div className="relative min-h-screen px-4 lg:px-6 pt-20 lg:pt-6 pb-24 lg:pr-[22rem]">
+      <div className="relative min-h-screen px-4 lg:px-6 pt-20 lg:pt-6 pb-32 lg:pr-[22rem]">
         {/* Overlay for Mobile Sidebar */}
         {isMobile && isSidebarOpen && (
           <div

@@ -427,7 +427,7 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
     <div className="min-h-screen bg-background">
       <div className="w-full">
         {/* Main Profile Content */}
-        <div className="px-4 lg:px-6 pt-20 lg:pt-6 pb-24">
+        <div className="px-4 lg:px-6 pt-20 lg:pt-6 pb-32">
           {/* Community Profile Header */}
           <div className="relative w-full mb-8">
         {/* Banner */}

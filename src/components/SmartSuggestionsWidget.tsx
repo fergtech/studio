@@ -25,7 +25,7 @@ interface SuggestedInitiative {
 
 // const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'http://localhost:9003'; // Temporarily disabled for Vercel deployment
 
-export default function SmartSuggestionsWidget() {
+export default function SmartSuggestionsWidget({ flatStyle = false }: { flatStyle?: boolean }) {
   const [users, setUsers] = useState<SuggestedUser[]>([]);
   const [initiatives, setInitiatives] = useState<SuggestedInitiative[]>([]);
   const [loading, setLoading] = useState(true);
@@ -99,29 +99,30 @@ export default function SmartSuggestionsWidget() {
   }
 
   return (
-    <Card>
-      <CardHeader className="py-2 px-3">
-        <CardTitle className="flex items-center gap-2 text-base font-semibold">
-          <Sparkles className="h-4 w-4" />
-          Smart Suggestions
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="py-2 px-3">
+    <div className={flatStyle ? '' : 'rounded-2xl bg-background/80 backdrop-blur-xl shadow-sm p-0'}>
+      <div className="py-2 px-0 border-b border-border/30 flex items-center gap-2">
+        <Sparkles className="h-4 w-4 text-primary" />
+        <span className="text-base font-semibold tracking-tight">Smart Suggestions</span>
+      </div>
+      <div className="py-2 px-0">
         {loading ? (
-          <div className="text-xs text-muted-foreground">Loading suggestions...</div>
+          <div className="text-xs text-muted-foreground px-3">Loading suggestions...</div>
         ) : error ? (
-          <div className="text-xs text-red-500">{error}</div>
+          <div className="text-xs text-red-500 px-3">{error}</div>
         ) : (
           <>
             {/* User-based suggestions - only show if users exist */}
             {usersWithOnline.length > 0 && (
               <div className={initiatives.length > 0 ? "mb-3" : ""}>
-                <div className="text-xs font-semibold mb-2 text-muted-foreground">
+                <div className="text-xs font-semibold mb-2 text-muted-foreground px-3">
                   {usersWithOnline.some(u => u.totalActivity && u.totalActivity > 0) ? 'Top Active Users' : 'Suggested Users'}
                 </div>
                 <div className="space-y-2">
                   {usersWithOnline.map(user => (
-                    <div key={user.id} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-muted/20">
+                    <div
+                      key={user.id}
+                      className="flex items-center justify-between gap-2 p-2 rounded-lg transition-colors group hover:bg-accent/40"
+                    >
                       <div className="flex items-center gap-2 min-w-0">
                         <div className="relative">
                           <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-background ${user.online ? 'bg-green-500' : 'bg-gray-400'}`}></span>
@@ -150,7 +151,7 @@ export default function SmartSuggestionsWidget() {
                       </div>
                       <Button
                         size="sm"
-                        className="text-xs px-2 py-1 h-6"
+                        className="text-xs px-2 py-1 h-6 group-hover:bg-primary/10 group-hover:text-primary"
                         disabled={following.includes(user.id)}
                         onClick={() => handleFollow(user.id)}
                         variant="secondary"
@@ -166,7 +167,7 @@ export default function SmartSuggestionsWidget() {
             {/* Initiative suggestions */}
             {initiatives.length > 0 && (
               <div>
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center justify-between mb-2 px-3">
                   <div className="text-xs font-semibold text-muted-foreground">Trending initiatives</div>
                   <Button size="sm" variant="ghost" className="text-xs h-6 px-2" asChild>
                     <Link href="/initiatives">Browse All</Link>
@@ -174,7 +175,10 @@ export default function SmartSuggestionsWidget() {
                 </div>
                 <div className="space-y-2">
                   {initiatives.map(initiative => (
-                    <div key={initiative.id} className="p-2 rounded-lg bg-muted/20">
+                    <div
+                      key={initiative.id}
+                      className="p-2 rounded-lg transition-colors group hover:bg-accent/40"
+                    >
                       <Link href={`/initiatives/${initiative.id}`} className="font-medium text-sm hover:underline block mb-1">
                         {initiative.title}
                       </Link>
@@ -183,7 +187,7 @@ export default function SmartSuggestionsWidget() {
                           {initiative.description}
                         </p>
                       )}
-                      <Button size="sm" variant="ghost" className="text-xs h-6 p-1" asChild>
+                      <Button size="sm" variant="ghost" className="text-xs h-6 p-1 group-hover:bg-primary/10 group-hover:text-primary" asChild>
                         <Link href={`/initiatives/${initiative.id}`}>View →</Link>
                       </Button>
                     </div>
@@ -194,13 +198,13 @@ export default function SmartSuggestionsWidget() {
 
             {/* Empty state - only show if BOTH are empty */}
             {usersWithOnline.length === 0 && initiatives.length === 0 && (
-              <div className="text-xs text-muted-foreground text-center py-4">
+              <div className="text-xs text-muted-foreground text-center py-4 px-3">
                 No suggestions available right now.
               </div>
             )}
           </>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

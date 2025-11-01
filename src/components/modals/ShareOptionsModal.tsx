@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Share2, Copy, Twitter, Facebook, MessageCircle, Download, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -157,7 +158,7 @@ export function ShareOptionsModal({
     }
   ];
 
-  return (
+  const modalContent = (
     <AnimatePresence>
       {isOpen && (
         <>
@@ -166,17 +167,17 @@ export function ShareOptionsModal({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 z-50 backdrop-blur-sm"
+            className="fixed inset-0 bg-black/60 z-[100] backdrop-blur-sm"
             onClick={handleClose}
           />
-          
+
           {/* Modal */}
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="w-full max-w-md bg-background border border-border rounded-2xl shadow-2xl">
@@ -234,4 +235,8 @@ export function ShareOptionsModal({
       )}
     </AnimatePresence>
   );
+
+  // Use portal to render at document root, escaping parent stacking contexts
+  if (typeof document === 'undefined') return null;
+  return createPortal(modalContent, document.body);
 }

@@ -102,6 +102,9 @@ export function MobileDebateCard({
   const [disagreeCount, setDisagreeCount] = useState(stats.conVotes);
   const [totalVotes, setTotalVotes] = useState(stats.totalVotes);
 
+  // Voters list for displaying in info dropdown
+  const [voters, setVoters] = useState<any[]>([]);
+
   // Sync local state when props change (fixes stale vote count bug)
   useEffect(() => {
     setAgreeCount(stats.proVotes);
@@ -177,36 +180,39 @@ export function MobileDebateCard({
     return () => observer.unobserve(media);
   }, [isVideo, isAudio]);
 
-  // Fetch user's vote
+  // Fetch user's vote and all voters
   useEffect(() => {
-    async function fetchUserVote() {
-      if (!currentUserId) return;
+    async function fetchVoteData() {
       try {
-        // Use the correct endpoint that matches the API route
-        const res = await fetch(`/api/debates/${id}/vote?userId=${currentUserId}`);
-        if (!res.ok) {
-          console.log('No vote found for user');
-          return;
+        // Fetch user's vote if logged in
+        if (currentUserId) {
+          const voteRes = await fetch(`/api/debates/${id}/vote?userId=${currentUserId}`);
+          if (voteRes.ok) {
+            const voteData = await voteRes.json();
+            setUserVote(voteData.userVote === 'PRO' ? 'agree' : voteData.userVote === 'CON' ? 'disagree' : null);
+          }
         }
-        const data = await res.json();
-        setUserVote(data.userVote === 'PRO' ? 'agree' : data.userVote === 'CON' ? 'disagree' : null);
+
+        // Fetch all voters for the debate
+        const votersRes = await fetch(`/api/debates/${id}/voters`);
+        if (votersRes.ok) {
+          const votersData = await votersRes.json();
+          setVoters(votersData.voters || []);
+        }
       } catch (error) {
-        console.error('Error fetching user vote:', error);
+        console.error('Error fetching vote data:', error);
       }
     }
-    fetchUserVote();
+    fetchVoteData();
   }, [id, currentUserId]);
 
   const handleVote = async (voteType: 'agree' | 'disagree', e?: React.MouseEvent) => {
     e?.stopPropagation();
     if (!currentUserId) return;
 
-    const apiVoteType = voteType === 'agree' ? 'PRO' : 'CON';
-    const isChangingVote = userVote && userVote !== voteType;
-    const isRemovingVote = userVote === voteType;
-
-    // Optimistic update
-    if (isRemovingVote) {
+    // If clicking the same vote, remove the vote (DELETE)
+    if (userVote === voteType) {
+      // Optimistic update for removal
       setUserVote(null);
       if (voteType === 'agree') {
         setAgreeCount(prev => prev - 1);
@@ -214,23 +220,50 @@ export function MobileDebateCard({
         setDisagreeCount(prev => prev - 1);
       }
       setTotalVotes(prev => prev - 1);
-    } else if (isChangingVote) {
-      setUserVote(voteType);
-      if (voteType === 'agree') {
-        setAgreeCount(prev => prev + 1);
-        setDisagreeCount(prev => prev - 1);
-      } else {
-        setDisagreeCount(prev => prev + 1);
-        setAgreeCount(prev => prev - 1);
+      triggerHaptic(hapticPatterns.medium);
+      try {
+        const response = await fetch(`/api/debates/${id}/vote`, {
+          method: 'DELETE',
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.stats) {
+            setAgreeCount(data.stats.proVotes);
+            setDisagreeCount(data.stats.conVotes);
+            setTotalVotes(data.stats.totalVotes);
+          }
+
+          // Refresh voters list
+          const votersRes = await fetch(`/api/debates/${id}/voters`);
+          if (votersRes.ok) {
+            const votersData = await votersRes.json();
+            setVoters(votersData.voters || []);
+          }
+        } else {
+          throw new Error('Vote delete failed');
+        }
+      } catch (error) {
+        // Revert optimistic update on error
+        console.error('Vote delete failed:', error);
+        setUserVote(userVote);
+        router.refresh();
       }
+      return;
+    }
+
+    // Otherwise, cast or change vote (POST)
+    const apiVoteType = voteType === 'agree' ? 'PRO' : 'CON';
+
+    // Optimistic update
+    setUserVote(voteType);
+    if (voteType === 'agree') {
+      setAgreeCount(prev => userVote === 'disagree' ? prev + 1 : prev + 1);
+      if (userVote === 'disagree') setDisagreeCount(prev => prev - 1);
+      if (!userVote) setTotalVotes(prev => prev + 1);
     } else {
-      setUserVote(voteType);
-      if (voteType === 'agree') {
-        setAgreeCount(prev => prev + 1);
-      } else {
-        setDisagreeCount(prev => prev + 1);
-      }
-      setTotalVotes(prev => prev + 1);
+      setDisagreeCount(prev => userVote === 'agree' ? prev + 1 : prev + 1);
+      if (userVote === 'agree') setAgreeCount(prev => prev - 1);
+      if (!userVote) setTotalVotes(prev => prev + 1);
     }
 
     triggerHaptic(voteType === 'agree' ? [...hapticPatterns.success] : hapticPatterns.medium);
@@ -239,16 +272,22 @@ export function MobileDebateCard({
       const response = await fetch(`/api/debates/${id}/vote`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ side: apiVoteType }) // Use 'side' instead of voteType
+        body: JSON.stringify({ side: apiVoteType })
       });
 
       if (response.ok) {
-        // Use fresh vote counts from API response
         const data = await response.json();
         if (data.stats) {
           setAgreeCount(data.stats.proVotes);
           setDisagreeCount(data.stats.conVotes);
           setTotalVotes(data.stats.totalVotes);
+        }
+
+        // Refresh voters list
+        const votersRes = await fetch(`/api/debates/${id}/voters`);
+        if (votersRes.ok) {
+          const votersData = await votersRes.json();
+          setVoters(votersData.voters || []);
         }
       } else {
         throw new Error('Vote request failed');
@@ -257,7 +296,6 @@ export function MobileDebateCard({
       // Revert optimistic update on error
       console.error('Vote failed:', error);
       setUserVote(userVote);
-      // Trigger parent refresh to get fresh data
       router.refresh();
     }
   };
@@ -327,9 +365,9 @@ export function MobileDebateCard({
     }
   };
 
-  // Setup swipe gestures
+  // Setup swipe gestures (double-tap disabled to prevent accidental votes)
   const { ref: swipeRef } = useSwipeGestures({
-    onDoubleTap: handleDoubleTap,
+    // onDoubleTap: handleDoubleTap, // DISABLED: Was causing accidental votes when opening detail sheet
     onSwipeLeft: () => {
       if (!currentUserId) return;
       setShowSwipeLeft(true);
@@ -466,7 +504,10 @@ export function MobileDebateCard({
         {!hasMedia && (
           <div className="flex-1 flex items-center justify-center z-10 px-4 py-20">
             <motion.div
-              onClick={navigateToDebate}
+              onClick={(e) => {
+                e.stopPropagation();
+                navigateToDebate();
+              }}
               className="cursor-pointer max-w-2xl"
               whileTap={{ scale: 0.98 }}
             >
@@ -485,7 +526,10 @@ export function MobileDebateCard({
           {/* Debate Title & Content (for media debates) */}
           {hasMedia && (
             <motion.div
-              onClick={navigateToDebate}
+              onClick={(e) => {
+                e.stopPropagation();
+                navigateToDebate();
+              }}
               className="cursor-pointer"
               whileTap={{ scale: 0.98 }}
             >
@@ -646,6 +690,7 @@ export function MobileDebateCard({
             userVote={userVote}
             onVote={handleVote}
             currentUserId={currentUserId}
+            votes={voters}
           />
 
           <CommentsSheet
@@ -696,6 +741,7 @@ export function MobileDebateCard({
             userVote={userVote}
             onVote={handleVote}
             currentUserId={currentUserId}
+            votes={voters}
           />
 
           <CommentsModal

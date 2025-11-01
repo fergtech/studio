@@ -1,14 +1,24 @@
 "use client";
 
 import React, { useState, useRef } from 'react';
+import { useSession } from 'next-auth/react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Send, Heart, Reply } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { formatDistanceToNow } from 'date-fns';
 import { triggerHaptic, hapticPatterns } from '@/lib/animations';
 import { cn } from '@/lib/utils';
+
+// Mock user avatars matching main feed pattern
+const mockUserAvatars: Record<string, string | undefined> = {
+  "user1": "https://i.pravatar.cc/40?u=user1",
+  "user3": "https://i.pravatar.cc/40?u=user3",
+  "user5": "https://i.pravatar.cc/40?u=user5",
+  "user7": "https://i.pravatar.cc/40?u=user7",
+};
 
 interface Comment {
   id: string;
@@ -33,6 +43,13 @@ interface CommentsModalProps {
   currentUserId?: string | null;
 }
 
+
+// Get initials for fallback
+const getInitials = (name?: string | null) => {
+  if (!name) return 'U';
+  return name.substring(0, 2).toUpperCase();
+};
+
 export function CommentsModal({
   isOpen,
   onClose,
@@ -40,6 +57,7 @@ export function CommentsModal({
   debateTitle,
   currentUserId
 }: CommentsModalProps) {
+  const { data: session } = useSession();
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -208,7 +226,7 @@ export function CommentsModal({
     triggerHaptic(hapticPatterns.light);
   };
 
-  return (
+  const modalContent = (
     <AnimatePresence>
       {isOpen && (
         <>
@@ -217,17 +235,17 @@ export function CommentsModal({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 z-50 backdrop-blur-sm"
+            className="fixed inset-0 bg-black/60 z-[100] backdrop-blur-sm"
             onClick={handleClose}
           />
-          
+
           {/* Modal */}
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="w-full max-w-lg max-h-[85vh] bg-background border border-border rounded-2xl shadow-2xl flex flex-col">
@@ -330,8 +348,12 @@ export function CommentsModal({
                 )}
 
                 <div className="flex gap-3">
-                  <Avatar className="w-9 h-9 flex-shrink-0">
-                    <AvatarFallback>You</AvatarFallback>
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage 
+                      src={session?.user?.image || undefined}
+                      alt={session?.user?.name || 'User'}
+                    />
+                    <AvatarFallback>{getInitials(session?.user?.name)}</AvatarFallback>
                   </Avatar>
                   <div className="flex-1 flex flex-col gap-2">
                     {/* Media preview */}
@@ -351,12 +373,13 @@ export function CommentsModal({
                       </div>
                     )}
                     <div className="flex gap-2 items-center">
-                      <Button type="button" variant="ghost" size="icon" className="rounded-full" onClick={() => imageInputRef.current?.click()}>
+                      {/* Media upload buttons hidden for now */}
+                      {/* <Button type="button" variant="ghost" size="icon" className="rounded-full" onClick={() => imageInputRef.current?.click()}>
                         <span role="img" aria-label="Image">🖼️</span>
                       </Button>
                       <Button type="button" variant="ghost" size="icon" className="rounded-full" onClick={() => videoInputRef.current?.click()}>
                         <span role="img" aria-label="Video">🎥</span>
-                      </Button>
+                      </Button> */}
                       <Textarea
                         ref={textareaRef}
                         value={newComment}
@@ -399,4 +422,8 @@ export function CommentsModal({
       )}
     </AnimatePresence>
   );
+
+  // Use portal to render at document root, escaping parent stacking contexts
+  if (typeof document === 'undefined') return null;
+  return createPortal(modalContent, document.body);
 }

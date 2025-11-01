@@ -33,6 +33,13 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
   const [followersCount, setFollowersCount] = useState(user.followersCount ?? 0);
   const [isFollowLoading, setIsFollowLoading] = useState(false);
   const { toast } = useToast();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const stored = localStorage.getItem('sidebarCollapsed:profile');
+      if (stored !== null) return stored === 'true';
+    }
+    return false;
+  });
   const [showFollowersModal, setShowFollowersModal] = useState(false);
   const [showFollowingModal, setShowFollowingModal] = useState(false);
   // Pagination and loading state for followers
@@ -442,11 +449,27 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  useEffect(() => {
+    const handleSidebarChange = (event: CustomEvent) => {
+      setSidebarCollapsed(event.detail.collapsed);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('sidebarCollapsed:profile', String(event.detail.collapsed));
+      }
+    };
+
+    window.addEventListener('sidebar:collapseChange', handleSidebarChange as EventListener);
+    return () => {
+      window.removeEventListener('sidebar:collapseChange', handleSidebarChange as EventListener);
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-background">
       <div className="w-full">
         {/* Main Profile Content */}
-        <div className="px-4 lg:px-6 pt-20 lg:pt-6 pb-32">
+        <div className={`px-4 lg:px-6 pt-20 lg:pt-6 pb-32 transition-all duration-300 ${
+          sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'
+        }`}>
           {/* Community Profile Header */}
           <div className="relative w-full mb-8">
         {/* Banner with Parallax */}

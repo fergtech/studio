@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import { useSession } from 'next-auth/react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -278,7 +279,7 @@ export function TikTokIdeaDetail({ idea, isOpen, onClose }: TikTokIdeaDetailProp
 
   const locationDisplay = getLocationDisplay(idea.location);
 
-  return (
+  const modalContent = (
     <AnimatePresence>
       {isOpen && (
         <motion.div
@@ -595,4 +596,8 @@ export function TikTokIdeaDetail({ idea, isOpen, onClose }: TikTokIdeaDetailProp
       )}
     </AnimatePresence>
   );
+
+  // Use portal to render at document root, escaping parent stacking contexts
+  if (typeof document === 'undefined') return null;
+  return createPortal(modalContent, document.body);
 }

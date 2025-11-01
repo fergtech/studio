@@ -32,6 +32,7 @@ import { LazySocietyStats } from '@/components/LazySocietyStats';
 import SocietyPostReactions from '@/components/SocietyPostReactions';
 import { formatDistanceToNow } from 'date-fns';
 import { useScrollPosition } from '@/hooks/useScrollPosition';
+import AppSidebar, { getDefaultCollapsedState } from '@/components/AppSidebar';
 
 // Define Member type
 interface Member {
@@ -67,7 +68,7 @@ export function SocietyClientPage({ society: initialSociety, members, posts: ini
   const { toast } = useToast();
   const router = useRouter();
   const [isCreateInitiativeOpen, setIsCreateInitiativeOpen] = useState(false);
-
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => getDefaultCollapsedState({ type: 'society', data: society }));
   // Scroll position restoration for society feed
   const { saveScrollPosition } = useScrollPosition({ key: `societyFeed_${society.id}` });
 
@@ -738,6 +739,13 @@ export function SocietyClientPage({ society: initialSociety, members, posts: ini
 
   return (
     <>
+
+      <AppSidebar 
+        context={{ type: 'society', data: society }}
+        className="z-30"
+        onCollapseChange={setSidebarCollapsed}
+      />
+
       {/* Fixed Society Sidebar for Desktop */}
       {!isMobile && (
         <div className="fixed right-4 top-6 z-30 w-80 h-[calc(100vh-3rem)] overflow-y-auto bg-background/95 backdrop-blur-sm border rounded-lg shadow-lg p-4">
@@ -745,7 +753,9 @@ export function SocietyClientPage({ society: initialSociety, members, posts: ini
         </div>
       )}
 
-      <div className="relative min-h-screen px-4 lg:px-6 pt-20 lg:pt-6 pb-32 lg:pr-[22rem]">
+      <div className={`relative min-h-screen transition-all duration-300 ${
+        sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'
+      } lg:pr-[22rem]`}>
         {/* Overlay for Mobile Sidebar */}
         {isMobile && isSidebarOpen && (
           <div
@@ -770,7 +780,7 @@ export function SocietyClientPage({ society: initialSociety, members, posts: ini
             <span className="sr-only">{isSidebarOpen ? "Close menu" : "Open menu"}</span>
           </Button>
         )}
-        
+
         <div className="container mx-auto p-0 sm:p-4">
         {/* Banner/Header */}
         <Card className="mb-6 rounded-none border-x-0 border-t-0">
@@ -845,8 +855,22 @@ export function SocietyClientPage({ society: initialSociety, members, posts: ini
           onClose={() => setIsEditDialogOpen(false)}
           onSave={handleSaveEditSociety}
         />
-        {/* Main Content */}
-        <div className="space-y-6 mx-auto" style={{ maxWidth: '700px' }}>
+  {/* Main Content */}
+  <div className="space-y-6 mx-auto" style={{ maxWidth: '700px' }}>
+            {/* Create Initiative Button for Members - now above post form and more subtle */}
+            {userId && isMember && (
+              <div className="rounded border border-dashed bg-muted/40 px-3 py-2 mb-2 flex items-center justify-between">
+                <div>
+                  <span className="font-medium text-sm text-foreground">Create Initiative</span>
+                  <span className="block text-xs text-muted-foreground">Start a new initiative for this society</span>
+                </div>
+                <Button onClick={handleCreateSocietyInitiative} size="sm" variant="outline" className="ml-2 px-3 py-1 h-7 text-xs">
+                  <Plus className="h-4 w-4 mr-1" />
+                  New Initiative
+                </Button>
+              </div>
+            )}
+
             {/* Post Form */}
             <CreateSocietyPostForm
               societyId={society.id}
@@ -868,24 +892,6 @@ export function SocietyClientPage({ society: initialSociety, members, posts: ini
                 }
               }}
             />
-            
-            {/* Create Initiative Button for Members */}
-            {userId && isMember && (
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-semibold text-lg">Create Initiative</h3>
-                      <p className="text-sm text-muted-foreground">Start a new initiative for this society</p>
-                    </div>
-                    <Button onClick={handleCreateSocietyInitiative} className="ml-4">
-                      <Plus className="h-4 w-4 mr-2" />
-                      New Initiative
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
             {/* Feed Tabs */}
             <Card>
               <CardHeader>

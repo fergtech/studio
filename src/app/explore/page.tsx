@@ -13,6 +13,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { DiscoveryGrid } from '@/components/DiscoveryGrid';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import AppSidebar from '@/components/AppSidebar';
 
 interface SearchUser {
   id: string;
@@ -72,6 +73,13 @@ function ExplorePageInner() {
   const [hasSearched, setHasSearched] = useState(false);
   const [isLoadingFeatured, setIsLoadingFeatured] = useState(true);
   const isMobile = useIsMobile();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const stored = localStorage.getItem('sidebarCollapsed:explore');
+      if (stored !== null) return stored === 'true';
+    }
+    return false;
+  });
 
   // Load featured content on initial page load
   const loadFeaturedContent = async () => {
@@ -259,8 +267,21 @@ function ExplorePageInner() {
 
   return (
     <div className="w-full min-w-0 overflow-hidden">
-      {/* AppSidebar removed for mobile-first redesign */}
-      <div className="px-4 lg:px-6 pt-20 lg:pt-6 pb-32">
+      {/* AppSidebar for desktop (hidden on mobile) */}
+      <AppSidebar
+        className="hidden lg:flex"
+        widgets={['userControls', 'navigation', 'resources', 'footer']}
+        context={{ type: 'explore' }}
+        onCollapseChange={(collapsed: boolean) => {
+          setSidebarCollapsed(collapsed);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('sidebarCollapsed:explore', String(collapsed));
+          }
+        }}
+      />
+      <div className={`px-4 lg:px-6 pt-20 lg:pt-6 pb-32 transition-all duration-300 ${
+        sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'
+      }`}>
         <div className="max-w-5xl mx-auto py-10">
           <div className="flex flex-col sm:flex-row items-center justify-center mb-2 gap-4">
             {/* Networking image above or right of Explore header */}

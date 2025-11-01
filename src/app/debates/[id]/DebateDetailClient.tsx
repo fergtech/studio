@@ -14,7 +14,6 @@ import { cn } from '@/lib/utils';
 import { VideoPlayer } from '@/components/ui/video-player';
 import { AudioPlayer } from '@/components/ui/audio-player';
 import { updateDebateTopicContent } from '@/app/actions/debateActions';
-import AppSidebar, { getDefaultCollapsedState } from '@/components/AppSidebar';
 
 // Helper function to detect video files
 const isVideoFile = (url: string) => {
@@ -97,7 +96,7 @@ export default function DebateDetailClient({
   const [allProArguments, setAllProArguments] = useState<DebateArgument[]>(initialProArguments);
   const [allConArguments, setAllConArguments] = useState<DebateArgument[]>(initialConArguments);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState<'PRO' | 'CON' | null>(null);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => getDefaultCollapsedState({ type: 'debate' }));
+
   
   // Edit functionality state
   const [editMode, setEditMode] = useState(false);
@@ -626,14 +625,8 @@ export default function DebateDetailClient({
 
   return (
     <div className="w-full min-w-0 overflow-hidden">
-      <AppSidebar 
-        widgets={['userControls', 'navigation', 'suggestions', 'location', 'resources', 'footer']}
-        context={{ type: 'debate' }}
-        onCollapseChange={setSidebarCollapsed}
-      />
-      <div className={`transition-all duration-300 px-4 lg:px-6 ${
-        sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'
-      }`}>
+      
+      <div className="px-4 lg:px-6 pt-20 lg:pt-6 pb-24">
         <div className="min-h-screen bg-background">
       {/* Back Button */}
       <div className="max-w-7xl mx-auto pt-4 px-4 flex items-start">

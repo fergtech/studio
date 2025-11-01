@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Copy, Mail, MessageSquare, Link, Twitter, Facebook, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -205,7 +206,7 @@ export function ShareOptionsSheet({
     exit: { opacity: 0, scale: 0.95 }
   };
 
-  return (
+  const sheetContent = (
     <AnimatePresence>
       {isOpen && (
         <>
@@ -214,10 +215,10 @@ export function ShareOptionsSheet({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50"
+            className="fixed inset-0 bg-black/50 z-[100]"
             onClick={handleClose}
           />
-          
+
           {/* Sheet Content */}
           <motion.div
             variants={isMobile ? mobileVariants : desktopVariants}
@@ -226,9 +227,9 @@ export function ShareOptionsSheet({
             exit="exit"
             transition={{ duration: 0.3, ease: "easeOut" }}
             className={cn(
-              "fixed z-50 bg-background border border-border",
-              isMobile 
-                ? "bottom-0 left-0 right-0 rounded-t-3xl" 
+              "fixed z-[100] bg-background border border-border",
+              isMobile
+                ? "bottom-0 left-0 right-0 rounded-t-3xl"
                 : "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-2xl w-full max-w-md shadow-2xl"
             )}
           >
@@ -287,4 +288,8 @@ export function ShareOptionsSheet({
       )}
     </AnimatePresence>
   );
+
+  // Use portal to render at document root, escaping parent stacking contexts
+  if (typeof document === 'undefined') return null;
+  return createPortal(sheetContent, document.body);
 }

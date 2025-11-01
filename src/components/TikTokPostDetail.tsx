@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import { useSession } from 'next-auth/react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -17,7 +18,11 @@ import {
   Volume2,
   VolumeX,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  Trash2,
+  Edit2,
+  Bookmark,
+  Flag
 } from 'lucide-react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
@@ -87,9 +92,13 @@ export function TikTokPostDetail({
   const [isMuted, setIsMuted] = useState(true);
   const [comments, setComments] = useState<PostComment[]>(post.comments || []);
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const router = useRouter();
   const { data: session } = useSession();
+
+  // Check if current user is the post owner
+  const isOwnPost = session?.user?.id === post.userId;
 
   // Use batch stats context for like state
   const { getStats, registerPost, updateLike: updateLikeInContext } = usePostStats();
@@ -144,6 +153,19 @@ export function TikTokPostDetail({
       document.body.style.height = '';
     };
   }, [isOpen]);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => {
+      if (showMenu) setShowMenu(false);
+    };
+    if (showMenu) {
+      document.addEventListener('click', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [showMenu]);
 
   // Load comments when modal opens
   useEffect(() => {
@@ -293,7 +315,7 @@ export function TikTokPostDetail({
     router.push(`/profile/${post.user.username}`);
   };
 
-  return (
+  const modalContent = (
     <AnimatePresence>
       {isOpen && (
         <motion.div
@@ -309,7 +331,7 @@ export function TikTokPostDetail({
             right: 0,
             bottom: 0,
             width: '100vw',
-            height: '100vh',
+            height: '100dvh',
             zIndex: 99999
           }}
           onClick={onClose}
@@ -479,13 +501,72 @@ export function TikTokPostDetail({
               </div>
 
               {/* More actions */}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="bg-black/50 text-white hover:bg-black/70 rounded-full w-12 h-12"
-              >
-                <MoreHorizontal className="h-6 w-6" />
-              </Button>
+              <div className="relative flex flex-col items-center">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowMenu(!showMenu)}
+                  className="bg-black/50 text-white hover:bg-black/70 rounded-full w-12 h-12"
+                >
+                  <MoreHorizontal className="h-6 w-6" />
+                </Button>
+
+                {/* Menu dropdown */}
+                {showMenu && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="absolute bottom-full mb-2 right-0 bg-black/95 backdrop-blur-sm rounded-lg shadow-xl border border-gray-700 py-2 min-w-[160px] z-50"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {isOwnPost && (
+                      <>
+                        <button
+                          className="w-full px-4 py-2 text-left text-white hover:bg-white/10 flex items-center gap-2 text-sm"
+                          onClick={() => {
+                            setShowMenu(false);
+                            // TODO: Implement edit functionality
+                          }}
+                        >
+                          <Edit2 className="h-4 w-4" />
+                          Edit
+                        </button>
+                        <button
+                          className="w-full px-4 py-2 text-left text-red-400 hover:bg-white/10 flex items-center gap-2 text-sm"
+                          onClick={() => {
+                            setShowMenu(false);
+                            // TODO: Implement delete functionality
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Delete
+                        </button>
+                        <div className="h-px bg-gray-700 my-1" />
+                      </>
+                    )}
+                    <button
+                      className="w-full px-4 py-2 text-left text-white hover:bg-white/10 flex items-center gap-2 text-sm"
+                      onClick={() => {
+                        setShowMenu(false);
+                        // TODO: Implement save functionality
+                      }}
+                    >
+                      <Bookmark className="h-4 w-4" />
+                      Save
+                    </button>
+                    <button
+                      className="w-full px-4 py-2 text-left text-white hover:bg-white/10 flex items-center gap-2 text-sm"
+                      onClick={() => {
+                        setShowMenu(false);
+                        // TODO: Implement report functionality
+                      }}
+                    >
+                      <Flag className="h-4 w-4" />
+                      Report
+                    </button>
+                  </motion.div>
+                )}
+              </div>
             </motion.div>
 
             {/* Bottom metadata overlay - shows content when media is present */}
@@ -624,4 +705,8 @@ export function TikTokPostDetail({
       )}
     </AnimatePresence>
   );
+
+  // Use portal to render at document root, escaping parent stacking contexts
+  if (typeof document === 'undefined') return null;
+  return createPortal(modalContent, document.body);
 }

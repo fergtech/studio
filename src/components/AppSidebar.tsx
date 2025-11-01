@@ -24,7 +24,7 @@ interface AppSidebarProps {
   className?: string;
   children?: React.ReactNode;
   context?: {
-    type?: 'home' | 'profile' | 'society' | 'initiative' | 'initiatives' | 'activity' | 'chat' | 'messages' | 'debate' | 'explore' | 'idea' | 'issue' | 'ideas' | 'issues' | 'societies' | 'profile-edit' | 'topic' | 'goal' | 'post';
+    type?: 'home' | 'profile' | 'society' | 'initiative' | 'initiatives' | 'activity' | 'chat' | 'messages' | 'debates' | 'explore' | 'idea' | 'issue' | 'ideas' | 'issues' | 'societies' | 'profile-edit' | 'topic' | 'goal' | 'post';
     data?: any;
   };
   onCollapseChange?: (collapsed: boolean) => void;
@@ -35,10 +35,10 @@ export const getDefaultCollapsedState = (context?: AppSidebarProps['context']): 
   if (!context?.type) return false; // Default to open if no context
 
   // Utility/Discovery pages - default to open (false = not collapsed)
-  const utilityPages = ['explore', 'profile-edit', 'topic', 'ideas', 'issues', 'societies', 'initiatives', 'post', 'messages'];
+  const utilityPages = ['home', 'explore', 'profile', 'profile-edit', 'chat', 'topic', 'debates', 'ideas', 'issues', 'societies', 'initiatives', 'post', 'messages'];
 
   // Core engagement pages - default to closed (true = collapsed)
-  const corePages = ['home', 'profile', 'society', 'initiative', 'activity', 'chat', 'debate', 'idea', 'issue', 'goal'];
+  const corePages = ['society', 'initiative', 'activity', 'debate', 'idea', 'issue', 'goal'];
 
   if (utilityPages.includes(context.type)) {
     return false; // Open by default
@@ -171,48 +171,7 @@ function AppSidebar({
         </div>
       </aside>
 
-      {/* Mobile Sidebar - Only visible on mobile/tablet screens */}
-      <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-        <SheetTrigger asChild>
-          <Button
-            variant="outline"
-            className="fixed top-4 left-4 z-50 lg:hidden bg-background/95 backdrop-blur-md border-border/50 shadow-lg rounded-full px-3 py-2 h-11 flex items-center justify-center gap-2 hover:bg-accent/50 hover:border-border transition-all duration-200 min-w-fit"
-            aria-label="Open sidebar"
-          >
-            <Image
-              src="/apple-touch-icon.png"
-              alt="Society+ logo"
-              width={24}
-              height={24}
-              className="h-6 w-6 rounded-lg flex-shrink-0"
-              priority
-            />
-            <ChevronRight className="h-4 w-4 flex-shrink-0" />
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="left" className="w-80 p-0 max-h-screen overflow-y-auto bg-background/95 backdrop-blur-xl border-border/40">
-          <SheetTitle className="sr-only">Sidebar Menu</SheetTitle>
-
-          {/* Mobile Header with Logo */}
-          <div className="flex items-center px-4 py-6 border-b border-border/30">
-            <Link href="/" className="flex items-center gap-2.5 group" onClick={() => setSidebarOpen(false)}>
-              <Image
-                src="/apple-touch-icon.png"
-                alt="Society+ logo"
-                width={28}
-                height={28}
-                className="h-7 w-7 rounded-lg group-hover:scale-105 transition-transform duration-200"
-                priority
-              />
-              <span className="font-semibold text-lg tracking-tight">society+</span>
-            </Link>
-          </div>
-
-          <div className="px-3 py-4 space-y-3">
-            {renderWidgets(true)}
-          </div>
-        </SheetContent>
-      </Sheet>
+      {/* Mobile Sidebar removed: no sidebar or toggle on mobile/tablet screens */}
     </>
   );
 }

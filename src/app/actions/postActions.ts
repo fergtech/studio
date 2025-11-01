@@ -169,11 +169,63 @@ export async function createGeneralPost(formData: FormData) { // Changed signatu
       };
     }
 
+    // Handle links JSON
+    const linksJson = formData.get('linksJson') as string | undefined;
+    if (linksJson) {
+      try {
+        const linksData = JSON.parse(linksJson);
+        // Create GeneralPostLink entries with embedded LinkPreview
+        dataToCreate.links = {
+          create: linksData.map((link: any) => ({
+            url: link.url,
+            linkPreview: {
+              create: {
+                url: link.url,
+                title: link.title,
+                description: link.description,
+                imageUrl: link.imageUrl,
+                siteName: link.siteName
+              }
+            }
+          }))
+        };
+      } catch (error) {
+        console.error('Failed to parse linksJson:', error);
+      }
+    }
+
+    // Handle documents JSON
+    const documentsJson = formData.get('documentsJson') as string | undefined;
+    if (documentsJson) {
+      try {
+        const documentsData = JSON.parse(documentsJson);
+        dataToCreate.documents = {
+          create: documentsData.map((doc: any) => ({
+            url: doc.url,
+            filename: doc.filename,
+            fileType: doc.fileType,
+            fileSize: doc.fileSize,
+            extension: doc.extension,
+            title: doc.title,
+            description: doc.description
+          }))
+        };
+      } catch (error) {
+        console.error('Failed to parse documentsJson:', error);
+      }
+    }
+
     const newPost = await prisma.generalPost.create({
       data: dataToCreate,
       include: {
         creator: true,
         media: true, // Ensure media is included in the returned post
+        links: {
+          include: {
+            linkPreview: true
+          }
+        },
+        documents: true
       },
     });
 

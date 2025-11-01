@@ -16,7 +16,7 @@ export default function ActivityClient({ userId }: ActivityClientProps) {
   return (
     <div className="w-full min-w-0 overflow-hidden">
       <AppSidebar 
-        widgets={['userControls', 'navigation', 'suggestions', 'location', 'resources', 'footer']}
+        widgets={['userControls', 'navigation', 'resources', 'footer']}
         context={{ type: 'activity' }}
         onCollapseChange={setSidebarCollapsed}
       />

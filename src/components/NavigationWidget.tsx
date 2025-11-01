@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { cn } from '@/lib/utils';
+import { MessageCircle } from 'lucide-react';
 
 export default function NavigationWidget() {
   const pathname = usePathname();
@@ -10,6 +11,7 @@ export default function NavigationWidget() {
 
   const navigationItems = [
     { href: '/', icon: Home, label: 'Home', isActive: pathname === '/' },
+    { href: '/debates', icon: MessageCircle, label: 'Debates', isActive: pathname.startsWith('/debates') }, // MessageCircle is good for conversation/debate
     { href: '/activity', icon: Activity, label: 'Activity', isActive: pathname === '/activity', requiresAuth: true },
     { href: '/explore', icon: Search, label: 'Explore', isActive: pathname === '/explore' },
     { href: '/issues', icon: AlertTriangle, label: 'Issues', isActive: pathname.startsWith('/issues') },
@@ -18,7 +20,8 @@ export default function NavigationWidget() {
     { href: '/societies', icon: Users, label: 'Societies', isActive: pathname.startsWith('/societies') },
   ];
 
-  const filteredNavItems = navigationItems.filter(item => !item.requiresAuth || (item.requiresAuth && session));
+  // Hide the Activity link for now
+  const filteredNavItems = navigationItems.filter(item => item.label !== 'Activity').filter(item => !item.requiresAuth || (item.requiresAuth && session));
 
   return (
     <div className="space-y-1">

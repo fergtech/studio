@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Send, Heart, Reply, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -188,7 +189,7 @@ export function CommentsSheet({
     exit: { opacity: 0, scale: 0.95 }
   };
 
-  return (
+  const sheetContent = (
     <AnimatePresence>
       {isOpen && (
         <>
@@ -197,7 +198,7 @@ export function CommentsSheet({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50"
+            className="fixed inset-0 bg-black/50 z-[100]"
             onClick={handleClose}
           />
           
@@ -209,9 +210,9 @@ export function CommentsSheet({
             exit="exit"
             transition={{ duration: 0.3, ease: "easeOut" }}
             className={cn(
-              "fixed z-50 bg-background border border-border flex flex-col",
-              isMobile 
-                ? "bottom-0 left-0 right-0 rounded-t-3xl h-[85vh]" 
+              "fixed z-[100] bg-background border border-border flex flex-col",
+              isMobile
+                ? "bottom-0 left-0 right-0 rounded-t-3xl h-[85vh]"
                 : "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-2xl w-[420px] h-[600px] shadow-2xl"
             )}
           >
@@ -353,4 +354,8 @@ export function CommentsSheet({
       )}
     </AnimatePresence>
   );
+
+  // Use portal to render at document root, escaping parent stacking contexts
+  if (typeof document === 'undefined') return null;
+  return createPortal(sheetContent, document.body);
 }

@@ -95,7 +95,7 @@ export default function FooterLinksWidget() {
       {/* Version/Copyright info */}
       <div className="pt-3 border-t border-border/30">
         <p className="text-xs text-muted-foreground/70 text-center font-medium">
-          society+ v1.0 • Built for changemakers
+          {new Date().getFullYear()} &copy; society+ (SocietyPlus) v1.0 • Built for changemakers
         </p>
       </div>
     </div>

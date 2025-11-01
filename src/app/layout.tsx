@@ -44,7 +44,10 @@ export default function RootLayout({
                   </main>
                   <GlobalModals /> {/* Global modal dialogs */}
                   <Toaster /> {/* Keep Toaster */}
-                  <BottomNavBar />
+                  {/* Show BottomNavBar only on mobile/tablet, hide on desktop */}
+                  <div className="block lg:hidden">
+                    <BottomNavBar />
+                  </div>
                 </ModalProvider>
               </AuthProvider>
             </QueryProvider>

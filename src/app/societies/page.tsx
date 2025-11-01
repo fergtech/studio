@@ -1,4 +1,7 @@
+
 "use client";
+
+import AppSidebar from '@/components/AppSidebar';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -9,6 +12,13 @@ export const dynamic = 'force-dynamic';
 export default function SocietiesPage() {
   const [societies, setSocieties] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const stored = localStorage.getItem('sidebarCollapsed:societies');
+      if (stored !== null) return stored === 'true';
+    }
+    return false;
+  });
 
   useEffect(() => {
     const fetchSocieties = async () => {
@@ -32,7 +42,20 @@ export default function SocietiesPage() {
   if (loading) {
     return (
       <div className="w-full min-w-0 overflow-hidden">
-        <div className="px-4 lg:px-6 pt-20 lg:pt-6 pb-32">
+        <AppSidebar
+          className="hidden lg:flex"
+          widgets={['userControls', 'navigation', 'resources', 'footer']}
+          context={{ type: 'societies' }}
+          onCollapseChange={(collapsed: boolean) => {
+            setSidebarCollapsed(collapsed);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('sidebarCollapsed:societies', String(collapsed));
+            }
+          }}
+        />
+        <div className={`px-4 lg:px-6 pt-20 lg:pt-6 pb-32 transition-all duration-300 ${
+          sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'
+        }`}>
           <div className="max-w-4xl mx-auto py-10">
             <div className="text-center">Loading societies...</div>
           </div>
@@ -43,7 +66,20 @@ export default function SocietiesPage() {
 
   return (
     <div className="w-full min-w-0 overflow-hidden">
-      <div className="px-4 lg:px-6 pt-20 lg:pt-6 pb-32">
+      <AppSidebar
+        className="hidden lg:flex"
+        widgets={['userControls', 'navigation', 'resources', 'footer']}
+        context={{ type: 'societies' }}
+        onCollapseChange={(collapsed: boolean) => {
+          setSidebarCollapsed(collapsed);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('sidebarCollapsed:societies', String(collapsed));
+          }
+        }}
+      />
+      <div className={`px-4 lg:px-6 pt-20 lg:pt-6 pb-32 transition-all duration-300 ${
+        sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'
+      }`}>
         <div className="max-w-4xl mx-auto py-10">
           <h1 className="text-3xl font-bold mb-6">All Societies</h1>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">

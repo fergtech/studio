@@ -37,6 +37,7 @@ interface MobileFeedCardProps {
     id: string;
     name: string;
   } | null;
+  type?: string; // e.g., 'idea', 'general', etc.
 }
 
 /**
@@ -47,7 +48,7 @@ interface MobileFeedCardProps {
  * - Double-tap to like
  * - Swipe gestures
  */
-export function MobileFeedCard({ post, currentUserId, onPostClick, society }: MobileFeedCardProps) {
+export function MobileFeedCard({ post, currentUserId, onPostClick, society, type }: MobileFeedCardProps) {
   const router = useRouter();
   const { toast } = useToast();
   const { data: session } = useSession();
@@ -303,6 +304,12 @@ export function MobileFeedCard({ post, currentUserId, onPostClick, society }: Mo
           !hasMedia && "absolute top-4 left-4 right-4"
         )}>
           <div className="flex flex-col gap-2">
+            {/* Post Type Badge */}
+            {type && (
+              <span className="inline-block bg-black/60 text-xs font-semibold rounded px-2 py-0.5 mb-1 w-fit uppercase tracking-wide border border-white/20 shadow-md">
+                {type}
+              </span>
+            )}
             <Link
               href={`/profile/${post.creatorId}`}
               onClick={(e) => e.stopPropagation()}

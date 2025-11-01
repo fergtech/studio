@@ -1,4 +1,7 @@
+
 'use client';
+
+import AppSidebar from '@/components/AppSidebar';
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -29,6 +32,13 @@ export default function MessagesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const router = useRouter();
   const { data: session, status } = useSession();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const stored = localStorage.getItem('sidebarCollapsed:messages');
+      if (stored !== null) return stored === 'true';
+    }
+    return false;
+  });
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -87,10 +97,22 @@ export default function MessagesPage() {
   }
 
   return (
-    <>
+    <div className="w-full min-w-0 overflow-hidden">
+      <AppSidebar
+        className="hidden lg:flex"
+        widgets={['userControls', 'navigation', 'resources', 'footer']}
+        context={{ type: 'messages' }}
+        onCollapseChange={(collapsed: boolean) => {
+          setSidebarCollapsed(collapsed);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('sidebarCollapsed:messages', String(collapsed));
+          }
+        }}
+      />
       {/* Main Content Area */}
-      <div className="px-4 lg:px-6 pt-20 lg:pt-6 pb-24" aria-live="polite" aria-busy={`${loading
-      }`}>
+      <div className={`px-4 lg:px-6 pt-20 lg:pt-6 pb-24 transition-all duration-300 ${
+        sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'
+      }`} aria-live="polite" aria-busy={`${loading }`}>
         {loading ? (
           <div className="container max-w-3xl mx-auto p-4">
             <div className="mb-6">
@@ -187,6 +209,6 @@ export default function MessagesPage() {
           </div>
         )}
       </div>
-    </>
+    </div>
   );
 }

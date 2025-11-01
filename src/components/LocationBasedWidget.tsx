@@ -1,4 +1,3 @@
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { MapPin, Target, Lightbulb, Handshake, Users, ChevronRight, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -212,17 +211,15 @@ export default function LocationBasedWidget() {
 
   if (isLoading) {
     return (
-      <Card>
-        <CardHeader className="py-2 px-3">
-          <CardTitle className="flex items-center gap-2 text-base font-semibold">
-            <MapPin className="h-4 w-4" />
-            Local Content
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="py-2 px-3 flex items-center justify-center h-32">
+      <div className="rounded-2xl bg-background/80 backdrop-blur-xl shadow-none p-0 mb-4">
+        <div className="py-2 px-0 flex items-center gap-2">
+          <MapPin className="h-4 w-4 text-primary" />
+          <span className="text-base font-semibold tracking-tight">Local Content</span>
+        </div>
+        <div className="py-8 flex items-center justify-center">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   }
 
@@ -237,21 +234,21 @@ export default function LocationBasedWidget() {
       icon: Target, 
       label: 'Issues', 
       count: primary.counts.issues, 
-      href: '/issues', // Updated to working pages
+      href: '/issues',
       color: 'text-red-600'
     },
     { 
       icon: Lightbulb, 
       label: 'Ideas', 
       count: primary.counts.ideas, 
-      href: '/ideas', // Updated to working pages
+      href: '/ideas',
       color: 'text-yellow-600'
     },
     { 
       icon: Handshake, 
       label: 'Initiatives', 
       count: primary.counts.initiatives, 
-      href: '/initiatives', // Updated to working pages
+      href: '/initiatives',
       color: 'text-blue-600'
     },
     { 
@@ -262,39 +259,36 @@ export default function LocationBasedWidget() {
       color: 'text-green-600'
     },
   ];
-
   return (
-    <Card>
-      <CardHeader className="py-2 px-3">
-        <CardTitle className="flex items-center gap-2 text-base font-semibold">
-          <MapPin className="h-4 w-4" />
-          Local Content
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="py-2 px-3 space-y-3">
+    <div className="rounded-2xl bg-background/80 backdrop-blur-xl shadow-none p-0 mb-4">
+      <div className="py-2 px-0 flex items-center gap-2">
+        <MapPin className="h-4 w-4 text-primary" />
+        <span className="text-base font-semibold tracking-tight">Local Content</span>
+      </div>
+      <div className="py-2 px-0 space-y-3">
         {error && (
           <div className="text-xs text-muted-foreground text-center py-2">
             {error}
           </div>
         )}
-        
+
         {/* Primary Location */}
-        <div>
+        <div className="px-3">
           <div className="flex items-center gap-2 mb-2">
-            <h4 className="font-semibold text-sm">{primary.name}</h4>
+            <h4 className="font-semibold text-sm tracking-tight">{primary.name}</h4>
             {primary.name !== "Set your location" && (
               <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">Your area</span>
             )}
           </div>
-          
+
           {primary.name === "Set your location" ? (
             <div className="text-center py-4">
               <p className="text-xs text-muted-foreground mb-2">
                 Set your location to see local content
               </p>
-              <Button 
-                variant="outline" 
-                size="sm" 
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => {
                   // Use the user's ID or username for the profile edit URL
                   const username = (session?.user as any)?.username;
@@ -312,21 +306,15 @@ export default function LocationBasedWidget() {
               {categoryItems.map((item) => {
                 const IconComponent = item.icon;
                 return (
-                  <Button
+                  <Link
                     key={item.label}
-                    variant="ghost"
-                    size="sm"
-                    className="h-auto p-2 flex flex-col items-start text-left hover:bg-muted/50"
-                    asChild
+                    href={item.href}
+                    className="flex flex-col items-center justify-center gap-1 rounded-lg py-3 transition-colors group hover:bg-accent/40"
                   >
-                    <Link href={item.href} className="w-full">
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <IconComponent className={`h-3.5 w-3.5 ${item.color}`} />
-                        <span className="font-medium text-xs">{item.label}</span>
-                      </div>
-                      <span className="text-xs text-muted-foreground">{item.count}</span>
-                    </Link>
-                  </Button>
+                    <IconComponent className={`h-5 w-5 ${item.color} group-hover:scale-110 transition-transform`} />
+                    <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground tracking-tight">{item.label}</span>
+                    <span className="text-sm font-semibold tracking-tight">{item.count}</span>
+                  </Link>
                 );
               })}
             </div>
@@ -335,41 +323,34 @@ export default function LocationBasedWidget() {
 
         {/* Neighboring Areas */}
         {neighboring.length > 0 && (
-          <div>
-            <h4 className="font-semibold text-sm mb-2 text-muted-foreground">Nearby Areas</h4>
+          <div className="px-3">
+            <h4 className="font-semibold text-sm mb-2 text-muted-foreground tracking-tight">Nearby Areas</h4>
             <div className="space-y-1">
               {neighboring.map((area) => (
-                <Button
+                <div
                   key={area.name}
-                  variant="ghost"
-                  size="sm"
-                  className="w-full justify-between h-7 text-xs hover:bg-muted/30 disabled:opacity-50"
-                  disabled // Disabled for now - future enhancement
+                  className="flex items-center justify-between rounded-lg px-2 py-1 transition-colors group hover:bg-accent/40"
                 >
-                  <span className="flex items-center gap-1.5">
-                    <MapPin className="h-3 w-3 text-muted-foreground" />
-                    {area.name}
-                  </span>
-                  <div className="flex items-center gap-1">
-                    <span className="text-muted-foreground text-xs">{area.distance}</span>
-                    <ChevronRight className="h-3 w-3 text-muted-foreground" />
-                  </div>
-                </Button>
+                  <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground tracking-tight">{area.name}</span>
+                  <span className="text-xs text-muted-foreground group-hover:text-foreground">{area.distance}</span>
+                </div>
               ))}
             </div>
           </div>
         )}
 
         {/* View All Link */}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="w-full text-xs h-7 text-muted-foreground hover:text-foreground"
-          asChild
-        >
-          <Link href="/explore">Explore all content →</Link>
-        </Button>
-      </CardContent>
-    </Card>
+        <div className="px-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full text-xs h-7 text-muted-foreground hover:text-foreground"
+            asChild
+          >
+            <Link href="/explore">Explore all content →</Link>
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }

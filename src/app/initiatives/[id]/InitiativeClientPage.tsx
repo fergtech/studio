@@ -27,7 +27,7 @@ import { MissionProgressBanner } from './MissionProgressBanner';
 import { InitiativeSidebar } from '@/components/initiatives/InitiativeSidebar'; // Corrected import path
 import AppSidebar, { getDefaultCollapsedState } from '@/components/AppSidebar'; // Add global AppSidebar
 import { CreateUpdateForm } from './CreateUpdateForm';
-import { ActivityFeed } from './ActivityFeed';
+import { UpdateCard } from '@/components/UpdateCard';
 import { EditInitiativeDialog } from './EditInitiativeDialog';
 import { RoleSelectionModal } from './RoleSelectionModal';
 import { useSession } from "next-auth/react";
@@ -156,6 +156,9 @@ export function InitiativeClientPage({
   // Local state for updates to enable immediate UI updates
   const [localUpdates, setLocalUpdates] = useState<Update[]>(initialInitiative.updates || []);
 
+  // State for response context
+  const [respondingTo, setRespondingTo] = useState<{ id: string; content: string } | null>(null);
+
   // Log the initiative state right after initialization
   console.log('InitiativeClientPage: Initiative state after useState initialization:', initiative);
 
@@ -213,7 +216,7 @@ export function InitiativeClientPage({
   const [isChangeRoleModalOpen, setIsChangeRoleModalOpen] = useState(false);
   const [isCreateGoalDialogOpen, setIsCreateGoalDialogOpen] = useState(false); // State for goal dialog
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => getDefaultCollapsedState({ type: 'initiative' }));
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => getDefaultCollapsedState({ type: 'initiative', data: initiative })); // State for sidebar collapsed
   const isMobile = useIsMobile();
 
   // State for suggested goals
@@ -659,6 +662,9 @@ export function InitiativeClientPage({
       },
       receiverId: dbMessage.receiverId || null,
       createdAt: dbMessage.createdAt ? new Date(dbMessage.createdAt) : new Date(dbMessage.timestamp),
+      replyToId: dbMessage.replyToId ?? null,
+      isDeleted: dbMessage.isDeleted ?? false,
+      deletedAt: dbMessage.deletedAt ? new Date(dbMessage.deletedAt) : null,
     };
     console.log('transformDatabaseChatMessage: transformed message:', transformedMessage);
     return transformedMessage;
@@ -733,15 +739,44 @@ export function InitiativeClientPage({
     }
   };
 
+  // Delete update handler
+  const handleDeleteUpdate = async (updateId: string) => {
+    try {
+      const response = await fetch(`/api/updates/${updateId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete update');
+      }
+
+      // Remove update from local state
+      setLocalUpdates(prev => prev.filter(update => update.id !== updateId));
+
+      toast({
+        title: "Update Deleted",
+        description: "The update has been removed.",
+      });
+    } catch (error) {
+      console.error('Error deleting update:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete update. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <>
+
       {/* Global AppSidebar for consistent navigation - matches society page pattern */}
       <AppSidebar 
         context={{ type: 'initiative', data: initiative }}
         className="z-30"
         onCollapseChange={setSidebarCollapsed}
       />
-      
+
       {/* Fixed Initiative Sidebar for Desktop - matches society pattern */}
       {!isMobile && (
         <div className="fixed right-4 top-6 z-30 w-80 h-[calc(100vh-3rem)] overflow-y-auto bg-background/95 backdrop-blur-sm border rounded-lg shadow-lg p-4">
@@ -1088,63 +1123,116 @@ export function InitiativeClientPage({
             <div className="space-y-4 mx-auto" style={{ maxWidth: '700px' }}>
               <h2 className="text-xl font-semibold">Updates</h2>
               {isMember ? (
-                <CreateUpdateForm 
-                  initiativeId={initiativeId} 
-                  onPostUpdate={async (updateData) => {
-                    console.log('Attempting to post new update:', updateData);
-                    if (!userId) {
-                      toast({
-                        title: "Authentication Error",
-                        description: "You must be logged in to post an update.",
-                        variant: "destructive",
-                      });
-                      return;
-                    }
-                    try {
-                      const result = await createUpdateAction({
-                        initiativeId: initiativeId,
-                        userId: userId,
-                        content: updateData.content,
-                        type: UpdateType.post, // Corrected to use UpdateType.post
-                        media: updateData.imageUrl ? [{ url: updateData.imageUrl, type: 'IMAGE' as const }] : undefined,
-                      });
-
-                      if (result.success && result.update) {
-                        // Immediately add the new update to local state
-                        setLocalUpdates(prev => [result.update, ...prev]);
-
+                <>
+                  {respondingTo && (
+                    <div className="mb-3 p-3 bg-muted/50 rounded-md border-l-2 border-primary">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <span className="text-xs text-muted-foreground font-medium">Responding to:</span>
+                          <p className="text-xs text-muted-foreground italic line-clamp-2 mt-0.5">
+                            "{respondingTo.content}"
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setRespondingTo(null)}
+                          className="h-6 w-6 p-0"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  <CreateUpdateForm
+                    initiativeId={initiativeId}
+                    onPostUpdate={async (updateData) => {
+                      if (!userId) {
                         toast({
-                          title: "Update Posted!",
-                          description: "Your update has been added to the initiative.",
+                          title: "Authentication Error",
+                          description: "You must be logged in to post an update.",
+                          variant: "destructive",
                         });
-                        router.refresh();
-                      } else {
+                        return;
+                      }
+                      try {
+                        // Prepare details object for links, documents, and response context
+                        const details: any = {
+                          links: updateData.links || [],
+                          documents: updateData.documents || []
+                        };
+
+                        // Add parent update reference if responding
+                        if (respondingTo) {
+                          details.parentUpdateId = respondingTo.id;
+                          details.parentContent = respondingTo.content.length > 150
+                            ? respondingTo.content.substring(0, 150) + '...'
+                            : respondingTo.content;
+                        }
+
+                        const result = await createUpdateAction({
+                          initiativeId: initiativeId,
+                          userId: userId,
+                          content: updateData.content,
+                          type: UpdateType.post,
+                          media: updateData.imageUrl && updateData.mediaType
+                            ? [{ url: updateData.imageUrl, type: updateData.mediaType }]
+                            : undefined,
+                          details: (details.links.length > 0 || details.documents.length > 0 || details.parentUpdateId) ? details : undefined,
+                        });
+
+                        if (result.success && result.update) {
+                          // Immediately add the new update to local state
+                          setLocalUpdates(prev => [result.update, ...prev]);
+
+                          toast({
+                            title: respondingTo ? "Response Posted!" : "Update Posted!",
+                            description: respondingTo
+                              ? "Your response has been added to the initiative."
+                              : "Your update has been added to the initiative.",
+                          });
+
+                          // Clear responding state
+                          setRespondingTo(null);
+
+                          router.refresh();
+                        } else {
+                          toast({
+                            title: "Error Posting Update",
+                            description: result.error || "Could not post your update.",
+                            variant: "destructive",
+                          });
+                        }
+                      } catch (error) {
+                        console.error("Error in onPostUpdate:", error);
                         toast({
-                          title: "Error Posting Update",
-                          description: result.error || "Could not post your update.",
+                          title: "Unexpected Error",
+                          description: "An error occurred while posting the update.",
                           variant: "destructive",
                         });
                       }
-                    } catch (error) {
-                      console.error("Error in onPostUpdate:", error);
-                      toast({
-                        title: "Unexpected Error",
-                        description: "An error occurred while posting the update.",
-                        variant: "destructive",
-                      });
-                    }
-                  }} 
-                />
+                    }}
+                  />
+                </>
               ) : (
                 <div className="text-xs text-muted-foreground mb-2">Join to post updates or interact!</div>
               )}
               {localUpdates && localUpdates.length > 0 ? (
-                <ActivityFeed
-                  updates={localUpdates}
-                  onLoadMore={() => {}}
-                  hasMore={false}
-                  isMember={isMember} // Pass isMember to ActivityFeed
-                />
+                <div className="space-y-4">
+                  {localUpdates.map((update) => (
+                    <UpdateCard
+                      key={update.id}
+                      update={update}
+                      currentUserId={userId}
+                      onDelete={handleDeleteUpdate}
+                      onResponse={(parentId, parentContent) => {
+                        setRespondingTo({ id: parentId, content: parentContent });
+                        // Scroll to top where the form is
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                    />
+                  ))}
+                </div>
               ) : (
                 <Card className="bg-muted/50">
                   <CardContent className="p-6 text-center">

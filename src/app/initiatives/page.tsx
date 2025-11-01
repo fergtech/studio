@@ -1,4 +1,7 @@
+
 "use client";
+
+import AppSidebar from '@/components/AppSidebar';
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
@@ -45,6 +48,13 @@ export default function InitiativesPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'tiktok'>('tiktok'); // New state for view mode
   const { openCreateInitiativeModal } = useModal();
   const isMobile = useIsMobile();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const stored = localStorage.getItem('sidebarCollapsed:initiatives');
+      if (stored !== null) return stored === 'true';
+    }
+    return false;
+  });
 
   // Debounce search term to avoid excessive API calls
   useEffect(() => {
@@ -113,7 +123,20 @@ export default function InitiativesPage() {
   if (loading) {
     return (
       <div className="w-full min-w-0 overflow-hidden">
-        <div className="px-4 lg:px-6 pt-20 lg:pt-6 pb-32">
+        <AppSidebar
+          className="hidden lg:flex"
+          widgets={['userControls', 'navigation', 'resources', 'footer']}
+          context={{ type: 'initiatives' }}
+          onCollapseChange={(collapsed: boolean) => {
+            setSidebarCollapsed(collapsed);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('sidebarCollapsed:initiatives', String(collapsed));
+            }
+          }}
+        />
+        <div className={`px-4 lg:px-6 pt-20 lg:pt-6 pb-32 transition-all duration-300 ${
+          sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'
+        }`}>
           <div className="max-w-6xl mx-auto py-10">
             <div className="text-center">Loading initiatives...</div>
           </div>
@@ -124,10 +147,21 @@ export default function InitiativesPage() {
 
   return (
     <div className="w-full min-w-0 overflow-hidden">
+      <AppSidebar
+        className="hidden lg:flex"
+        widgets={['userControls', 'navigation', 'resources', 'footer']}
+        context={{ type: 'initiatives' }}
+        onCollapseChange={(collapsed: boolean) => {
+          setSidebarCollapsed(collapsed);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('sidebarCollapsed:initiatives', String(collapsed));
+          }
+        }}
+      />
       <div className={`transition-all duration-300 ${
         isMobile
-          ? 'pt-0' // No padding for mobile full-screen experience
-          : 'px-4 lg:px-6 pt-20 lg:pt-6 pb-32'
+          ? 'pt-0'
+          : `px-4 lg:px-6 pt-20 lg:pt-6 pb-32 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'}`
       }`}>
         {isMobile ? (
           // Mobile: TikTok-style full-screen feed

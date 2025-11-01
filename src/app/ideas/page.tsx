@@ -1,4 +1,7 @@
+
 'use client';
+
+import AppSidebar from '@/components/AppSidebar';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,6 +22,13 @@ export default function IdeasPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('recent');
   const [isLoading, setIsLoading] = useState(true);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const stored = localStorage.getItem('sidebarCollapsed:ideas');
+      if (stored !== null) return stored === 'true';
+    }
+    return false;
+  });
 
   useEffect(() => {
     fetchIdeas();
@@ -81,7 +91,20 @@ export default function IdeasPage() {
 
   return (
     <div className="w-full min-w-0 overflow-hidden">
-      <div className="px-4 lg:px-6 pt-20 lg:pt-6 pb-32">
+      <AppSidebar
+        className="hidden lg:flex"
+        widgets={['userControls', 'navigation', 'resources', 'footer']}
+        context={{ type: 'ideas' }}
+        onCollapseChange={(collapsed: boolean) => {
+          setSidebarCollapsed(collapsed);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('sidebarCollapsed:ideas', String(collapsed));
+          }
+        }}
+      />
+      <div className={`px-4 lg:px-6 pt-20 lg:pt-6 pb-32 transition-all duration-300 ${
+        sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'
+      }`}>
         <div className="max-w-5xl mx-auto py-10">
           {/* Header */}
           <div className="flex flex-col sm:flex-row items-center justify-between mb-8">

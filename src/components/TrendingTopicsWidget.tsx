@@ -240,9 +240,9 @@ export function TrendingTopicsWidget({ limit = 8, showHeader = true }: TrendingT
       <div>
         {showHeader && (
           <div className="pb-4 px-4">
-            <h2 className="text-lg font-semibold flex items-center gap-2 text-foreground">
-              <div className="p-1.5 rounded-full bg-gradient-to-r from-blue-500 to-purple-500">
-                <Hash className="h-4 w-4 text-white" />
+            <h2 className="text-base font-medium flex items-center gap-1.5 text-foreground opacity-80">
+              <div className="p-1 rounded-full bg-gradient-to-r from-blue-500 to-purple-500">
+                <Hash className="h-3 w-3 text-white" />
               </div>
               Topics
             </h2>
@@ -270,9 +270,9 @@ export function TrendingTopicsWidget({ limit = 8, showHeader = true }: TrendingT
       <div>
         {showHeader && (
           <div className="pb-4 px-4">
-            <h2 className="text-lg font-semibold flex items-center gap-2 text-foreground">
-              <div className="p-1.5 rounded-full bg-gradient-to-r from-blue-500 to-purple-500">
-                <Hash className="h-4 w-4 text-white" />
+            <h2 className="text-base font-medium flex items-center gap-1.5 text-foreground opacity-80">
+              <div className="p-1 rounded-full bg-gradient-to-r from-blue-500 to-purple-500">
+                <Hash className="h-3 w-3 text-white" />
               </div>
               Topics
             </h2>
@@ -295,9 +295,9 @@ export function TrendingTopicsWidget({ limit = 8, showHeader = true }: TrendingT
     <div>
       {showHeader && (
         <div className="pb-4 px-4">
-          <h2 className="text-lg font-semibold flex items-center gap-2 text-foreground">
-            <div className="p-1.5 rounded-full bg-gradient-to-r from-blue-500 to-purple-500">
-              <Hash className="h-4 w-4 text-white" />
+          <h2 className="text-base font-medium flex items-center gap-1.5 text-foreground opacity-80">
+            <div className="p-1 rounded-full bg-gradient-to-r from-blue-500 to-purple-500">
+              <Hash className="h-3 w-3 text-white" />
             </div>
             Trending Topics
           </h2>
@@ -396,7 +396,7 @@ export function TrendingTopicsWidget({ limit = 8, showHeader = true }: TrendingT
                 className="group flex-shrink-0"
               >
                 <div className={`
-                  relative flex items-center gap-2.5 px-4 py-2.5 rounded-full
+                  relative flex items-center gap-1.5 px-3 py-1.5 rounded-full
                   bg-gradient-to-r ${gradient}
                   hover:shadow-lg hover:shadow-current/25 hover:scale-105
                   transition-all duration-300 ease-out
@@ -418,13 +418,13 @@ export function TrendingTopicsWidget({ limit = 8, showHeader = true }: TrendingT
                   </div>
                   
                   {/* Topic content */}
-                  <div className="relative z-10 flex items-center gap-2">
-                    <span className="text-white font-medium text-sm capitalize drop-shadow-sm">
+                  <div className="relative z-10 flex items-center gap-1.5">
+                    <span className="text-white font-normal text-xs capitalize drop-shadow-sm">
                       {topicStat.topic}
                     </span>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-0.5">
                       <div className="w-1 h-1 bg-white/60 rounded-full" />
-                      <span className="text-white/90 text-xs font-medium">
+                      <span className="text-white/90 text-[10px] font-normal">
                         {topicStat.count}
                       </span>
                     </div>
@@ -444,7 +444,7 @@ export function TrendingTopicsWidget({ limit = 8, showHeader = true }: TrendingT
           {/* Browse All Topics - Sleek CTA */}
           <Link href="/topics/browse" className="group flex-shrink-0">
             <div className="
-              relative flex items-center gap-2.5 px-4 py-2.5 rounded-full
+              relative flex items-center gap-1.5 px-3 py-1.5 rounded-full
               bg-gradient-to-r from-slate-600 to-slate-800 dark:from-slate-300 dark:to-slate-100
               hover:from-primary hover:to-primary/80
               hover:shadow-lg hover:shadow-primary/25 hover:scale-105
@@ -462,13 +462,13 @@ export function TrendingTopicsWidget({ limit = 8, showHeader = true }: TrendingT
                 <Hash className="h-4 w-4 text-white dark:text-slate-800 group-hover:text-white drop-shadow-sm" />
               </div>
               
-              <div className="relative z-10 flex items-center gap-2">
-                <span className="text-white dark:text-slate-800 group-hover:text-white font-medium text-sm drop-shadow-sm">
+              <div className="relative z-10 flex items-center gap-1.5">
+                <span className="text-white dark:text-slate-800 group-hover:text-white font-normal text-xs drop-shadow-sm">
                   Browse All
                 </span>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-0.5">
                   <div className="w-1 h-1 bg-white/60 dark:bg-slate-600/60 group-hover:bg-white/60 rounded-full" />
-                  <span className="text-white/90 dark:text-slate-700/90 group-hover:text-white/90 text-xs font-medium">
+                  <span className="text-white/90 dark:text-slate-700/90 group-hover:text-white/90 text-[10px] font-normal">
                     28
                   </span>
                 </div>

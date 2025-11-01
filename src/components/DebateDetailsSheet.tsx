@@ -1,6 +1,79 @@
 "use client";
 
+import { Info } from 'lucide-react';
+
+interface VoteCountDropdownProps {
+  side: 'PRO' | 'CON';
+  count: number;
+  percentage: number;
+  votes: DebateVote[];
+}
+
+const VoteCountDropdown = ({ side, count, percentage, votes }: VoteCountDropdownProps) => {
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef<HTMLSpanElement>(null);
+  const label = side === 'PRO' ? 'agree' : 'disagree';
+  const color = side === 'PRO' ? 'text-green-500' : 'text-red-500';
+  const filtered = votes.filter(v => v.side === side);
+
+  // Close dropdown on click outside
+  React.useEffect(() => {
+    if (!open) return;
+    function handle(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    window.addEventListener('mousedown', handle);
+    return () => window.removeEventListener('mousedown', handle);
+  }, [open]);
+
+  return (
+    <span className="relative flex items-center gap-1" ref={ref}>
+      {side === 'PRO' ? (
+        <ThumbsUp className="w-3 h-3 text-green-500" />
+      ) : (
+        <ThumbsDown className="w-3 h-3 text-red-500" />
+      )}
+      {count} {label} ({percentage}%)
+      <button
+        type="button"
+        className="ml-1 p-0.5 rounded hover:bg-muted/40 focus:outline-none"
+        aria-label={`Show users who ${label}`}
+        onClick={e => { e.stopPropagation(); setOpen(v => !v); }}
+        tabIndex={0}
+      >
+        <Info className={color + ' w-3 h-3'} />
+      </button>
+      {open && (
+        <div className="absolute z-50 left-0 mt-2 min-w-[160px] bg-background border border-border rounded shadow-lg p-2 text-xs" onClick={e => e.stopPropagation()}>
+          {filtered.length === 0 ? (
+            <div>No users</div>
+          ) : (
+            <ul>
+              {filtered.map(v => (
+                <li key={v.user.id} className="flex items-center gap-2 py-1">
+                  {v.user.image ? (
+                    <img src={v.user.image} alt={v.user.name} className="w-5 h-5 rounded-full" />
+                  ) : (
+                    <span className="w-5 h-5 rounded-full bg-muted flex items-center justify-center text-xs font-bold">
+                      {v.user.name?.charAt(0) || '?'}
+                    </span>
+                  )}
+                  <span>@{v.user.username || v.user.name}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </span>
+  );
+};
+
+
+
+
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ThumbsUp, ThumbsDown, MessageCircle, Share2, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -42,6 +115,19 @@ interface DebateUser {
   username?: string;
 }
 
+interface DebateVoteUser {
+  id: string;
+  name: string;
+  image?: string;
+  username?: string;
+}
+
+interface DebateVote {
+  id: string;
+  user: DebateVoteUser;
+  side: 'PRO' | 'CON';
+}
+
 interface DebateDetailsSheetProps {
   isOpen: boolean;
   onClose: () => void;
@@ -59,6 +145,7 @@ interface DebateDetailsSheetProps {
   userVote: 'agree' | 'disagree' | null;
   onVote: (voteType: 'agree' | 'disagree') => void;
   currentUserId?: string | null;
+  votes?: DebateVote[]; // <-- pass votes here
 }
 
 export function DebateDetailsSheet({
@@ -70,7 +157,8 @@ export function DebateDetailsSheet({
   stats,
   userVote,
   onVote,
-  currentUserId
+  currentUserId,
+  votes = []
 }: DebateDetailsSheetProps) {
   const [isMobile, setIsMobile] = useState(false);
 
@@ -130,7 +218,7 @@ export function DebateDetailsSheet({
     exit: { opacity: 0, scale: 0.95 }
   };
 
-  return (
+  const sheetContent = (
     <AnimatePresence>
       {isOpen && (
         <>
@@ -139,10 +227,10 @@ export function DebateDetailsSheet({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50"
+            className="fixed inset-0 bg-black/50 z-[100]"
             onClick={handleClose}
           />
-          
+
           {/* Sheet Content */}
           <motion.div
             variants={isMobile ? mobileVariants : desktopVariants}
@@ -151,9 +239,9 @@ export function DebateDetailsSheet({
             exit="exit"
             transition={{ duration: 0.3, ease: "easeOut" }}
             className={cn(
-              "fixed z-50 bg-background border border-border",
-              isMobile 
-                ? "bottom-0 left-0 right-0 rounded-t-3xl max-h-[85vh]" 
+              "fixed z-[100] bg-background border border-border",
+              isMobile
+                ? "bottom-0 left-0 right-0 rounded-t-3xl max-h-[85vh]"
                 : "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-2xl w-[90vw] max-w-xl max-h-[75vh] shadow-2xl"
             )}
           >
@@ -195,7 +283,7 @@ export function DebateDetailsSheet({
                   {isVideoFile(debate.imageUrl) ? (
                     <VideoPlayer
                       src={debate.imageUrl}
-                      className="w-full max-h-80 rounded-lg"
+                      className="w-full max-h-48 md:max-h-80 rounded-lg"
                       controls={true}
                       autoPlay={false}
                       muted={false}
@@ -209,7 +297,7 @@ export function DebateDetailsSheet({
                     <img
                       src={debate.imageUrl}
                       alt="Debate content"
-                      className="w-full h-full object-cover aspect-video"
+                      className="w-full max-h-48 md:max-h-80 object-cover rounded-lg"
                     />
                   )}
                 </div>
@@ -239,19 +327,23 @@ export function DebateDetailsSheet({
                   </div>
                 </div>
                 
-                {/* Vote Counts */}
+                {/* Vote Counts with Info Dropdown */}
                 <div className="flex justify-between text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <ThumbsUp className="w-3 h-3 text-green-500" />
-                    {stats.proVotes} agree ({stats.proPercentage}%)
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <ThumbsDown className="w-3 h-3 text-red-500" />
-                    {stats.conVotes} disagree ({stats.conPercentage}%)
-                  </span>
+                  <VoteCountDropdown
+                    side="PRO"
+                    count={stats.proVotes}
+                    percentage={stats.proPercentage}
+                    votes={votes}
+                  />
+                  <VoteCountDropdown
+                    side="CON"
+                    count={stats.conVotes}
+                    percentage={stats.conPercentage}
+                    votes={votes}
+                  />
                 </div>
               </div>
-            </div>
+
 
             {/* Actions */}
             <div className="border-t border-border p-4 space-y-3">
@@ -307,9 +399,14 @@ export function DebateDetailsSheet({
                 </Button>
               </div>
             </div>
+          </div>
           </motion.div>
         </>
       )}
     </AnimatePresence>
   );
+
+  // Use portal to render at document root, escaping parent stacking contexts
+  if (typeof document === 'undefined') return null;
+  return createPortal(sheetContent, document.body);
 }

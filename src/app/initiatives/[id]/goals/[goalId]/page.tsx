@@ -24,7 +24,6 @@ import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { CalendarIcon } from 'lucide-react';
-import AppSidebar, { getDefaultCollapsedState } from '@/components/AppSidebar';
 
 import type { Goal, Action, Initiative, GoalStatus, Priority, StepStatus } from '@/lib/types';
 import { getGoalDetails, getInitiativeDetailsForGoalPage, getRelatedActions } from '@/app/actions/goalActions';
@@ -203,7 +202,6 @@ export default function GoalDetailPage() {
   const [initiative, setInitiative] = useState<Partial<Initiative> | null>(null);
   const [actions, setActions] = useState<Action[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => getDefaultCollapsedState({ type: 'initiative' }));
   const [isAddActionModalOpen, setIsAddActionModalOpen] = useState(false);
   const [newAction, setNewAction] = useState({
     title: '',
@@ -407,12 +405,7 @@ export default function GoalDetailPage() {
   if (loading) {
     return (
       <div className="w-full min-w-0 overflow-hidden">
-        <AppSidebar 
-          widgets={['userControls', 'navigation', 'resources', 'footer']}
-          context={{ type: 'goal', data: { goalId: params.goalId } }}
-          onCollapseChange={setSidebarCollapsed}
-        />
-        <div className={`transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'}`}>
+      <div className="px-4 lg:px-6 pt-20 lg:pt-6 pb-24">
           <div className="flex items-center justify-center min-h-screen">
             <div className="text-center">
               <Target className="h-12 w-12 text-muted-foreground mx-auto mb-4 animate-pulse" />
@@ -427,12 +420,7 @@ export default function GoalDetailPage() {
   if (!goal || !initiative) {
     return (
       <div className="w-full min-w-0 overflow-hidden">
-        <AppSidebar 
-          widgets={['userControls', 'navigation', 'resources', 'footer']}
-          context={{ type: 'goal' }}
-          onCollapseChange={setSidebarCollapsed}
-        />
-        <div className={`transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'}`}>
+       <div className="px-4 lg:px-6 pt-20 lg:pt-6 pb-24">
           <div className="flex items-center justify-center min-h-screen">
             <div className="text-center">
               <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
@@ -466,13 +454,7 @@ export default function GoalDetailPage() {
 
   return (
     <div className="w-full min-w-0 overflow-hidden">
-      <AppSidebar 
-        widgets={['userControls', 'navigation', 'resources', 'footer']}
-        context={{ type: 'goal', data: { goalId: goal.id, initiativeId: initiative.id } }}
-        onCollapseChange={setSidebarCollapsed}
-      />
-      
-      <div className={`transition-all duration-300 px-4 lg:px-6 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'}`}>
+      <div className="px-4 lg:px-6 pt-20 lg:pt-6 pb-24">
         <div className="max-w-4xl mx-auto py-6">
           {/* Breadcrumb Navigation */}
           <div className="mb-6">

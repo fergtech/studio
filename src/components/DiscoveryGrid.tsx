@@ -337,7 +337,7 @@ export function DiscoveryGrid({ searchResults, isSearching, hasSearched }: Disco
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4"
           onClick={() => setIsPreviewOpen(false)}
         >
           <motion.div
@@ -524,7 +524,7 @@ export function DiscoveryGrid({ searchResults, isSearching, hasSearched }: Disco
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black z-50 flex flex-col"
+          className="fixed inset-0 bg-black z-[100] flex flex-col"
         >
           {/* Header */}
           <div className="flex items-center justify-between p-4 bg-black/50 backdrop-blur-sm">

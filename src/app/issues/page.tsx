@@ -11,6 +11,7 @@ import { IssueCard } from '@/components/IssueCard';
 import { Issue } from '@/lib/types';
 import { AlertTriangle, Filter, Plus } from 'lucide-react';
 import Link from 'next/link';
+import AppSidebar from '@/components/AppSidebar';
 
 export default function IssuesPage() {
   const { data: session } = useSession();
@@ -19,6 +20,13 @@ export default function IssuesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('recent');
   const [isLoading, setIsLoading] = useState(true);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const stored = localStorage.getItem('sidebarCollapsed:issues');
+      if (stored !== null) return stored === 'true';
+    }
+    return false;
+  });
 
   useEffect(() => {
     fetchIssues();
@@ -81,7 +89,21 @@ export default function IssuesPage() {
 
   return (
     <div className="w-full min-w-0 overflow-hidden">
-      <div className="px-4 lg:px-6 pt-20 lg:pt-6 pb-32">
+      {/* AppSidebar for desktop (hidden on mobile) */}
+      <AppSidebar
+        className="hidden lg:flex"
+        widgets={['userControls', 'navigation', 'resources', 'footer']}
+        context={{ type: 'issues' }}
+        onCollapseChange={(collapsed: boolean) => {
+          setSidebarCollapsed(collapsed);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('sidebarCollapsed:issues', String(collapsed));
+          }
+        }}
+      />
+      <div className={`px-4 lg:px-6 pt-20 lg:pt-6 pb-32 transition-all duration-300 ${
+        sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'
+      }`}>
         <div className="max-w-5xl mx-auto py-10">
           {/* Header */}
           <div className="flex flex-col sm:flex-row items-center justify-between mb-8">

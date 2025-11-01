@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react'; // Import React hooks
 import ResourcesWidget from '@/components/ResourcesWidget';
+import AppSidebar from '@/components/AppSidebar';
 import { useRouter } from 'next/navigation';
 import { InitiativeCard } from "@/components/InitiativeCard";
 import { CompactInitiativeCard } from "@/components/CompactInitiativeCard";
@@ -328,6 +329,7 @@ interface HomeClientProps {
 type FeedFilterType = 'all' | 'initiatives' | 'societies' | 'generalPosts' | 'debates' | 'ideas' | 'issues' | 'community';
 
 export function HomeClient({ currentUserId, username }: HomeClientProps) {
+
   const router = useRouter();
   const [allFeedItems, setAllFeedItems] = useState<UnifiedFeedItem[]>([]);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
@@ -340,6 +342,17 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
   const { toast } = useToast();
   const { openCreateBattleResponseModal, openCreateSocietyModal, openCreateInitiativeModal, openCreateDebateTopicModal } = useModal();
   const [showMoreNews, setShowMoreNews] = useState(false);
+
+  // Sidebar collapsed state for desktop
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    // Use 'home' context for HomeClient
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const stored = localStorage.getItem('sidebarCollapsed:home');
+      if (stored !== null) return stored === 'true';
+    }
+    // Default to AppSidebar logic
+    return false;
+  });
 
   // TikTok Post Detail Modal State
   const [selectedPost, setSelectedPost] = useState<any>(null);
@@ -787,456 +800,470 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
   }
 
   return (
-      <div className="w-full min-w-0 overflow-hidden relative">
-        {/* ResourcesWidget: only visible on desktop, fixed to right */}
-        <ResourcesWidget />
-      {/* Pull-to-refresh indicator (mobile only) */}
-      {isMobile && (
-        <PullToRefreshIndicator
-          isPulling={isPulling}
-          isRefreshing={isRefreshing}
-          pullDistance={pullDistance}
-          progress={progress}
-        />
-      )}
+    <div className="w-full min-w-0 overflow-hidden relative">
+      {/* AppSidebar for desktop (hidden on mobile) */}
+      <AppSidebar
+        className="hidden lg:flex"
+        widgets={['userControls', 'navigation', 'resources', 'footer']}
+        context={{ type: 'home' }}
+        onCollapseChange={(collapsed: boolean) => {
+          setSidebarCollapsed(collapsed);
+          if (typeof window !== 'undefined' && window.localStorage) {
+            localStorage.setItem('sidebarCollapsed:home', String(collapsed));
+          }
+        }}
+      />
 
-      {/* Main Content Area - with top padding for mobile navigation */}
-      <div className={`min-w-0 transition-all duration-300 pt-20 lg:pt-6 lg:ml-0`}>
+      {/* Main Content Area - with top padding for mobile navigation, and left margin for sidebar on desktop */}
+      <div
+        className={`min-w-0 transition-all duration-300 pt-6 lg:pt-2 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-72 xl:ml-80'}`}
+      >
+        {/* Pull-to-refresh indicator (mobile only) */}
+        {isMobile && (
+          <PullToRefreshIndicator
+        isPulling={isPulling}
+        isRefreshing={isRefreshing}
+        pullDistance={pullDistance}
+        progress={progress}
+          />
+        )}
+
         {/* Trending Topics Widget - Full width */}
         <div className="w-full px-2 sm:px-4 lg:px-6 mb-6">
           <div className="max-w-7xl mx-auto">
-            <TrendingTopicsWidget />
+        <TrendingTopicsWidget />
           </div>
         </div>
 
-        {/* Main Layout: Feed centered, News pushed to far right */}
+        {/* Main Layout: Feed centered */}
         <div className="flex w-full justify-center">
           {/* Main Feed - Centered */}
           <div className="flex-shrink-0 w-full max-w-3xl px-4 pb-32">
-            <div className="flex flex-col space-y-8">
-              {/* Hero Section - Within feed column - HIDDEN */}
-              <div className="w-full mb-2 hidden">
-                <div className="relative isolate overflow-hidden rounded-3xl px-6 py-12 sm:py-16 text-center shadow-2xl">
-                  {/* Background Image with reduced opacity */}
-                  <div
-                    className="absolute inset-0 -z-20 bg-cover bg-center opacity-30"
-                    style={{ backgroundImage: "url('/brooke-cagle-xcgh5_-QIXc-unsplash.jpg')" }}
-                  />
-
-                  {/* Gradient Overlay */}
-                  <div className="absolute inset-0 -z-10 bg-gradient-to-br from-primary/40 via-purple-500/30 to-blue-500/40" />
-
-                  {/* Animated gradient blobs for extra depth */}
-                  <div className="absolute inset-0 -z-10 transform-gpu overflow-hidden blur-3xl" aria-hidden="true">
-                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[48rem] aspect-[1155/678] bg-gradient-to-tr from-primary to-purple-500 opacity-20"></div>
-                  </div>
-
-                  <div className="mx-auto max-w-2xl relative z-10">
-                    <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-white drop-shadow-lg">Turn Ideas into Real Impact</h1>
-                    <p className="mt-3 sm:mt-4 text-sm sm:text-base leading-6 sm:leading-7 text-white/90 max-w-xl mx-auto drop-shadow-md">
-                      Connect with neighbors, solve local problems, and build stronger communities together - virtually or in person. Share ideas, raise issues, and create real change.
-                    </p>
-                  </div>
-                </div>
-              </div>
+        <div className="flex flex-col space-y-8">
+          {/* Hero Section - Within feed column - HIDDEN */}
+          <div className="w-full mb-2 hidden">
+            <div className="relative isolate overflow-hidden rounded-3xl px-6 py-12 sm:py-16 text-center shadow-2xl">
+          {/* Background Image with reduced opacity */}
+          <div
+            className="absolute inset-0 -z-20 bg-cover bg-center opacity-30"
+            style={{ backgroundImage: "url('/brooke-cagle-xcgh5_-QIXc-unsplash.jpg')" }}
+          />
+          {/* Gradient Overlay */}
+          <div className="absolute inset-0 -z-10 bg-gradient-to-br from-primary/40 via-purple-500/30 to-blue-500/40" />
+          {/* Animated gradient blobs for extra depth */}
+          <div className="absolute inset-0 -z-10 transform-gpu overflow-hidden blur-3xl" aria-hidden="true">
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[48rem] aspect-[1155/678] bg-gradient-to-tr from-primary to-purple-500 opacity-20"></div>
+          </div>
+          <div className="mx-auto max-w-2xl relative z-10">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-white drop-shadow-lg">Turn Ideas into Real Impact</h1>
+            <p className="mt-3 sm:mt-4 text-sm sm:text-base leading-6 sm:leading-7 text-white/90 max-w-xl mx-auto drop-shadow-md">
+              Connect with neighbors, solve local problems, and build stronger communities together - virtually or in person. Share ideas, raise issues, and create real change.
+            </p>
+          </div>
+            </div>
+          </div>
           {/* Feed Filter Controls - Centered Tabs - HIDDEN */}
           <div className="w-full flex justify-center hidden">
-            <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent hover:scrollbar-thumb-primary/50">
-              <Filter className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-              <button
-                onClick={() => handleTabSwitch('all')}
-                disabled={filterSwitching}
-                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 flex-shrink-0 ${
-                  feedFilter === 'all'
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-border/50'
-                }`}
-              >
-                All Activity
-              </button>
-              <button
-                onClick={() => handleTabSwitch('initiatives')}
-                disabled={filterSwitching}
-                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 flex-shrink-0 ${
-                  feedFilter === 'initiatives'
-                    ? 'bg-blue-500/10 text-blue-600 border border-blue-500/20 shadow-sm'
-                    : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-border/50'
-                }`}
-              >
-                Initiatives
-              </button>
-              <button
-                onClick={() => handleTabSwitch('societies')}
-                disabled={filterSwitching}
-                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 flex-shrink-0 ${
-                  feedFilter === 'societies'
-                    ? 'bg-purple-500/10 text-purple-600 border border-purple-500/20 shadow-sm'
-                    : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-border/50'
-                }`}
-              >
-                Societies
-              </button>
-              <button
-                onClick={() => handleTabSwitch('generalPosts')}
-                disabled={filterSwitching}
-                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 flex-shrink-0 ${
-                  feedFilter === 'generalPosts'
-                    ? 'bg-green-500/10 text-green-600 border border-green-500/20 shadow-sm'
-                    : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-border/50'
-                }`}
-              >
-                Posts
-              </button>
-              <button
-                onClick={() => handleTabSwitch('debates')}
-                disabled={filterSwitching}
-                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 flex-shrink-0 ${
-                  feedFilter === 'debates'
-                    ? 'bg-purple-500/10 text-purple-600 border border-purple-500/20 shadow-sm'
-                    : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-border/50'
-                }`}
-              >
-                Debates
-              </button>
-              <button
-                onClick={() => handleTabSwitch('ideas')}
-                disabled={filterSwitching}
-                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 flex-shrink-0 ${
-                  feedFilter === 'ideas'
-                    ? 'bg-yellow-500/10 text-yellow-600 border border-yellow-500/20 shadow-sm'
-                    : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-border/50'
-                }`}
-              >
-                Ideas
-              </button>
-              <button
-                onClick={() => handleTabSwitch('issues')}
-                disabled={filterSwitching}
-                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 flex-shrink-0 ${
-                  feedFilter === 'issues'
-                    ? 'bg-red-500/10 text-red-600 border border-red-500/20 shadow-sm'
-                    : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-border/50'
-                }`}
-              >
-                Issues
-              </button>
-              <button
-                onClick={() => handleTabSwitch('community')}
-                disabled={filterSwitching}
-                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 flex-shrink-0 hidden ${
-                  feedFilter === 'community'
-                    ? 'bg-cyan-500/10 text-cyan-600 border border-cyan-500/20 shadow-sm'
-                    : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-border/50'
-                }`}
-              >
-                Community
-              </button>
-            </div>
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent hover:scrollbar-thumb-primary/50">
+          <Filter className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+          <button
+            onClick={() => handleTabSwitch('all')}
+            disabled={filterSwitching}
+            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 flex-shrink-0 ${
+          feedFilter === 'all'
+            ? 'bg-primary text-primary-foreground shadow-sm'
+            : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-border/50'
+            }`}
+          >
+            All Activity
+          </button>
+          <button
+            onClick={() => handleTabSwitch('initiatives')}
+            disabled={filterSwitching}
+            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 flex-shrink-0 ${
+          feedFilter === 'initiatives'
+            ? 'bg-blue-500/10 text-blue-600 border border-blue-500/20 shadow-sm'
+            : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-border/50'
+            }`}
+          >
+            Initiatives
+          </button>
+          <button
+            onClick={() => handleTabSwitch('societies')}
+            disabled={filterSwitching}
+            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 flex-shrink-0 ${
+          feedFilter === 'societies'
+            ? 'bg-purple-500/10 text-purple-600 border border-purple-500/20 shadow-sm'
+            : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-border/50'
+            }`}
+          >
+            Societies
+          </button>
+          <button
+            onClick={() => handleTabSwitch('generalPosts')}
+            disabled={filterSwitching}
+            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 flex-shrink-0 ${
+          feedFilter === 'generalPosts'
+            ? 'bg-green-500/10 text-green-600 border border-green-500/20 shadow-sm'
+            : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-border/50'
+            }`}
+          >
+            Posts
+          </button>
+          <button
+            onClick={() => handleTabSwitch('debates')}
+            disabled={filterSwitching}
+            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 flex-shrink-0 ${
+          feedFilter === 'debates'
+            ? 'bg-purple-500/10 text-purple-600 border border-purple-500/20 shadow-sm'
+            : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-border/50'
+            }`}
+          >
+            Debates
+          </button>
+          <button
+            onClick={() => handleTabSwitch('ideas')}
+            disabled={filterSwitching}
+            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 flex-shrink-0 ${
+          feedFilter === 'ideas'
+            ? 'bg-yellow-500/10 text-yellow-600 border border-yellow-500/20 shadow-sm'
+            : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-border/50'
+            }`}
+          >
+            Ideas
+          </button>
+          <button
+            onClick={() => handleTabSwitch('issues')}
+            disabled={filterSwitching}
+            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 flex-shrink-0 ${
+          feedFilter === 'issues'
+            ? 'bg-red-500/10 text-red-600 border border-red-500/20 shadow-sm'
+            : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-border/50'
+            }`}
+          >
+            Issues
+          </button>
+          <button
+            onClick={() => handleTabSwitch('community')}
+            disabled={filterSwitching}
+            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 flex-shrink-0 hidden ${
+          feedFilter === 'community'
+            ? 'bg-cyan-500/10 text-cyan-600 border border-cyan-500/20 shadow-sm'
+            : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-border/50'
+            }`}
+          >
+            Community
+          </button>
+        </div>
           </div>
 
           {/* Mobile-First Feed Container with Scroll Snap */}
-          <div className="w-full h-full overflow-y-auto snap-y snap-mandatory scroll-smooth flex flex-col items-center space-y-6">
+          <div className="w-full h-full overflow-y-auto overflow-x-hidden snap-y snap-mandatory scroll-smooth flex flex-col items-center space-y-6">
           {filteredFeedItems.map((item, index) => {
-            // Generate a safe key that works for all item types
-            const itemKey = item.id || `item-${index}-${item.type || 'unknown'}`;
+        // Generate a safe key that works for all item types
+        const itemKey = item.id || `item-${index}-${item.type || 'unknown'}`;
 
-            // Handle content items
-            if (isContentItem(item)) {
-              const contentData = item.data as FeedItemDb;
+        // Handle content items
+        if (isContentItem(item)) {
+          const contentData = item.data as FeedItemDb;
 
-              // SOCIETY POSTS - Transform to MobileFeedCard
-              if (item.type === 'societyPost' && isSocietyPost(item.data)) {
-                const societyPostData = item.data as SocietyPostWithUserAndSociety;
-                const displayPost: GeneralPost = {
-                  id: societyPostData.id,
-                  creatorId: societyPostData.user.id,
-                  creatorName: societyPostData.user.name,
-                  creatorAvatar: societyPostData.user.image,
-                  content: societyPostData.content,
-                  timestamp: new Date(societyPostData.createdAt),
-                  media: societyPostData.imageUrl ? [{
-                    id: `${societyPostData.id}-media`,
-                    url: societyPostData.imageUrl,
-                    type: 'image' as const,
-                    issueId: null,
-                    ideaId: null
-                  }] : [],
-                  society: societyPostData.society,
-                };
-                return (
-                  <div key={`${item.type}-${itemKey}`} className="w-full">
-                    <MobileFeedCard
-                      post={displayPost}
-                      currentUserId={currentUserId}
-                      onPostClick={handlePostClick}
-                      society={societyPostData.society}
-                    />
-                  </div>
-                );
-              }
+          // SOCIETY POSTS - Transform to MobileFeedCard
+          if (item.type === 'societyPost' && isSocietyPost(item.data)) {
+            const societyPostData = item.data as SocietyPostWithUserAndSociety;
+            const displayPost: GeneralPost = {
+          id: societyPostData.id,
+          creatorId: societyPostData.user.id,
+          creatorName: societyPostData.user.name,
+          creatorAvatar: societyPostData.user.image,
+          content: societyPostData.content,
+          timestamp: new Date(societyPostData.createdAt),
+          media: societyPostData.imageUrl ? [{
+            id: `${societyPostData.id}-media`,
+            url: societyPostData.imageUrl,
+            type: 'image' as const,
+            issueId: null,
+            ideaId: null
+          }] : [],
+          society: societyPostData.society,
+            };
+            return (
+          <div key={`${item.type}-${itemKey}`} className="w-full">
+            <MobileFeedCard
+              post={displayPost}
+              currentUserId={currentUserId}
+              onPostClick={handlePostClick}
+              society={societyPostData.society}
+              type="society"
+            />
+          </div>
+            );
+          }
 
-              // SOCIETY CREATIONS - SocietyCard
-              else if (item.type === 'societyCreate') {
-                const societyData = item.data as any;
-                return (
-                  <div key={`${item.type}-${itemKey}`} className="w-full">
-                    <SocietyCard
-                      society={societyData}
-                      creatorName={societyData.creator?.name || 'Anonymous'}
-                      creatorAvatarUrl={societyData.creator?.image || undefined}
-                      currentUserId={currentUserId || undefined}
-                      className="mx-4 mb-4"
-                    />
-                  </div>
-                );
-              }
+          // SOCIETY CREATIONS - SocietyCard
+          else if (item.type === 'societyCreate') {
+            const societyData = item.data as any;
+            return (
+          <div key={`${item.type}-${itemKey}`} className="w-full max-w-full">
+            <SocietyCard
+              society={societyData}
+              creatorName={societyData.creator?.name || 'Anonymous'}
+              creatorAvatarUrl={societyData.creator?.image || undefined}
+              currentUserId={currentUserId || undefined}
+              className="mb-4 w-full max-w-full"
+            />
+          </div>
+            );
+          }
 
-              // DEBATES - MobileDebateCard
-              else if (contentData && isDebate(contentData)) {
-                const debateItem = contentData;
-                const proVotes = debateItem.votes.filter(v => v.side === 'PRO').length;
-                const conVotes = debateItem.votes.filter(v => v.side === 'CON').length;
-                const totalVotes = proVotes + conVotes;
-                const stats = {
-                  proVotes,
-                  conVotes,
-                  totalVotes,
-                  proPercentage: totalVotes > 0 ? Math.round((proVotes / totalVotes) * 100) : 0,
-                  conPercentage: totalVotes > 0 ? Math.round((conVotes / totalVotes) * 100) : 0,
-                  argumentCount: debateItem.arguments.length,
-                };
+          // DEBATES - MobileDebateCard
+          else if (contentData && isDebate(contentData)) {
+            const debateItem = contentData;
+            const proVotes = debateItem.votes.filter(v => v.side === 'PRO').length;
+            const conVotes = debateItem.votes.filter(v => v.side === 'CON').length;
+            const totalVotes = proVotes + conVotes;
+            const stats = {
+          proVotes,
+          conVotes,
+          totalVotes,
+          proPercentage: totalVotes > 0 ? Math.round((proVotes / totalVotes) * 100) : 0,
+          conPercentage: totalVotes > 0 ? Math.round((conVotes / totalVotes) * 100) : 0,
+          argumentCount: debateItem.arguments.length,
+            };
 
-                const creatorForDebate = debateItem.creator
-                  ? {
-                      id: debateItem.creator.id,
-                      name: debateItem.creator.name || 'Anonymous',
-                      image: debateItem.creator.image || undefined,
-                    }
-                  : {
-                      id: debateItem.creatorId || 'anonymous-creator',
-                      name: 'Anonymous',
-                      image: undefined,
-                    };
-
-                return (
-                  <div key={`${item.type}-${itemKey}`} className="w-full">
-                    <MobileDebateCard
-                      id={debateItem.id}
-                      title={debateItem.title}
-                      content={debateItem.content}
-                      imageUrl={debateItem.imageUrl || undefined}
-                      creator={creatorForDebate}
-                      createdAt={debateItem.createdAt}
-                      stats={stats}
-                      currentUserId={currentUserId}
-                    />
-                  </div>
-                );
-              }
-
-              // GENERAL POSTS - MobileFeedCard
-              else if (contentData && isGeneralPost(contentData)) {
-                const displayPost: GeneralPost = {
-                  id: contentData.id,
-                  creatorId: contentData.creatorId,
-                  creatorName: contentData.creator?.name || 'Anonymous',
-                  creatorAvatar: contentData.creator?.image || undefined,
-                  content: contentData.content,
-                  topics: contentData.topics || [],
-                  timestamp: contentData.timestamp,
-                  background: contentData.background || undefined,
-                  linkedInitiativeId: contentData.linkedInitiativeId || undefined,
-                  media: contentData.media,
-                };
-                return (
-                  <div key={`${item.type}-${itemKey}`} className="w-full">
-                    <MobileFeedCard
-                      post={displayPost}
-                      currentUserId={currentUserId}
-                      onPostClick={handlePostClick}
-                    />
-                  </div>
-                );
-              }
-
-              // INITIATIVES - InitiativeCard (TikTok-style)
-              else if (contentData && isInitiative(contentData)) {
-                const initiativeItem = contentData;
-                const creatorForCard: UserForDisplay = initiativeItem.creator
-                  ? {
-                      id: initiativeItem.creator.id,
-                      name: initiativeItem.creator.name,
-                      image: initiativeItem.creator.image,
-                    }
-                  : {
-                      id: initiativeItem.creatorId || 'unknown-creator',
-                      name: 'Unknown Creator',
-                      image: null,
-                    };
-
-                const initiativeForCard: Initiative & { creatorId?: string } = {
-                  id: initiativeItem.id,
-                  title: initiativeItem.title,
-                  description: initiativeItem.description || '',
-                  imageUrl: initiativeItem.imageUrl,
-                  status: initiativeItem.status as InitiativeStatus,
-                  createdAt: initiativeItem.createdAt,
-                  updatedAt: initiativeItem.updatedAt,
-                  creatorId: initiativeItem.creatorId,
-                  roles: initiativeItem.roles || [],
-                  creator: creatorForCard,
-                  memberships: initiativeItem.memberships || [],
-                  updates: initiativeItem.updates || [],
-                  chatMessages: initiativeItem.chatMessages || [],
-                  goals: initiativeItem.goals || [],
-                  milestones: initiativeItem.milestones || [],
-                  societyId: initiativeItem.societyId || null,
-                  society: initiativeItem.society || null,
-                };
-
-                return (
-                  <div key={`${item.type}-${itemKey}`} className="w-full">
-                    <InitiativeCard
-                      initiative={initiativeForCard}
-                      creatorName={initiativeItem.creator?.name || 'Unknown Creator'}
-                      creatorAvatarUrl={initiativeItem.creator?.image || undefined}
-                      currentUserId={currentUserId}
-                      className="w-full h-[calc(100vh-8rem)] md:h-[600px] md:max-w-md md:mx-auto md:mb-6"
-                    />
-                  </div>
-                );
-              }
-
-              // IDEAS & ISSUES - Transform to MobileFeedCard
-              else if (contentData && isTaggedContent(contentData)) {
-                const taggedItem = contentData;
-                const isCurrentItemAnIssue = item.type === 'issue';
-                const creatorForDisplay: UserForDisplay = taggedItem.creator
-                  ? {
-                      id: taggedItem.creator.id,
-                      name: taggedItem.creator.name,
-                      image: taggedItem.creator.image,
-                    }
-                  : {
-                      id: taggedItem.creatorId || 'anonymous',
-                      name: 'Anonymous',
-                      image: null,
-                    };
-
-                const transformedData = {
-                  id: taggedItem.id,
-                  title: taggedItem.title,
-                  description: taggedItem.description,
-                  creatorId: taggedItem.creatorId,
-                  createdAt: taggedItem.createdAt,
-                  tags: taggedItem.tags || [],
-                  location: taggedItem.location,
-                  media: taggedItem.media || [],
-                  championCount: taggedItem.championCount || 0,
-                  championedBy: null,
-                  championedByInitiativeId: taggedItem.championedByInitiativeId,
-                  creator: creatorForDisplay,
-                };
-
-                const displayPost: GeneralPost = {
-                  id: transformedData.id,
-                  creatorId: transformedData.creatorId,
-                  creatorName: transformedData.creator.name || 'Anonymous',
-                  creatorAvatar: transformedData.creator.image || undefined,
-                  content: `${transformedData.title}\n\n${transformedData.description}`,
-                  topics: transformedData.tags,
-                  timestamp: transformedData.createdAt,
-                  media: transformedData.media,
-                };
-
-                return (
-                  <div key={`${item.type}-${itemKey}`} className="w-full">
-                    <MobileFeedCard
-                      post={displayPost}
-                      currentUserId={currentUserId}
-                      onPostClick={() => isCurrentItemAnIssue ? handleIssueClick(transformedData) : handleIdeaClick(transformedData)}
-                    />
-                  </div>
-                );
-              }
+            const creatorForDebate = debateItem.creator
+          ? {
+              id: debateItem.creator.id,
+              name: debateItem.creator.name || 'Anonymous',
+              image: debateItem.creator.image || undefined,
             }
+          : {
+              id: debateItem.creatorId || 'anonymous-creator',
+              name: 'Anonymous',
+              image: undefined,
+            };
 
-            // Fallback for unknown types
-            return null;
+            return (
+          <div key={`${item.type}-${itemKey}`} className="w-full">
+            <MobileDebateCard
+              id={debateItem.id}
+              title={debateItem.title}
+              content={debateItem.content}
+              imageUrl={debateItem.imageUrl || undefined}
+              creator={creatorForDebate}
+              createdAt={debateItem.createdAt}
+              stats={stats}
+              currentUserId={currentUserId}
+            />
+          </div>
+            );
+          }
+
+          // GENERAL POSTS - MobileFeedCard
+          else if (contentData && isGeneralPost(contentData)) {
+            const displayPost: GeneralPost = {
+          id: contentData.id,
+          creatorId: contentData.creatorId,
+          creatorName: contentData.creator?.name || 'Anonymous',
+          creatorAvatar: contentData.creator?.image || undefined,
+          content: contentData.content,
+          topics: contentData.topics || [],
+          timestamp: contentData.timestamp,
+          background: contentData.background || undefined,
+          linkedInitiativeId: contentData.linkedInitiativeId || undefined,
+          media: contentData.media,
+            };
+            return (
+          <div key={`${item.type}-${itemKey}`} className="w-full">
+            <MobileFeedCard
+              post={displayPost}
+              currentUserId={currentUserId}
+              onPostClick={handlePostClick}
+              type="general"
+            />
+          </div>
+            );
+          }
+
+          // INITIATIVES - InitiativeCard (TikTok-style)
+          else if (contentData && isInitiative(contentData)) {
+            const initiativeItem = contentData;
+            const creatorForCard: UserForDisplay = initiativeItem.creator
+          ? {
+              id: initiativeItem.creator.id,
+              name: initiativeItem.creator.name,
+              image: initiativeItem.creator.image,
+            }
+          : {
+              id: initiativeItem.creatorId || 'unknown-creator',
+              name: 'Unknown Creator',
+              image: null,
+            };
+
+            const initiativeForCard: Initiative & { creatorId?: string } = {
+          id: initiativeItem.id,
+          title: initiativeItem.title,
+          description: initiativeItem.description || '',
+          imageUrl: initiativeItem.imageUrl,
+          status: initiativeItem.status as InitiativeStatus,
+          createdAt: initiativeItem.createdAt,
+          updatedAt: initiativeItem.updatedAt,
+          creatorId: initiativeItem.creatorId,
+          roles: initiativeItem.roles || [],
+          creator: creatorForCard,
+          memberships: initiativeItem.memberships || [],
+          updates: initiativeItem.updates || [],
+          chatMessages: initiativeItem.chatMessages || [],
+          goals: initiativeItem.goals || [],
+          milestones: initiativeItem.milestones || [],
+          societyId: initiativeItem.societyId || null,
+          society: initiativeItem.society || null,
+            };
+
+            return (
+          <div key={`${item.type}-${itemKey}`} className="w-full">
+            <InitiativeCard
+              initiative={initiativeForCard}
+              creatorName={initiativeItem.creator?.name || 'Unknown Creator'}
+              creatorAvatarUrl={initiativeItem.creator?.image || undefined}
+              currentUserId={currentUserId}
+              className="w-full h-[calc(100vh-8rem)] md:h-[600px] md:max-w-md md:mx-auto md:mb-6"
+            />
+          </div>
+            );
+          }
+
+          // IDEAS & ISSUES - Transform to MobileFeedCard
+          else if (contentData && isTaggedContent(contentData)) {
+            const taggedItem = contentData;
+            const isCurrentItemAnIssue = item.type === 'issue';
+            const creatorForDisplay: UserForDisplay = taggedItem.creator
+          ? {
+              id: taggedItem.creator.id,
+              name: taggedItem.creator.name,
+              image: taggedItem.creator.image,
+            }
+          : {
+              id: taggedItem.creatorId || 'anonymous',
+              name: 'Anonymous',
+              image: null,
+            };
+
+            const transformedData = {
+          id: taggedItem.id,
+          title: taggedItem.title,
+          description: taggedItem.description,
+          creatorId: taggedItem.creatorId,
+          createdAt: taggedItem.createdAt,
+          tags: taggedItem.tags || [],
+          location: taggedItem.location,
+          media: taggedItem.media || [],
+          championCount: taggedItem.championCount || 0,
+          championedBy: null,
+          championedByInitiativeId: taggedItem.championedByInitiativeId,
+          creator: creatorForDisplay,
+            };
+
+            const displayPost: GeneralPost = {
+          id: transformedData.id,
+          creatorId: transformedData.creatorId,
+          creatorName: transformedData.creator.name || 'Anonymous',
+          creatorAvatar: transformedData.creator.image || undefined,
+          content: `${transformedData.title}\n\n${transformedData.description}`,
+          topics: transformedData.tags,
+          timestamp: transformedData.createdAt,
+          media: transformedData.media,
+            };
+
+            return (
+          <div key={`${item.type}-${itemKey}`} className="w-full">
+            <MobileFeedCard
+              post={displayPost}
+              currentUserId={currentUserId}
+              onPostClick={() => isCurrentItemAnIssue ? handleIssueClick(transformedData) : handleIdeaClick(transformedData)}
+              type={isCurrentItemAnIssue ? "issue" : "idea"}
+            />
+          </div>
+            );
+          }
+        }
+
+        // Fallback for unknown types
+        return null;
           })}
           </div>
           {/* End Mobile-First Scroll Snap Container */}
 
           {/* Show loading state for filter switching */}
           {filterSwitching && (
-            <div className="flex justify-center items-center py-4">
-              <Loader2 className="h-5 w-5 animate-spin mr-2" />
-              <span className="text-sm text-muted-foreground">Filtering...</span>
-            </div>
+        <div className="flex justify-center items-center py-4">
+          <Loader2 className="h-5 w-5 animate-spin mr-2" />
+          <span className="text-sm text-muted-foreground">Filtering...</span>
+        </div>
           )}
 
           {filteredFeedItems.length === 0 && !isInitialLoading && !filterSwitching && (
-            <div className="text-center py-12">
-              <div className="text-muted-foreground mb-2">
-                {feedFilter === 'all' && "No activity yet. Be the first to create something!"}
-                {feedFilter === 'initiatives' && "No initiatives found. Create your first initiative!"}
-                {feedFilter === 'societies' && "No society activity found. Create your first society!"}
-                {feedFilter === 'generalPosts' && "No posts found. Share something with the community!"}
-                {feedFilter === 'debates' && "No debates found. Start the first debate!"}
-                {feedFilter === 'ideas' && "No ideas found. Submit your first idea!"}
-                {feedFilter === 'issues' && "No issues found. Report your first issue!"}
-                {feedFilter === 'community' && "No community activity yet."}
-              </div>
-              {feedFilter !== 'all' && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleTabSwitch('all')}
-                  className="text-xs mt-2"
-                >
-                  Show all activity
-                </Button>
-              )}
-            </div>
+        <div className="text-center py-12">
+          <div className="text-muted-foreground mb-2">
+            {feedFilter === 'all' && "No activity yet. Be the first to create something!"}
+            {feedFilter === 'initiatives' && "No initiatives found. Create your first initiative!"}
+            {feedFilter === 'societies' && "No society activity found. Create your first society!"}
+            {feedFilter === 'generalPosts' && "No posts found. Share something with the community!"}
+            {feedFilter === 'debates' && "No debates found. Start the first debate!"}
+            {feedFilter === 'ideas' && "No ideas found. Submit your first idea!"}
+            {feedFilter === 'issues' && "No issues found. Report your first issue!"}
+            {feedFilter === 'community' && "No community activity yet."}
+          </div>
+          {feedFilter !== 'all' && (
+            <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => handleTabSwitch('all')}
+          className="text-xs mt-2"
+            >
+          Show all activity
+            </Button>
+          )}
+        </div>
           )}
 
           {/* Infinite Scroll Sentinel */}
           {hasMore && allFeedItems.length > 0 && !filterSwitching && (
-            <div ref={infiniteScrollRef} className="flex flex-col items-center justify-center py-8 w-full gap-3">
-              {loadingMore ? (
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  <span className="text-sm">Loading more...</span>
-                </div>
-              ) : (
-                <>
-                  <span className="text-sm text-muted-foreground">Scroll to load more</span>
-                  {/* Fallback manual button */}
-                  <Button
-                    onClick={loadMorePosts}
-                    variant="ghost"
-                    size="sm"
-                    className="text-xs text-muted-foreground hover:text-foreground"
-                  >
-                    Or click to load
-                  </Button>
-                </>
-              )}
+        <div ref={infiniteScrollRef} className="flex flex-col items-center justify-center py-8 w-full gap-3">
+          {loadingMore ? (
+            <div className="flex items-center gap-2 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span className="text-sm">Loading more...</span>
             </div>
+          ) : (
+            <>
+          <span className="text-sm text-muted-foreground">Scroll to load more</span>
+          {/* Fallback manual button */}
+          <Button
+            onClick={loadMorePosts}
+            variant="ghost"
+            size="sm"
+            className="text-xs text-muted-foreground hover:text-foreground"
+          >
+            Or click to load
+          </Button>
+            </>
+          )}
+        </div>
           )}
           </div>
           </div>
 
-          {/* Right Sidebar - TEMPORARILY HIDDEN for mobile-first redesign */}
-          {/* Will be accessible via gesture/swipe later */}
-          {/* <aside className="hidden xl:block flex-shrink-0 w-80 xl:w-96 pl-6 pr-6">
-            <div>
-              <LocationBasedWidget />
-            </div>
-            <div className="mt-6">
-              <SmartSuggestionsWidget />
-            </div>
-          </aside> */}
+          {/* Right Sidebar - only for logged in users */}
+          {currentUserId && (
+        <aside className="hidden xl:block flex-shrink-0 w-80 xl:w-96 pl-6 pr-6">
+          <div className="border border-border/40 rounded-2xl bg-background/80 backdrop-blur-xl shadow-none p-4 mb-6">
+            <LocationBasedWidget />
+          </div>
+          <div className="border border-border/40 rounded-2xl bg-background/80 backdrop-blur-xl shadow-none p-4">
+            <SmartSuggestionsWidget flatStyle />
+          </div>
+        </aside>
+          )}
         </div>
       </div>
 

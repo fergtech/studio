@@ -18,8 +18,16 @@ import { prisma } from '@/lib/prisma';
  */
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const { postIds, userId } = body;
+    let body;
+    try {
+      body = await request.json();
+    } catch (err) {
+      return NextResponse.json(
+        { error: 'Invalid or empty JSON body' },
+        { status: 400 }
+      );
+    }
+    const { postIds, userId } = body || {};
 
     if (!postIds || !Array.isArray(postIds) || postIds.length === 0) {
       return NextResponse.json(

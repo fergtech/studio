@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { Loader2, ImageIcon, VideoIcon, FileIcon, X } from "lucide-react";
 import Image from 'next/image';
+import imageCompression from 'browser-image-compression';
 
 interface CreateDebateTopicFormProps {
   setOpen: (open: boolean) => void;
@@ -26,18 +27,46 @@ export function CreateDebateTopicForm({ setOpen, onCreated }: CreateDebateTopicF
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
 
-  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      setSelectedFile(file);
       // Clear video if image is selected
       setSelectedVideo(null);
       setVideoPreview(null);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+
+      try {
+        // Compress image to ensure it's under 4MB (Vercel limit)
+        const options = {
+          maxSizeMB: 3.5, // Target 3.5MB to stay safely under 4MB limit
+          maxWidthOrHeight: 1920, // Max dimension
+          useWebWorker: true,
+          fileType: 'image/jpeg' as const // Convert to JPEG for better compression
+        };
+
+        const compressedFile = await imageCompression(file, options);
+
+        // Show compression result
+        const originalSize = (file.size / 1024 / 1024).toFixed(2);
+        const compressedSize = (compressedFile.size / 1024 / 1024).toFixed(2);
+        console.log(`Image compressed: ${originalSize}MB → ${compressedSize}MB`);
+
+        setSelectedFile(compressedFile);
+
+        // Generate preview
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setImagePreview(reader.result as string);
+        };
+        reader.readAsDataURL(compressedFile);
+
+      } catch (error) {
+        console.error('Error compressing image:', error);
+        toast({
+          title: "Image Compression Failed",
+          description: "Could not process the image. Please try a different image.",
+          variant: "destructive",
+        });
+      }
     }
   };
 

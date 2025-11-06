@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+// Cache for 60 seconds to balance freshness with performance
+export const revalidate = 60; // Revalidate every 60 seconds
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -221,18 +224,35 @@ export async function GET(request: NextRequest) {
         .sort((a, b) => b.count - a.count)
         .slice(0, limit);
 
-      return NextResponse.json({
+      const fallbackResponse = NextResponse.json({
         topics: fallbackTopics,
         total: fallbackTopics.length,
         source: 'fallback'
       });
+
+      // Smart caching for fallback too
+      fallbackResponse.headers.set(
+        'Cache-Control',
+        'public, s-maxage=60, stale-while-revalidate=30'
+      );
+
+      return fallbackResponse;
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       topics: formattedTopics,
       total: formattedTopics.length,
       source: 'database'
     });
+
+    // Smart caching: 60s cache with stale-while-revalidate
+    // This serves cached data instantly while fetching fresh data in background
+    response.headers.set(
+      'Cache-Control',
+      'public, s-maxage=60, stale-while-revalidate=30'
+    );
+
+    return response;
 
   } catch (error) {
     console.error('Error fetching trending topics:', error);

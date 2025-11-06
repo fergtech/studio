@@ -239,14 +239,14 @@ export function DebateDetailsSheet({
             exit="exit"
             transition={{ duration: 0.3, ease: "easeOut" }}
             className={cn(
-              "fixed z-[100] bg-background border border-border",
+              "fixed z-[100] bg-background border border-border flex flex-col",
               isMobile
                 ? "bottom-0 left-0 right-0 rounded-t-3xl max-h-[85vh]"
                 : "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-2xl w-[90vw] max-w-xl max-h-[75vh] shadow-2xl"
             )}
           >
-            {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-border">
+            {/* Header - sticky */}
+            <div className="sticky top-0 z-10 bg-background flex items-center justify-between p-4 border-b border-border">
               <div className="flex items-center gap-3">
                 <Avatar className="w-8 h-8">
                   <AvatarImage src={debate.creator.image} />
@@ -269,14 +269,12 @@ export function DebateDetailsSheet({
               </Button>
             </div>
 
-            {/* Content */}
+            {/* Scrollable Content */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {/* Title */}
               <h2 className="text-xl font-bold leading-tight">{debate.title}</h2>
-              
               {/* Content */}
               <p className="text-muted-foreground leading-relaxed">{debate.content}</p>
-
               {/* Media - Video, Audio, or Image */}
               {debate.imageUrl && (
                 <div className="relative rounded-lg overflow-hidden">
@@ -302,9 +300,12 @@ export function DebateDetailsSheet({
                   )}
                 </div>
               )}
+            </div>
 
-              {/* Vote Statistics */}
-              <div className="bg-card border border-border rounded-lg p-4">
+            {/* Bottom Actions - sticky */}
+            <div className="sticky bottom-0 z-10 bg-background border-t border-border p-4 space-y-3">
+              {/* Community Response */}
+              <div className="bg-card border border-border rounded-lg p-4 mb-3">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-sm font-medium">Community Response</span>
                   <span className="text-xs text-muted-foreground flex items-center gap-1">
@@ -312,7 +313,6 @@ export function DebateDetailsSheet({
                     {stats.totalVotes} votes
                   </span>
                 </div>
-                
                 {/* Progress Bar */}
                 <div className="w-full bg-muted rounded-full h-2 mb-3">
                   <div className="flex h-full rounded-full overflow-hidden">
@@ -326,7 +326,6 @@ export function DebateDetailsSheet({
                     />
                   </div>
                 </div>
-                
                 {/* Vote Counts with Info Dropdown */}
                 <div className="flex justify-between text-xs text-muted-foreground">
                   <VoteCountDropdown
@@ -343,10 +342,6 @@ export function DebateDetailsSheet({
                   />
                 </div>
               </div>
-
-
-            {/* Actions */}
-            <div className="border-t border-border p-4 space-y-3">
               {/* Vote Buttons */}
               {currentUserId && (
                 <div className="flex gap-3">
@@ -378,7 +373,6 @@ export function DebateDetailsSheet({
                   </Button>
                 </div>
               )}
-
               {/* Secondary Actions */}
               <div className="flex gap-3">
                 <Button
@@ -399,7 +393,6 @@ export function DebateDetailsSheet({
                 </Button>
               </div>
             </div>
-          </div>
           </motion.div>
         </>
       )}

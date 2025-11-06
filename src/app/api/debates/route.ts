@@ -68,43 +68,43 @@ export async function POST(request: NextRequest) {
     });
 
     // Create topic relations and update counts
+    // Optimized: Use parallel upserts instead of sequential findUnique + create/update
     if (detectedTopics.length > 0) {
-      for (const topicName of detectedTopics) {
-        // Get or create topic
-        let topic = await prisma.topic.findUnique({
-          where: { name: topicName }
-        });
+      // Step 1: Upsert all topics in parallel (create if not exists, increment counts if exists)
+      const topicUpserts = detectedTopics.map(topicName =>
+        prisma.topic.upsert({
+          where: { name: topicName },
+          create: {
+            name: topicName,
+            isSystem: true,
+            confidence,
+            debateCount: 1,
+            weeklyDebates: 1
+          },
+          update: {
+            debateCount: { increment: 1 },
+            weeklyDebates: { increment: 1 }
+          }
+        })
+      );
 
-        if (!topic) {
-          topic = await prisma.topic.create({
-            data: {
-              name: topicName,
-              isSystem: true,
-              confidence,
-              debateCount: 1,
-              weeklyDebates: 1
-            }
-          });
-        } else {
-          // Update debate count
-          await prisma.topic.update({
-            where: { id: topic.id },
-            data: {
-              debateCount: { increment: 1 },
-              weeklyDebates: { increment: 1 }
-            }
-          });
-        }
+      const topics = await Promise.all(topicUpserts);
 
-        // Create DebateTopicTopic relation
-        await prisma.debateTopicTopic.create({
+      // Step 2: Create all DebateTopicTopic relations in parallel
+      const relationCreates = topics.map(topic =>
+        prisma.debateTopicTopic.create({
           data: {
             debateId: debateTopic.id,
             topicId: topic.id,
             confidence
           }
-        });
-      }
+        }).catch(error => {
+          // Ignore unique constraint violations (shouldn't happen in normal flow)
+          if (error.code !== 'P2002') throw error;
+        })
+      );
+
+      await Promise.all(relationCreates);
     }
 
     return NextResponse.json(debateTopic, { status: 201 });
@@ -133,11 +133,6 @@ export async function GET(request: NextRequest) {
             username: true,
           },
         },
-        votes: {
-          select: {
-            side: true,
-          },
-        },
         _count: {
           select: {
             arguments: true,
@@ -151,12 +146,12 @@ export async function GET(request: NextRequest) {
       take: pageSize,
     });
 
-    // Calculate vote statistics for each debate
+    // Use cached vote counts (much faster than fetching all vote records)
     const debatesWithStats = debates.map(debate => {
-      const proVotes = debate.votes.filter(vote => vote.side === 'PRO').length;
-      const conVotes = debate.votes.filter(vote => vote.side === 'CON').length;
+      const proVotes = debate.proVoteCount;
+      const conVotes = debate.conVoteCount;
       const totalVotes = proVotes + conVotes;
-      
+
       return {
         ...debate,
         stats: {

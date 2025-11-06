@@ -724,6 +724,8 @@ model DebateTopic {
   moderationFlags     String[]            @default([])
   moderationScore     Float?
   moderationReasoning String?
+  proVoteCount        Int                 @default(0) // Cached PRO vote count for performance
+  conVoteCount        Int                 @default(0) // Cached CON vote count for performance
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
   arguments           DebateArgument[]
@@ -733,6 +735,8 @@ model DebateTopic {
 
   @@index([topics])
   @@index([moderationStatus])
+  @@index([proVoteCount])
+  @@index([conVoteCount])
 }
 
 model DebateVote {

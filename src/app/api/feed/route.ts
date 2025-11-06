@@ -1115,35 +1115,35 @@ async function getUnifiedFeedItems(cursor?: string, pageSize: number = 20, inclu
     })),
   ];
 
-  // Add news if requested
-  if (includeNews) {
-    try {
-      const session = await getServerSession(authOptions);
-      if (session?.user?.id) {
-        const user = await prisma.user.findUnique({
-          where: { id: session.user.id },
-          select: {
-            id: true,
-            city: true,
-            location: true,
-          },
-        });
+  // NewsAPI integration disabled - UI no longer uses news
+  // if (includeNews) {
+  //   try {
+  //     const session = await getServerSession(authOptions);
+  //     if (session?.user?.id) {
+  //       const user = await prisma.user.findUnique({
+  //         where: { id: session.user.id },
+  //         select: {
+  //           id: true,
+  //           city: true,
+  //           location: true,
+  //         },
+  //       });
 
-        if (user) {
-          const newsArticles = await fetchLiveNews(user, newsLimit);
-          const newsItems = newsArticles.map((article: any) => ({
-            type: 'live-news' as const,
-            id: article.id,
-            timestamp: new Date(article.publishedAt),
-            data: article
-          }));
-          feedItems.push(...newsItems);
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching news for feed:', error);
-    }
-  }
+  //       if (user) {
+  //         const newsArticles = await fetchLiveNews(user, newsLimit);
+  //         const newsItems = newsArticles.map((article: any) => ({
+  //           type: 'live-news' as const,
+  //           id: article.id,
+  //           timestamp: new Date(article.publishedAt),
+  //           data: article
+  //         }));
+  //         feedItems.push(...newsItems);
+  //       }
+  //     }
+  //   } catch (error) {
+  //     console.error('Error fetching news for feed:', error);
+  //   }
+  // }
 
   // Sort by timestamp descending
   feedItems.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());

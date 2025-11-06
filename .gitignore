@@ -89,6 +89,10 @@ cloudflare-configs.txt
 Honest\ Feedback*.txt
 Now\ What*.txt
 
+# Ignore admin/data scripts and text files
+*.mjs
+*.txt
+
 # Old/archived files
 old_files*/
 

@@ -2,10 +2,30 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+
+  // Block WordPress probe requests immediately (saves CPU)
+  // Common WordPress paths that bots/scanners look for
+  const wpPaths = [
+    '/wp-admin',
+    '/wp-login',
+    '/wp-includes',
+    '/wp-content',
+    '/wp-json',
+    '/xmlrpc.php',
+    '/wp-config.php',
+    '/wordpress',
+    '/.env',
+    '/phpmyadmin',
+  ];
+
+  if (wpPaths.some(wpPath => pathname.startsWith(wpPath))) {
+    return new NextResponse(null, { status: 404 });
+  }
+
   const response = NextResponse.next();
 
   // Apply aggressive caching headers for static assets
-  const pathname = request.nextUrl.pathname;
 
   // Cache static assets like images, fonts, etc.
   if (
@@ -41,10 +61,10 @@ export function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     // Match all request paths except for the ones starting with:
-    // - api (API routes)
     // - _next/static (static files)
     // - _next/image (image optimization files)
     // - favicon.ico (favicon file)
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    // Include API routes to block WordPress probes there too
+    '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 };

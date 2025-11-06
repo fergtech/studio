@@ -25,15 +25,18 @@ export async function GET(
       },
     });
 
-    // Get vote statistics
-    const [proCount, conCount] = await Promise.all([
-      prisma.debateVote.count({
-        where: { topicId, side: 'PRO' },
-      }),
-      prisma.debateVote.count({
-        where: { topicId, side: 'CON' },
-      }),
-    ]);
+    // Get vote statistics from cached counts (much faster than counting all votes)
+    const debate = await prisma.debateTopic.findUnique({
+      where: { id: topicId },
+      select: { proVoteCount: true, conVoteCount: true },
+    });
+
+    if (!debate) {
+      return NextResponse.json({ error: 'Debate not found' }, { status: 404 });
+    }
+
+    const proCount = debate.proVoteCount;
+    const conCount = debate.conVoteCount;
 
     const totalVotes = proCount + conCount;
     const stats = {
@@ -91,33 +94,78 @@ export async function POST(
       );
     }
 
-    // Upsert vote (create or update existing vote)
-    const vote = await prisma.debateVote.upsert({
+    // Check existing vote to handle vote switching
+    const existingVote = await prisma.debateVote.findUnique({
       where: {
         topicId_userId: {
           topicId,
           userId: session.user.id,
         },
       },
-      update: {
-        side,
-      },
-      create: {
-        topicId,
-        userId: session.user.id,
-        side,
-      },
     });
 
-    // Get updated vote counts
-    const [proCount, conCount] = await Promise.all([
-      prisma.debateVote.count({
-        where: { topicId, side: 'PRO' },
-      }),
-      prisma.debateVote.count({
-        where: { topicId, side: 'CON' },
-      }),
-    ]);
+    // Use transaction to ensure atomicity
+    const [vote, updatedDebate] = await prisma.$transaction(async (tx) => {
+      // Calculate counter deltas
+      let proIncrement = 0;
+      let conIncrement = 0;
+
+      if (!existingVote) {
+        // New vote: increment appropriate counter
+        if (side === 'PRO') proIncrement = 1;
+        else conIncrement = 1;
+      } else if (existingVote.side !== side) {
+        // Vote switch: decrement old, increment new
+        if (side === 'PRO') {
+          proIncrement = 1;
+          conIncrement = -1;
+        } else {
+          proIncrement = -1;
+          conIncrement = 1;
+        }
+      }
+      // If same side, no counter changes needed
+
+      // Upsert vote
+      const voteResult = await tx.debateVote.upsert({
+        where: {
+          topicId_userId: {
+            topicId,
+            userId: session.user.id,
+          },
+        },
+        update: { side },
+        create: {
+          topicId,
+          userId: session.user.id,
+          side,
+        },
+      });
+
+      // Update cached counters if needed
+      let debate = null;
+      if (proIncrement !== 0 || conIncrement !== 0) {
+        debate = await tx.debateTopic.update({
+          where: { id: topicId },
+          data: {
+            proVoteCount: { increment: proIncrement },
+            conVoteCount: { increment: conIncrement },
+          },
+          select: { proVoteCount: true, conVoteCount: true },
+        });
+      } else {
+        debate = await tx.debateTopic.findUnique({
+          where: { id: topicId },
+          select: { proVoteCount: true, conVoteCount: true },
+        });
+      }
+
+      return [voteResult, debate];
+    });
+
+    // Use cached counts from database
+    const proCount = updatedDebate!.proVoteCount;
+    const conCount = updatedDebate!.conVoteCount;
 
     const totalVotes = proCount + conCount;
     const stats = {
@@ -153,23 +201,59 @@ export async function DELETE(
 
     const { id: topicId } = await params;
 
-    // Remove user's vote
-    await prisma.debateVote.deleteMany({
+    // Get existing vote to know which counter to decrement
+    const existingVote = await prisma.debateVote.findUnique({
       where: {
-        topicId,
-        userId: session.user.id,
+        topicId_userId: {
+          topicId,
+          userId: session.user.id,
+        },
       },
     });
 
-    // Get updated vote counts
-    const [proCount, conCount] = await Promise.all([
-      prisma.debateVote.count({
-        where: { topicId, side: 'PRO' },
-      }),
-      prisma.debateVote.count({
-        where: { topicId, side: 'CON' },
-      }),
-    ]);
+    if (!existingVote) {
+      // No vote to delete
+      const debate = await prisma.debateTopic.findUnique({
+        where: { id: topicId },
+        select: { proVoteCount: true, conVoteCount: true },
+      });
+
+      return NextResponse.json({
+        stats: {
+          proVotes: debate?.proVoteCount || 0,
+          conVotes: debate?.conVoteCount || 0,
+          totalVotes: (debate?.proVoteCount || 0) + (debate?.conVoteCount || 0),
+          proPercentage: 0,
+          conPercentage: 0,
+        },
+      });
+    }
+
+    // Use transaction to ensure atomicity
+    const updatedDebate = await prisma.$transaction(async (tx) => {
+      // Delete the vote
+      await tx.debateVote.delete({
+        where: {
+          topicId_userId: {
+            topicId,
+            userId: session.user.id,
+          },
+        },
+      });
+
+      // Decrement appropriate counter
+      const decrementField = existingVote.side === 'PRO' ? 'proVoteCount' : 'conVoteCount';
+      return await tx.debateTopic.update({
+        where: { id: topicId },
+        data: {
+          [decrementField]: { decrement: 1 },
+        },
+        select: { proVoteCount: true, conVoteCount: true },
+      });
+    });
+
+    const proCount = updatedDebate.proVoteCount;
+    const conCount = updatedDebate.conVoteCount;
 
     const totalVotes = proCount + conCount;
     const stats = {

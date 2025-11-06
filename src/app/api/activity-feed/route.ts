@@ -57,272 +57,264 @@ export async function GET(req: NextRequest) {
 
         const activities: ActivityFeedItem[] = [];
 
-    // 1. General Posts
-    const posts = await prisma.generalPost.findMany({
-      where: {
-        creatorId: { in: relevantUserIds },
-        moderationStatus: 'approved',
-      },
-      include: {
-        creator: {
-          select: {
-            id: true,
-            name: true,
-            image: true,
-            username: true,
-          },
-        },
-      },
-      orderBy: { timestamp: 'desc' },
-      skip,
-      take: limit,
-    });
+        // Optimized: Run all queries in parallel instead of sequentially
+        // Fetch more records since we'll sort and paginate after combining
+        const fetchLimit = limit * 2; // Fetch 2x to ensure we have enough after sorting
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-    posts.forEach(post => {
-      activities.push({
-        id: post.id,
-        type: 'post',
-        title: 'New Post',
-        description: post.content.length > 100 ? post.content.substring(0, 100) + '...' : post.content,
-        userId: post.creatorId,
-        user: post.creator,
-        timestamp: post.timestamp,
-        relatedPostId: post.id,
-        data: {
-          fullContent: post.content,
-          mediaCount: 0, // TODO: Add media count
-        },
-      });
-    });
+        const [posts, follows, memberships, newInitiatives, newSocieties, completedGoals] = await Promise.all([
+          // 1. General Posts
+          prisma.generalPost.findMany({
+            where: {
+              creatorId: { in: relevantUserIds },
+              moderationStatus: 'approved',
+            },
+            include: {
+              creator: {
+                select: {
+                  id: true,
+                  name: true,
+                  image: true,
+                  username: true,
+                },
+              },
+            },
+            orderBy: { timestamp: 'desc' },
+            take: fetchLimit,
+          }),
 
-    // 2. Follow Activities
-    const follows = await prisma.userFollow.findMany({
-      where: {
-        followerId: { in: relevantUserIds },
-        createdAt: {
-          gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // Last 7 days
-        },
-      },
-      include: {
-        follower: {
-          select: {
-            id: true,
-            name: true,
-            image: true,
-            username: true,
-          },
-        },
-        following: {
-          select: {
-            id: true,
-            name: true,
-            image: true,
-            username: true,
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-      skip,
-      take: limit,
-    });
+          // 2. Follow Activities
+          prisma.userFollow.findMany({
+            where: {
+              followerId: { in: relevantUserIds },
+              createdAt: { gte: sevenDaysAgo },
+            },
+            include: {
+              follower: {
+                select: {
+                  id: true,
+                  name: true,
+                  image: true,
+                  username: true,
+                },
+              },
+              following: {
+                select: {
+                  id: true,
+                  name: true,
+                  image: true,
+                  username: true,
+                },
+              },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: fetchLimit,
+          }),
 
-    follows.forEach(follow => {
-      activities.push({
-        id: follow.id,
-        type: 'follow',
-        title: 'New Follower',
-        description: `${follow.follower.name} started following ${follow.following.name}`,
-        userId: follow.followerId,
-        user: follow.follower,
-        timestamp: follow.createdAt,
-        data: {
-          followedUser: follow.following,
-        },
-      });
-    });
+          // 3. Initiative Joins
+          prisma.initiativeMembership.findMany({
+            where: {
+              userId: { in: relevantUserIds },
+              createdAt: { gte: sevenDaysAgo },
+            },
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  image: true,
+                  username: true,
+                },
+              },
+              initiative: {
+                select: {
+                  id: true,
+                  title: true,
+                },
+              },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: fetchLimit,
+          }),
 
-    // 3. Initiative Joins
-    const memberships = await prisma.initiativeMembership.findMany({
-      where: {
-        userId: { in: relevantUserIds },
-        createdAt: {
-          gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // Last 7 days
-        },
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            image: true,
-            username: true,
-          },
-        },
-        initiative: {
-          select: {
-            id: true,
-            title: true,
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-      skip,
-      take: limit,
-    });
+          // 4. Initiative Creation
+          prisma.initiative.findMany({
+            where: {
+              creatorId: { in: relevantUserIds },
+              createdAt: { gte: sevenDaysAgo },
+            },
+            include: {
+              creator: {
+                select: {
+                  id: true,
+                  name: true,
+                  image: true,
+                  username: true,
+                },
+              },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: fetchLimit,
+          }),
 
-    memberships.forEach(membership => {
-      activities.push({
-        id: membership.id,
-        type: 'initiative_join',
-        title: 'Joined Initiative',
-        description: `${membership.user.name} joined ${membership.initiative.title}`,
-        userId: membership.userId,
-        user: membership.user,
-        timestamp: membership.createdAt,
-        relatedInitiativeId: membership.initiativeId,
-        data: {
-          role: membership.role,
-          initiative: membership.initiative,
-        },
-      });
-    });
+          // 5. Society Creation
+          prisma.society.findMany({
+            where: {
+              creatorId: { in: relevantUserIds },
+              createdAt: { gte: sevenDaysAgo },
+            },
+            include: {
+              creator: {
+                select: {
+                  id: true,
+                  name: true,
+                  image: true,
+                  username: true,
+                },
+              },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: fetchLimit,
+          }),
 
-    // 4. Initiative Creation
-    const newInitiatives = await prisma.initiative.findMany({
-      where: {
-        creatorId: { in: relevantUserIds },
-        createdAt: {
-          gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // Last 7 days
-        },
-      },
-      include: {
-        creator: {
-          select: {
-            id: true,
-            name: true,
-            image: true,
-            username: true,
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-      skip,
-      take: limit,
-    });
+          // 6. Goal Completions
+          prisma.goal.findMany({
+            where: {
+              ownerId: { in: relevantUserIds },
+              status: 'Completed',
+              updatedAt: { gte: sevenDaysAgo },
+            },
+            include: {
+              owner: {
+                select: {
+                  id: true,
+                  name: true,
+                  image: true,
+                  username: true,
+                },
+              },
+              initiative: {
+                select: {
+                  id: true,
+                  title: true,
+                },
+              },
+            },
+            orderBy: { updatedAt: 'desc' },
+            take: fetchLimit,
+          }),
+        ]);
 
-    newInitiatives.forEach(initiative => {
-      activities.push({
-        id: initiative.id,
-        type: 'initiative_create',
-        title: 'Created Initiative',
-        description: `${initiative.creator.name} created ${initiative.title}`,
-        userId: initiative.creatorId,
-        user: initiative.creator,
-        timestamp: initiative.createdAt,
-        relatedInitiativeId: initiative.id,
-        data: {
-          initiative: {
+        // Transform and combine all results
+        posts.forEach(post => {
+          activities.push({
+            id: post.id,
+            type: 'post',
+            title: 'New Post',
+            description: post.content.length > 100 ? post.content.substring(0, 100) + '...' : post.content,
+            userId: post.creatorId,
+            user: post.creator,
+            timestamp: post.timestamp,
+            relatedPostId: post.id,
+            data: {
+              fullContent: post.content,
+              mediaCount: 0,
+            },
+          });
+        });
+
+        follows.forEach(follow => {
+          activities.push({
+            id: follow.id,
+            type: 'follow',
+            title: 'New Follower',
+            description: `${follow.follower.name} started following ${follow.following.name}`,
+            userId: follow.followerId,
+            user: follow.follower,
+            timestamp: follow.createdAt,
+            data: {
+              followedUser: follow.following,
+            },
+          });
+        });
+
+        memberships.forEach(membership => {
+          activities.push({
+            id: membership.id,
+            type: 'initiative_join',
+            title: 'Joined Initiative',
+            description: `${membership.user.name} joined ${membership.initiative.title}`,
+            userId: membership.userId,
+            user: membership.user,
+            timestamp: membership.createdAt,
+            relatedInitiativeId: membership.initiativeId,
+            data: {
+              role: membership.role,
+              initiative: membership.initiative,
+            },
+          });
+        });
+
+        newInitiatives.forEach(initiative => {
+          activities.push({
             id: initiative.id,
-            title: initiative.title,
-            description: initiative.description,
-          },
-        },
-      });
-    });
+            type: 'initiative_create',
+            title: 'Created Initiative',
+            description: `${initiative.creator.name} created ${initiative.title}`,
+            userId: initiative.creatorId,
+            user: initiative.creator,
+            timestamp: initiative.createdAt,
+            relatedInitiativeId: initiative.id,
+            data: {
+              initiative: {
+                id: initiative.id,
+                title: initiative.title,
+                description: initiative.description,
+              },
+            },
+          });
+        });
 
-    // 5. Society Creation
-    const newSocieties = await prisma.society.findMany({
-      where: {
-        creatorId: { in: relevantUserIds },
-        createdAt: {
-          gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // Last 7 days
-        },
-      },
-      include: {
-        creator: {
-          select: {
-            id: true,
-            name: true,
-            image: true,
-            username: true,
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-      skip,
-      take: limit,
-    });
-
-    newSocieties.forEach(society => {
-      activities.push({
-        id: society.id,
-        type: 'society_create',
-        title: 'Created Society',
-        description: `${society.creator.name} created ${society.name}`,
-        userId: society.creatorId,
-        user: society.creator,
-        timestamp: society.createdAt,
-        relatedSocietyId: society.id,
-        data: {
-          society: {
+        newSocieties.forEach(society => {
+          activities.push({
             id: society.id,
-            name: society.name,
-            description: society.description,
-            image: society.image,
-          },
-        },
-      });
-    });
+            type: 'society_create',
+            title: 'Created Society',
+            description: `${society.creator.name} created ${society.name}`,
+            userId: society.creatorId,
+            user: society.creator,
+            timestamp: society.createdAt,
+            relatedSocietyId: society.id,
+            data: {
+              society: {
+                id: society.id,
+                name: society.name,
+                description: society.description,
+                image: society.image,
+              },
+            },
+          });
+        });
 
-    // 6. Goal Completions
-    const completedGoals = await prisma.goal.findMany({
-      where: {
-        ownerId: { in: relevantUserIds },
-        status: 'Completed',
-        updatedAt: {
-          gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // Last 7 days
-        },
-      },
-      include: {
-        owner: {
-          select: {
-            id: true,
-            name: true,
-            image: true,
-            username: true,
-          },
-        },
-        initiative: {
-          select: {
-            id: true,
-            title: true,
-          },
-        },
-      },
-      orderBy: { updatedAt: 'desc' },
-      skip,
-      take: limit,
-    });
-
-    completedGoals.forEach(goal => {
-      activities.push({
-        id: goal.id,
-        type: 'goal_complete',
-        title: 'Goal Completed',
-        description: `${goal.owner?.name || 'Someone'} completed "${goal.title}" in ${goal.initiative.title}`,
-        userId: goal.ownerId!,
-        user: goal.owner!,
-        timestamp: goal.updatedAt!,
-        relatedInitiativeId: goal.initiativeId,
-        data: {
-          goal: {
+        completedGoals.forEach(goal => {
+          activities.push({
             id: goal.id,
-            title: goal.title,
-            description: goal.description,
-          },
-        },
-      });
-    });
+            type: 'goal_complete',
+            title: 'Goal Completed',
+            description: `${goal.owner?.name || 'Someone'} completed "${goal.title}" in ${goal.initiative.title}`,
+            userId: goal.ownerId!,
+            user: goal.owner!,
+            timestamp: goal.updatedAt!,
+            relatedInitiativeId: goal.initiativeId,
+            data: {
+              goal: {
+                id: goal.id,
+                title: goal.title,
+                description: goal.description,
+              },
+            },
+          });
+        });
 
     // Sort all activities by timestamp (most recent first)
     activities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());

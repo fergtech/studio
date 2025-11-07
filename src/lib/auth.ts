@@ -47,7 +47,7 @@ export const authOptions: NextAuthOptions = {
 
           const isValid = await bcrypt.compare(
             credentials.password,
-            user.passwordHash
+            user.passwordHash as string // passwordHash is nullable, but checked above
           );
 
           if (!isValid) {
@@ -109,7 +109,11 @@ export const authOptions: NextAuthOptions = {
               },
             });
 
-            console.log(`Created new OAuth user: ${existingUser.email} (${account.provider})`);
+            if (account) {
+              console.log(`Created new OAuth user: ${existingUser.email} (${account.provider})`);
+            } else {
+              console.log(`Created new OAuth user: ${existingUser.email}`);
+            }
           }
 
           // Update user ID for JWT

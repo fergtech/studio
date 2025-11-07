@@ -18,7 +18,7 @@ import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import Link from 'next/link';
-import { AlertCircle, User, CheckCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, User, CheckCircle, Loader2, Eye, EyeOff } from 'lucide-react';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const formSchema = z.object({
@@ -36,6 +36,7 @@ export function LoginForm() {
   const [errorMessage, setErrorMessage] = useState('');
   const [showSignupSuggestion, setShowSignupSuggestion] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -123,7 +124,28 @@ export function LoginForm() {
             <FormItem>
               <FormLabel>Password</FormLabel>
               <FormControl>
-                <Input placeholder="******" {...field} type="password" disabled={isLoading || isRedirecting} suppressHydrationWarning />
+                <div className="relative">
+                  <Input
+                    placeholder="Enter your password"
+                    {...field}
+                    type={showPassword ? "text" : "password"}
+                    disabled={isLoading || isRedirecting}
+                    suppressHydrationWarning
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
               </FormControl>
               <FormMessage />
             </FormItem>

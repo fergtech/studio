@@ -1,10 +1,30 @@
 import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
+import GoogleProvider from 'next-auth/providers/google';
+import AppleProvider from 'next-auth/providers/apple';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 
 export const authOptions: NextAuthOptions = {
   providers: [
+    // Google OAuth
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID || '',
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+      authorization: {
+        params: {
+          prompt: "consent",
+          access_type: "offline",
+          response_type: "code"
+        }
+      }
+    }),
+    // Apple OAuth
+    AppleProvider({
+      clientId: process.env.APPLE_CLIENT_ID || '',
+      clientSecret: process.env.APPLE_CLIENT_SECRET || '',
+    }),
+    // Email/Password Credentials
     CredentialsProvider({
       name: 'Credentials',
       credentials: {
@@ -48,7 +68,63 @@ export const authOptions: NextAuthOptions = {
     })
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async signIn({ user, account, profile }) {
+      // For OAuth providers, create user in database if they don't exist
+      if (account?.provider !== 'credentials' && user.email) {
+        try {
+          // Generate unique username from email or name
+          const baseUsername = user.name
+            ? user.name.toLowerCase().replace(/[^a-z0-9]/g, '')
+            : user.email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+
+          let username = baseUsername || `user${Math.floor(Math.random() * 10000)}`;
+          if (username.length < 3) username = `user${Math.floor(Math.random() * 10000)}`;
+
+          // Check if user exists
+          let existingUser = await prisma.user.findUnique({
+            where: { email: user.email },
+          });
+
+          if (!existingUser) {
+            // Find unique username
+            let attempt = 0;
+            let candidateUsername = username;
+            while (true) {
+              const usernameExists = await prisma.user.findUnique({
+                where: { username: candidateUsername },
+              });
+              if (!usernameExists) break;
+              attempt++;
+              candidateUsername = `${username}${attempt}`;
+            }
+
+            // Create new OAuth user
+            existingUser = await prisma.user.create({
+              data: {
+                email: user.email,
+                name: user.name || null,
+                image: user.image || null,
+                username: candidateUsername,
+                passwordHash: null, // OAuth users don't have passwords
+              },
+            });
+
+            console.log(`Created new OAuth user: ${existingUser.email} (${account.provider})`);
+          }
+
+          // Update user ID for JWT
+          user.id = existingUser.id;
+
+          return true;
+        } catch (error) {
+          console.error('OAuth sign-in error:', error);
+          return false;
+        }
+      }
+
+      return true;
+    },
+    async jwt({ token, user, account }) {
       if (user) {
         token.id = user.id;
         token.image = user.image;

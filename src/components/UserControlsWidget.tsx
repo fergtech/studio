@@ -32,6 +32,7 @@ export default function UserControlsWidget({ collapsed = false, isMobile = false
     openCreateIdeaModal,
     openCreateSocietyModal,
     openCreateDebateTopicModal,
+    openCreateTopicPostModal,
   } = useModal();
 
   const isLoading = status === 'loading';
@@ -73,19 +74,16 @@ export default function UserControlsWidget({ collapsed = false, isMobile = false
               </DropdownMenuTrigger>
               <DropdownMenuContent side="bottom" align="end" className="w-56">
                 <DropdownMenuItem onClick={() => openCreateInitiativeModal()} className="cursor-pointer">
-                  Create Initiative
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => openCreateIssueModal()} className="cursor-pointer">
-                  Create Issue
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => openCreateIdeaModal()} className="cursor-pointer">
-                  Create Idea
+                  Create Project
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => openCreateSocietyModal()} className="cursor-pointer">
                   Create Society
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => openCreateDebateTopicModal()} className="cursor-pointer">
                   Create Debate Topic
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openCreateTopicPostModal('general')} className="cursor-pointer">
+                  Create Post
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -170,21 +168,20 @@ export default function UserControlsWidget({ collapsed = false, isMobile = false
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent side="right" align="start" className="w-56">
-            <DropdownMenuItem onClick={() => openCreateInitiativeModal()} className="cursor-pointer">
-              Create Initiative
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => openCreateIssueModal()} className="cursor-pointer">
-              Create Issue
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => openCreateIdeaModal()} className="cursor-pointer">
-              Create Idea
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => openCreateSocietyModal()} className="cursor-pointer">
-              Create Society
-            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => openCreateDebateTopicModal()} className="cursor-pointer">
               Create Debate Topic
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => openCreateTopicPostModal('general')} className="cursor-pointer">
+              Create Post
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => openCreateInitiativeModal()} className="cursor-pointer">
+              Create Project
+            </DropdownMenuItem>
+            
+            <DropdownMenuItem onClick={() => openCreateSocietyModal()} className="cursor-pointer">
+              Create Society
+            </DropdownMenuItem>
+            
           </DropdownMenuContent>
         </DropdownMenu>
 
@@ -368,21 +365,20 @@ export default function UserControlsWidget({ collapsed = false, isMobile = false
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56" align="start">
-                <DropdownMenuItem onClick={() => openCreateInitiativeModal()} className="cursor-pointer">
-                  Create Initiative
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => openCreateIssueModal()} className="cursor-pointer">
-                  Create Issue
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => openCreateIdeaModal()} className="cursor-pointer">
-                  Create Idea
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => openCreateSocietyModal()} className="cursor-pointer">
-                  Create Society
-                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => openCreateDebateTopicModal()} className="cursor-pointer">
                   Create Debate Topic
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openCreateTopicPostModal('general')} className="cursor-pointer">
+                  Create Post
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openCreateInitiativeModal()} className="cursor-pointer">
+                  Create Project
+                </DropdownMenuItem>
+                
+                <DropdownMenuItem onClick={() => openCreateSocietyModal()} className="cursor-pointer">
+                  Create Society
+                </DropdownMenuItem>
+                
               </DropdownMenuContent>
             </DropdownMenu>
             <NotificationBell />
@@ -395,7 +391,7 @@ export default function UserControlsWidget({ collapsed = false, isMobile = false
           <div className="mx-3 p-4 bg-gradient-to-br from-primary/90 to-primary text-primary-foreground rounded-xl shadow-lg">
             <h3 className="font-bold text-base mb-2">Join Society+</h3>
             <p className="text-sm mb-4 opacity-90">
-              Create posts, join initiatives, and make real impact!
+              Create posts, join projects, and make real impact!
             </p>
             <div className="flex flex-col gap-2">
               <Button asChild size="sm" variant="secondary" className="w-full shadow-sm font-semibold">

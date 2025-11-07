@@ -78,7 +78,19 @@ export function useNotifications() {
       console.log('Notifications SSE connected');
     },
     onError: (error) => {
-      console.error('Notifications SSE error:', error);
+      // Try to extract useful info from the error event
+      let errorMsg = 'Unknown SSE error';
+      if (error && typeof error === 'object') {
+        if ('type' in error) errorMsg = `SSE error type: ${error.type}`;
+        if ('message' in error) errorMsg += `, message: ${error.message}`;
+        if ('data' in error) errorMsg += `, data: ${error.data}`;
+      }
+      // Only log if there's useful info
+      if (errorMsg !== 'Unknown SSE error' || (error && Object.keys(error).length > 0)) {
+        console.error('Notifications SSE error:', errorMsg, error);
+      }
+      // Optionally, show a toast to the user
+      // toast({ title: 'Notification connection error', description: 'Live notifications may be unavailable.' });
     }
   });
 

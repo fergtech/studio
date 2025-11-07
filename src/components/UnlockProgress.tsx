@@ -80,7 +80,7 @@ export function UnlockProgress({ unlockStatus, activityScore }: UnlockProgressPr
         </CardContent>
       </Card>
 
-      {/* Initiative Unlock Progress */}
+      {/* Project Unlock Progress */}
       <Card className={initiativeUnlocked ? 'border-green-500' : ''}>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -90,7 +90,7 @@ export function UnlockProgress({ unlockStatus, activityScore }: UnlockProgressPr
               ) : (
                 <Lock className="h-5 w-5 text-muted-foreground" />
               )}
-              Create Initiatives
+              Create Projects
             </CardTitle>
             {initiativeUnlocked && (
               <Badge variant="default" className="bg-green-500">Unlocked!</Badge>
@@ -98,8 +98,8 @@ export function UnlockProgress({ unlockStatus, activityScore }: UnlockProgressPr
           </div>
           <CardDescription>
             {initiativeUnlocked
-              ? 'You can now create Initiatives to take real-world action!'
-              : 'Prove deeper engagement to unlock Initiative creation'}
+              ? 'You can now create Projects to take real-world action!'
+              : 'Prove deeper engagement to unlock Project creation'}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">

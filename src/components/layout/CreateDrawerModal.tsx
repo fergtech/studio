@@ -44,7 +44,7 @@ export function CreateDrawerModal({ open, onOpenChange, onSelect }: CreateDrawer
             <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg group-hover:shadow-blue-500/50 transition-shadow">
               <Target className="w-8 h-8 text-white" />
             </div>
-            <span className="text-sm font-semibold text-foreground">Initiative</span>
+            <span className="text-sm font-semibold text-foreground">Project</span>
           </button>
           {/* Society */}
           <button

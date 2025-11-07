@@ -12,16 +12,20 @@ export default function NavigationWidget() {
   const navigationItems = [
     { href: '/', icon: Home, label: 'Home', isActive: pathname === '/' },
     { href: '/debates', icon: MessageCircle, label: 'Debates', isActive: pathname.startsWith('/debates') }, // MessageCircle is good for conversation/debate
+    { href: '/initiatives', icon: Target, label: 'Projects', isActive: pathname.startsWith('/initiatives') },
+    { href: '/societies', icon: Users, label: 'Societies', isActive: pathname.startsWith('/societies') },
     { href: '/activity', icon: Activity, label: 'Activity', isActive: pathname === '/activity', requiresAuth: true },
     { href: '/explore', icon: Search, label: 'Explore', isActive: pathname === '/explore' },
     { href: '/issues', icon: AlertTriangle, label: 'Issues', isActive: pathname.startsWith('/issues') },
     { href: '/ideas', icon: Lightbulb, label: 'Ideas', isActive: pathname.startsWith('/ideas') },
-    { href: '/initiatives', icon: Target, label: 'Initiatives', isActive: pathname.startsWith('/initiatives') },
-    { href: '/societies', icon: Users, label: 'Societies', isActive: pathname.startsWith('/societies') },
+    
   ];
 
   // Hide the Activity link for now
-  const filteredNavItems = navigationItems.filter(item => item.label !== 'Activity').filter(item => !item.requiresAuth || (item.requiresAuth && session));
+  const filteredNavItems = navigationItems
+    .filter(item => item.label !== 'Activity')
+    .filter(item => item.label !== 'Ideas' && item.label !== 'Issues')
+    .filter(item => !item.requiresAuth || (item.requiresAuth && session));
 
   return (
     <div className="space-y-1">

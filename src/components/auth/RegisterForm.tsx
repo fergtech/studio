@@ -18,18 +18,40 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import Link from 'next/link';
 import { signIn } from 'next-auth/react';
-import { AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, CheckCircle, Loader2, Check, X } from 'lucide-react';
 import { Alert, AlertDescription } from "@/components/ui/alert";
+
+// Strong password validation matching backend
+const passwordSchema = z.string()
+  .min(8, { message: "Password must be at least 8 characters" })
+  .regex(/[A-Z]/, { message: "Must contain at least one uppercase letter" })
+  .regex(/[a-z]/, { message: "Must contain at least one lowercase letter" })
+  .regex(/[0-9]/, { message: "Must contain at least one number" })
+  .regex(/[^A-Za-z0-9]/, { message: "Must contain at least one special character" });
 
 const formSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
-  password: z.string().min(6, { message: "Password must be at least 6 characters." }),
+  password: passwordSchema,
   confirmPassword: z.string(),
   name: z.preprocess((val) => val === "" ? undefined : val, z.string().min(2, { message: "Name must be at least 2 characters." }).optional()),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
 });
+
+// Password strength checker
+function getPasswordStrength(password: string) {
+  const checks = {
+    length: password.length >= 8,
+    uppercase: /[A-Z]/.test(password),
+    lowercase: /[a-z]/.test(password),
+    number: /[0-9]/.test(password),
+    special: /[^A-Za-z0-9]/.test(password),
+  };
+
+  const passed = Object.values(checks).filter(Boolean).length;
+  return { checks, passed, total: 5 };
+}
 
 export function RegisterForm() {
   const { toast } = useToast();
@@ -148,15 +170,65 @@ export function RegisterForm() {
         <FormField
           control={form.control}
           name="password"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Password</FormLabel>
-              <FormControl>
-                <Input placeholder="******" {...field} type="password" disabled={isLoading || isRedirecting} suppressHydrationWarning />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
+          render={({ field }) => {
+            const strength = getPasswordStrength(field.value || '');
+            const showIndicator = field.value && field.value.length > 0;
+
+            return (
+              <FormItem>
+                <FormLabel>Password</FormLabel>
+                <FormControl>
+                  <Input placeholder="Create a strong password" {...field} type="password" disabled={isLoading || isRedirecting} suppressHydrationWarning />
+                </FormControl>
+
+                {/* Password Strength Indicator */}
+                {showIndicator && (
+                  <div className="mt-3 space-y-2">
+                    <div className="flex gap-1">
+                      {[1, 2, 3, 4, 5].map((level) => (
+                        <div
+                          key={level}
+                          className={`h-1.5 flex-1 rounded-full transition-all ${
+                            level <= strength.passed
+                              ? strength.passed <= 2
+                                ? 'bg-red-500'
+                                : strength.passed <= 4
+                                ? 'bg-yellow-500'
+                                : 'bg-green-500'
+                              : 'bg-muted'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    <div className="text-xs space-y-1">
+                      <div className={`flex items-center gap-1.5 ${strength.checks.length ? 'text-green-600' : 'text-muted-foreground'}`}>
+                        {strength.checks.length ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                        <span>At least 8 characters</span>
+                      </div>
+                      <div className={`flex items-center gap-1.5 ${strength.checks.uppercase ? 'text-green-600' : 'text-muted-foreground'}`}>
+                        {strength.checks.uppercase ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                        <span>One uppercase letter</span>
+                      </div>
+                      <div className={`flex items-center gap-1.5 ${strength.checks.lowercase ? 'text-green-600' : 'text-muted-foreground'}`}>
+                        {strength.checks.lowercase ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                        <span>One lowercase letter</span>
+                      </div>
+                      <div className={`flex items-center gap-1.5 ${strength.checks.number ? 'text-green-600' : 'text-muted-foreground'}`}>
+                        {strength.checks.number ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                        <span>One number</span>
+                      </div>
+                      <div className={`flex items-center gap-1.5 ${strength.checks.special ? 'text-green-600' : 'text-muted-foreground'}`}>
+                        {strength.checks.special ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                        <span>One special character (!@#$%^&*)</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <FormMessage />
+              </FormItem>
+            );
+          }}
         />
         <FormField
           control={form.control}

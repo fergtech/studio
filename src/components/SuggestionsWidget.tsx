@@ -158,7 +158,7 @@ export default function SuggestionsWidget() {
             {/* Initiative Suggestions */}
             {initiatives.length > 0 && (
               <div>
-                <div className="text-xs font-semibold mb-1 text-muted-foreground">Initiatives you may like</div>
+                <div className="text-xs font-semibold mb-1 text-muted-foreground">Projects you may like</div>
                 <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-muted/40 scrollbar-track-transparent">
                   {initiatives.map(initiative => (
                     <div key={initiative.id} className="relative min-w-[100px] max-w-[153px] h-36 rounded-lg overflow-hidden shadow-sm flex flex-col justify-end">

@@ -149,17 +149,29 @@ export async function generateAIJSON<T = any>(prompt: string): Promise<{ data: T
     let cleaned = result.text.trim();
     cleaned = cleaned.replace(/^```json\n?|\n?```$/gi, '').trim();
 
+    // Remove trailing commas before } or ]
+    cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
+
     // Try to extract JSON array or object
     const jsonMatch = cleaned.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
     if (!jsonMatch) {
       console.error('No JSON found in AI response');
+      console.error('Raw AI response:', result.text);
       return { data: null, success: false, provider: result.provider };
     }
 
-    const parsed = JSON.parse(jsonMatch[0]);
-    return { data: parsed, success: true, provider: result.provider };
+    try {
+      const parsed = JSON.parse(jsonMatch[0]);
+      return { data: parsed, success: true, provider: result.provider };
+    } catch (error) {
+      // Log raw response for debugging
+      console.error('Failed to parse AI JSON response:', error);
+      console.error('Raw AI response:', result.text);
+      return { data: null, success: false, provider: result.provider };
+    }
   } catch (error) {
-    console.error('Failed to parse AI JSON response:', error);
+    console.error('Unexpected error in AI JSON parsing:', error);
+    console.error('Raw AI response:', result.text);
     return { data: null, success: false, provider: result.provider };
   }
 }

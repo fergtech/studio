@@ -168,9 +168,9 @@ export default function SmartSuggestionsWidget({ flatStyle = false }: { flatStyl
             {initiatives.length > 0 && (
               <div>
                 <div className="flex items-center justify-between mb-2 px-3">
-                  <div className="text-xs font-semibold text-muted-foreground">Trending initiatives</div>
+                  <div className="text-xs font-semibold text-muted-foreground">Trending projects</div>
                   <Button size="sm" variant="ghost" className="text-xs h-6 px-2" asChild>
-                    <Link href="/initiatives">Browse All</Link>
+                    <Link href="/initiatives">Browse All Projects</Link>
                   </Button>
                 </div>
                 <div className="space-y-2">

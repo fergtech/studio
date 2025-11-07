@@ -5,10 +5,18 @@ import { z } from 'zod';
 
 const saltRounds = 10;
 
+// Strong password requirements: min 8 chars, uppercase, lowercase, number, special char
+const passwordSchema = z.string()
+  .min(8, { message: "Password must be at least 8 characters" })
+  .regex(/[A-Z]/, { message: "Password must contain at least one uppercase letter" })
+  .regex(/[a-z]/, { message: "Password must contain at least one lowercase letter" })
+  .regex(/[0-9]/, { message: "Password must contain at least one number" })
+  .regex(/[^A-Za-z0-9]/, { message: "Password must contain at least one special character (!@#$%^&*)" });
+
 // Updated schema: only email and password required
 const registerSchema = z.object({
   email: z.string().email({ message: "Invalid email address" }),
-  password: z.string().min(6, { message: "Password must be at least 6 characters long" }),
+  password: passwordSchema,
   name: z.preprocess((val) => val === "" ? undefined : val, z.string().min(2, { message: "Name must be at least 2 characters" }).optional()),
   username: z.preprocess((val) => val === "" ? undefined : val, z.string().min(3, { message: "Username must be at least 3 characters" }).optional()),
   bio: z.preprocess((val) => val === "" ? undefined : val, z.string().max(500, { message: "Bio must be less than 500 characters" }).optional()),

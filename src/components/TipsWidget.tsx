@@ -13,7 +13,7 @@ export function TipsWidget() {
       <CardContent className="py-2 px-3">
         <ul className="list-disc pl-4 space-y-0.5 text-xs text-muted-foreground">
           <li>💡 Follow users to see their activity.</li>
-          <li>💡 Join initiatives to collaborate.</li>
+          <li>💡 Join projects to collaborate.</li>
           <li>💡 Share your progress to inspire others.</li>
         </ul>
       </CardContent>

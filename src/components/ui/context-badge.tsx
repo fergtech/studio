@@ -27,7 +27,7 @@ export function ContextBadge({
   variant = 'default',
 }: ContextBadgeProps) {
   const Icon = type === 'society' ? Building2 : Target;
-  const label = type === 'society' ? 'Society' : 'Initiative';
+  const label = type === 'society' ? 'Society' : 'Project';
   const href = type === 'society' ? `/societies/${id}` : `/initiatives/${id}`;
 
   // Minimal variant - just icon and name

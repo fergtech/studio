@@ -89,7 +89,7 @@ export function CompactInitiativeCard({
   const handleDelete = async () => {
     if (!isCreator || isDeleting) return;
 
-    if (!confirm(`Are you sure you want to delete "${initiative.title}"? This action cannot be undone.`)) {
+  if (!confirm(`Are you sure you want to delete the project "${initiative.title}"? This action cannot be undone.`)) {
       return;
     }
 
@@ -98,7 +98,7 @@ export function CompactInitiativeCard({
       const response = await fetch(`/api/initiatives/${initiative.id}`, { method: 'DELETE' });
       if (!response.ok) throw new Error('Failed to delete');
 
-      toast({ title: "Initiative deleted successfully" });
+  toast({ title: "Project deleted successfully" });
 
       // Dispatch global delete event for immediate feed update
       window.dispatchEvent(new CustomEvent('feed:itemDeleted', {
@@ -107,7 +107,7 @@ export function CompactInitiativeCard({
 
       router.refresh();
     } catch (error) {
-      toast({ title: "Failed to delete initiative", variant: "destructive" });
+  toast({ title: "Failed to delete project", variant: "destructive" });
       setIsDeleting(false);
     }
   };

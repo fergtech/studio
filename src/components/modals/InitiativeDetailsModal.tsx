@@ -261,7 +261,7 @@ export function InitiativeDetailsModal({
                   <div className="bg-green-50 border border-green-200 rounded-xl p-4">
                     <div className="flex items-center gap-2 text-green-700">
                       <Users className="w-4 h-4" />
-                      <span className="font-medium">You are a member</span>
+                      <span className="font-medium">You are a participant</span>
                       {memberRole && (
                         <Badge variant="outline" className="text-green-700 border-green-300">
                           {memberRole}
@@ -282,7 +282,7 @@ export function InitiativeDetailsModal({
                     className="w-full h-12 text-base bg-blue-600 hover:bg-blue-700"
                   >
                     <Users className="w-5 h-5 mr-2" />
-                    {isJoining ? 'Joining...' : 'Join Initiative'}
+                    {isJoining ? 'Joining...' : 'Participate'}
                   </Button>
                 )}
 
@@ -294,7 +294,7 @@ export function InitiativeDetailsModal({
                     className="flex-1 h-11 text-base"
                   >
                     <ArrowRight className="w-5 h-5 mr-2" />
-                    View Full Page
+                    View Project
                   </Button>
                   <Button
                     onClick={handleShare}

@@ -112,7 +112,7 @@ export function TikTokHomeFeed({
           </div>
           <h2 className="text-2xl font-bold">No Posts Yet</h2>
           <p className="text-muted-foreground">
-            Start following people and joining communities to see content here!
+            Start following people and joining projects to see content here!
           </p>
           <Button 
             onClick={() => router.push('/explore')}

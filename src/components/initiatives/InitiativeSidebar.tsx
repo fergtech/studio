@@ -268,7 +268,7 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
       {/* Members Card */}
       <Card>
         <CardHeader>
-          <CardTitle>Members</CardTitle>
+          <CardTitle>Participants</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">

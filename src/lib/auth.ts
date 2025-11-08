@@ -1,7 +1,6 @@
 import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import GoogleProvider from 'next-auth/providers/google';
-import AppleProvider from 'next-auth/providers/apple';
 import FacebookProvider from 'next-auth/providers/facebook';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
@@ -19,11 +18,6 @@ export const authOptions: NextAuthOptions = {
           response_type: "code"
         }
       }
-    }),
-    // Apple OAuth
-    AppleProvider({
-      clientId: process.env.APPLE_CLIENT_ID || '',
-      clientSecret: process.env.APPLE_CLIENT_SECRET || '',
     }),
     // Facebook OAuth (supports both Facebook and Instagram login)
     FacebookProvider({

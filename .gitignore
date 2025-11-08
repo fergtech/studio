@@ -44,6 +44,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# claude
+.claude 
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
@@ -106,3 +109,4 @@ migrations/*.sql
 
 # Alternative package managers
 pnpm-lock.yaml*
+.claude/settings.local.json

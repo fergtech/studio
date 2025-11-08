@@ -296,7 +296,7 @@ function ExplorePageInner() {
       <form onSubmit={handleSearch} className="flex justify-center mb-10">
         <Input
           className="max-w-lg w-full rounded-l-md"
-          placeholder="Search users, initiatives, posts..."
+          placeholder="Search debates, projects, communities..."
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
           suppressHydrationWarning

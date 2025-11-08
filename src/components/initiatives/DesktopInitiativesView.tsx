@@ -73,10 +73,10 @@ export function DesktopInitiativesView({
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">
           <Target className="h-8 w-8 text-primary" />
-          All Initiatives
+          All Projects
         </h1>
         <p className="text-muted-foreground">
-          Discover and join community initiatives that are making a difference
+          Discover and join community projects that speaks to you.
         </p>
       </div>
 
@@ -85,7 +85,7 @@ export function DesktopInitiativesView({
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search initiatives..."
+            placeholder="Search projects..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
@@ -147,15 +147,15 @@ export function DesktopInitiativesView({
           )) : (
             <div className="col-span-full text-center py-12">
               <Target className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No initiatives found</h3>
+              <h3 className="text-lg font-semibold mb-2">No projects found</h3>
               <p className="text-muted-foreground mb-4">
                 {debouncedSearchTerm 
                   ? "Try adjusting your search terms or filters."
-                  : "Be the first to create an initiative in your community!"
+                  : "Be the first to create a project in your community!"
                 }
               </p>
               <Button onClick={() => openCreateInitiativeModal()}>
-                Create Initiative
+                Create Project
               </Button>
             </div>
           )}
@@ -219,15 +219,15 @@ export function DesktopInitiativesView({
           )) : (
             <div className="col-span-full text-center py-12">
               <Target className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No initiatives found</h3>
+              <h3 className="text-lg font-semibold mb-2">No projects found</h3>
               <p className="text-muted-foreground mb-4">
                 {debouncedSearchTerm 
                   ? "Try adjusting your search terms or filters."
-                  : "Be the first to create an initiative in your community!"
+                  : "Be the first to create a project in your community!"
                 }
               </p>
               <Button onClick={() => openCreateInitiativeModal()}>
-                Create Initiative
+                Create Project
               </Button>
             </div>
           )}
@@ -240,10 +240,10 @@ export function DesktopInitiativesView({
           <div className="bg-muted/50 rounded-lg p-6">
             <h3 className="text-lg font-semibold mb-2">Have an idea for change?</h3>
             <p className="text-muted-foreground mb-4">
-              Create your own initiative and gather support from the community
+              Create your own project and gather support from the community
             </p>
             <Button onClick={() => openCreateInitiativeModal()}>
-              Create Initiative
+              Create Project
             </Button>
           </div>
         </div>

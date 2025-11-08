@@ -4,7 +4,8 @@
       "Bash(curl:*)",
       "Bash(npx next dev:*)",
       "Read(//c/Users/tdyfr/OneDrive - UMGC/Pictures/Screenshots/**)",
-      "Bash(psql:*)"
+      "Bash(psql:*)",
+      "WebFetch(domain:sp-info.pages.dev)"
     ],
     "deny": [],
     "ask": []

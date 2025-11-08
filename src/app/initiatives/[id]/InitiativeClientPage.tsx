@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Send, X, CheckCircle, Paperclip, ExternalLink, TrendingUp, Pin, ThumbsUp, PartyPopper, Heart, Lightbulb, Share2, Image as ImageIcon, Archive, UserPlus, Plus, MessageSquare, Twitter, Facebook, Link2, Edit, Menu, Trash2, Download, Info } from 'lucide-react';
+import { Send, X, CheckCircle, Paperclip, ExternalLink, TrendingUp, Pin, ThumbsUp, PartyPopper, Heart, Lightbulb, Share2, Image as ImageIcon, Archive, UserPlus, Plus, MessageSquare, Twitter, Facebook, Link2, Edit, Menu, Trash2, Download, Info, RefreshCw } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDistanceToNow } from 'date-fns';
@@ -222,6 +222,8 @@ export function InitiativeClientPage({
   // State for suggested goals
   const [suggestedGoals, setSuggestedGoals] = useState<Array<{ title: string; description: string }>>([]);
   const [selectedSuggestedGoal, setSelectedSuggestedGoal] = useState<{ title: string; description: string } | null>(null);
+  const [isLoadingGoals, setIsLoadingGoals] = useState(false);
+  const [goalsFromCache, setGoalsFromCache] = useState(false);
   
   // State for QR code
   const [qrCodeDataURL, setQrCodeDataURL] = useState<string>('');
@@ -374,8 +376,8 @@ export function InitiativeClientPage({
   const handleLeaveInitiative = async () => {
     if (!userId || !currentUserMembership) {
       toast({
-        title: "Not a Member",
-        description: "You are not a member of this initiative.",
+        title: "Not a Participant",
+        description: "You are not a participant of this project.",
         variant: "destructive",
       });
       return;
@@ -386,8 +388,8 @@ export function InitiativeClientPage({
       const result = await leaveInitiativeAction({ initiativeId: initiative.id });
       if (result.success) {
         toast({
-          title: "Left Initiative",
-          description: "You have successfully left the initiative.",
+          title: "Left Project",
+          description: "You have successfully left the project.",
         });
         // Option 1: Navigate away or refresh to reflect the change
         router.push('/'); // Or router.refresh() if staying on a list page
@@ -577,11 +579,112 @@ export function InitiativeClientPage({
     setIsCreateGoalDialogOpen(true);
   };
 
+  const handleRefreshGoals = async () => {
+    if (!initiativeId) return;
+
+    setIsLoadingGoals(true);
+    setGoalsFromCache(false);
+    clearCachedGoals(initiativeId);
+
+    try {
+      const response = await fetch(`/api/initiatives/${initiativeId}/suggest-goals`);
+      if (!response.ok) {
+        console.error('Failed to fetch suggested goals:', response.statusText);
+        setSuggestedGoals([]);
+        toast({
+          title: "Failed to refresh goals",
+          description: "Please try again later.",
+          variant: "destructive",
+        });
+        return;
+      }
+      const data = await response.json();
+      setSuggestedGoals(data);
+      setCachedGoals(initiativeId, data);
+
+      toast({
+        title: "Goals refreshed!",
+        description: "New AI-suggested goals have been generated.",
+      });
+    } catch (error) {
+      console.error('Error refreshing goals:', error);
+      toast({
+        title: "Error refreshing goals",
+        description: "Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingGoals(false);
+    }
+  };
+
+  // localStorage helper functions for AI suggested goals
+  const getCachedGoals = (initiativeId: string) => {
+    try {
+      const cacheKey = `aiGoals_${initiativeId}`;
+      const cached = localStorage.getItem(cacheKey);
+      if (!cached) return null;
+
+      const parsed = JSON.parse(cached);
+      const now = Date.now();
+
+      // Check if cache is expired (7 days)
+      if (parsed.expiresAt && now > parsed.expiresAt) {
+        localStorage.removeItem(cacheKey);
+        return null;
+      }
+
+      return parsed.goals;
+    } catch (error) {
+      console.error('Error reading cached goals:', error);
+      return null;
+    }
+  };
+
+  const setCachedGoals = (initiativeId: string, goals: Array<{ title: string; description: string }>) => {
+    try {
+      const cacheKey = `aiGoals_${initiativeId}`;
+      const cacheData = {
+        goals,
+        timestamp: Date.now(),
+        expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000), // 7 days
+      };
+      localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+    } catch (error) {
+      console.error('Error caching goals:', error);
+    }
+  };
+
+  const clearCachedGoals = (initiativeId: string) => {
+    try {
+      const cacheKey = `aiGoals_${initiativeId}`;
+      localStorage.removeItem(cacheKey);
+    } catch (error) {
+      console.error('Error clearing cached goals:', error);
+    }
+  };
+
   // Effect to fetch suggested goals when the initiativeId changes
   useEffect(() => {
-    const fetchSuggestedGoals = async () => {
+    const fetchSuggestedGoals = async (forceRefresh = false) => {
       if (!initiativeId) return;
-      console.log('Fetching suggested goals for initiative:', initiativeId);
+
+      // Check cache first unless force refresh
+      if (!forceRefresh) {
+        const cached = getCachedGoals(initiativeId);
+        if (cached) {
+          console.log('Using cached suggested goals for initiative:', initiativeId);
+          setSuggestedGoals(cached);
+          setGoalsFromCache(true);
+          return;
+        }
+      }
+
+      // Fetch from API
+      console.log('Fetching suggested goals from API for initiative:', initiativeId);
+      setIsLoadingGoals(true);
+      setGoalsFromCache(false);
+
       try {
         const response = await fetch(`/api/initiatives/${initiativeId}/suggest-goals`);
         if (!response.ok) {
@@ -591,14 +694,19 @@ export function InitiativeClientPage({
         }
         const data = await response.json();
         setSuggestedGoals(data);
+
+        // Cache the results
+        setCachedGoals(initiativeId, data);
       } catch (error) {
         console.error('Error fetching suggested goals:', error);
         setSuggestedGoals([]); // Clear suggestions on error
+      } finally {
+        setIsLoadingGoals(false);
       }
     };
 
     fetchSuggestedGoals();
-  }, [initiativeId, setSuggestedGoals, toast]); // Depend on initiativeId, setSuggestedGoals, and toast
+  }, [initiativeId]); // Removed setSuggestedGoals and toast from dependencies
 
   // Helper to transform backend update to frontend Update type
   function transformRawUpdate(rawUpdate: any): Initiative['updates'][number] {
@@ -897,7 +1005,7 @@ export function InitiativeClientPage({
                       </Link>
                     )}
                     <Badge variant="secondary" className="bg-card/30 text-foreground text-xs backdrop-blur-sm">
-                      {initiative.memberships?.length || 0} members
+                      {initiative.memberships?.length || 0} participants
                     </Badge>
                     <Badge variant="secondary" className="bg-card/30 text-foreground text-xs backdrop-blur-sm">
                       {getLocationDisplay(initiative.location) || 'Online'}
@@ -1094,10 +1202,32 @@ export function InitiativeClientPage({
               )}
               {/* Suggested Goals Section */}
               <div className="mt-6">
-                <h3 className="text-lg font-semibold mb-2">Suggested Goals</h3>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-lg font-semibold">Suggested Goals</h3>
+                  <div className="flex items-center gap-2">
+                    {goalsFromCache && (
+                      <span className="text-xs text-muted-foreground">Cached</span>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleRefreshGoals}
+                      disabled={isLoadingGoals}
+                      className="h-8"
+                    >
+                      <RefreshCw className={cn("h-4 w-4", isLoadingGoals && "animate-spin")} />
+                      <span className="ml-1 text-xs">Refresh</span>
+                    </Button>
+                  </div>
+                </div>
                 {/* Placeholder for suggested goals */}
                 <div className="flex flex-wrap gap-2">
-                  {suggestedGoals.map((goal, index) => (
+                  {isLoadingGoals ? (
+                    <p className="text-sm text-muted-foreground">Loading new suggestions...</p>
+                  ) : suggestedGoals.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No suggestions available</p>
+                  ) : (
+                    suggestedGoals.map((goal, index) => (
                     <SuggestedGoalTag
                       key={index} // Using index as key here, consider a unique ID if available
                       title={goal.title}
@@ -1114,7 +1244,8 @@ export function InitiativeClientPage({
                         handleSuggestedGoalClick(goal);
                       }}
                     />
-                  ))}
+                  ))
+                  )}
                 </div>
               </div>
             </div>
@@ -1267,9 +1398,9 @@ export function InitiativeClientPage({
         <Dialog open={isInviteOpen} onOpenChange={setIsInviteOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Invite Members</DialogTitle>
+              <DialogTitle>Invite Participants</DialogTitle>
               <DialogDescription>
-                Invite others to join this initiative.
+                Invite others in on this project.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">

@@ -48,13 +48,17 @@ export default function InitiativesPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'tiktok'>('tiktok'); // New state for view mode
   const { openCreateInitiativeModal } = useModal();
   const isMobile = useIsMobile();
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  
+  // Initialize sidebar state from localStorage on mount
+  useEffect(() => {
     if (typeof window !== 'undefined' && window.localStorage) {
       const stored = localStorage.getItem('sidebarCollapsed:initiatives');
-      if (stored !== null) return stored === 'true';
+      if (stored !== null) {
+        setSidebarCollapsed(stored === 'true');
+      }
     }
-    return false;
-  });
+  }, []);
 
   // Debounce search term to avoid excessive API calls
   useEffect(() => {

@@ -85,9 +85,10 @@ export function DiscoveryGrid({ searchResults, isSearching, hasSearched }: Disco
     return videoExtensions.some(ext => url.toLowerCase().includes(ext));
   };
 
-  // Combine all content for the "all" view
+  // Combine all content for the "all" view - exclude users from initial display
   const allContent = [
-    ...searchResults.users.map(item => ({ ...item, _type: 'user' as const })),
+    // Only include users if there's been a search
+    ...(hasSearched ? searchResults.users.map(item => ({ ...item, _type: 'user' as const })) : []),
     ...searchResults.posts.map(item => ({ ...item, _type: 'post' as const })),
     ...(searchResults.debates ? searchResults.debates.map(item => ({ ...item, _type: 'post' as const, type: 'debate' })) : []),
     ...searchResults.initiatives.map(item => ({ ...item, _type: 'initiative' as const })),
@@ -210,7 +211,7 @@ export function DiscoveryGrid({ searchResults, isSearching, hasSearched }: Disco
             <Badge variant="secondary" className="bg-black/20 text-white border-0 text-xs">
               {isUser && "👤 User"}
               {isDebate ? "🔥 Debate" : isPost && "📝 Post"}
-              {isInitiative && "🎯 Initiative"}
+              {isInitiative && "🎯 Project"}
               {isSociety && "🏛️ Society"}
             </Badge>
             <div className="opacity-0 group-hover:opacity-100 transition-opacity">
@@ -635,10 +636,11 @@ export function DiscoveryGrid({ searchResults, isSearching, hasSearched }: Disco
       <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
         {[
           { key: 'all', label: 'All', icon: '🔍' },
-          { key: 'users', label: 'People', icon: '👤' },
+          // Only show People filter if there's been a search and users exist
+          ...(hasSearched && searchResults.users.length > 0 ? [{ key: 'users', label: 'People', icon: '👤' }] : []),
           { key: 'posts', label: 'Posts', icon: '📝' },
           { key: 'debates', label: 'Debates', icon: '🔥' },
-          { key: 'initiatives', label: 'Initiatives', icon: '🎯' },
+          { key: 'initiatives', label: 'Projects', icon: '🎯' },
           { key: 'societies', label: 'Societies', icon: '🏛️' }
         ].map(({ key, label, icon }) => (
           <Button

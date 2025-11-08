@@ -60,7 +60,7 @@ export function RelatedIssuesIdeasSection({ initiativeId }: RelatedIssuesIdeasSe
           <CardTitle className="text-lg font-semibold flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-orange-500" />
             <Lightbulb className="h-5 w-5 text-yellow-500" />
-            Related Issues & Ideas
+            Related Posts
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -81,14 +81,14 @@ export function RelatedIssuesIdeasSection({ initiativeId }: RelatedIssuesIdeasSe
           <CardTitle className="text-lg font-semibold flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-orange-500" />
             <Lightbulb className="h-5 w-5 text-yellow-500" />
-            Related Issues & Ideas
+            Related Posts
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-center py-4 text-muted-foreground">
-            <p className="mb-2">No related issues or ideas yet.</p>
+            <p className="mb-2">No related content yet.</p>
             <p className="text-sm">
-              This initiative can originate from community issues or innovative ideas.
+              This project can originate from community debates, problems or innovative ideas.
             </p>
           </div>
         </CardContent>

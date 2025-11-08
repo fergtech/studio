@@ -44,7 +44,7 @@ export function MissionProgressBanner({ initiative, milestones, onContributeClic
               className="bg-primary text-white hover:bg-primary/90 flex-shrink-0"
             >
               <TrendingUp className="h-4 w-4 mr-2" />
-              Join Initiative
+              Participate
             </Button>
           )}
         </div>

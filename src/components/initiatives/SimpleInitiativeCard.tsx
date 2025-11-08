@@ -117,7 +117,7 @@ export function SimpleInitiativeCard({ initiative, className }: SimpleInitiative
         {/* Footer (CTA) */}
         <div className="mt-auto text-center">
           <Badge variant="secondary" className="text-xs backdrop-blur-sm bg-primary/20 text-white border-primary/30">
-            Tap to Join Initiative
+            Tap to Join Project
           </Badge>
         </div>
       </div>

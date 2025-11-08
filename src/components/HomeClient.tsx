@@ -50,6 +50,7 @@ import { TikTokIdeaDetail } from './TikTokIdeaDetail';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { PullToRefreshIndicator } from './PullToRefresh';
 import { PostStatsProvider } from '@/context/PostStatsContext';
+import { OnboardingModal } from './OnboardingModal';
 
 // Define extended types that include the relations we'll fetch
 type InitiativeWithCreator = PrismaInitiative & {
@@ -367,6 +368,30 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
   const [selectedIdea, setSelectedIdea] = useState<any>(null);
   const [isTikTokIdeaDetailOpen, setIsTikTokIdeaDetailOpen] = useState(false);
 
+  // Onboarding Modal State
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  // Check onboarding status on mount (only for authenticated users)
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    const checkOnboardingStatus = async () => {
+      try {
+        const response = await fetch('/api/user/onboarding');
+        if (response.ok) {
+          const data = await response.json();
+          // Show onboarding if not complete
+          if (!data.isOnboardingComplete) {
+            setShowOnboarding(true);
+          }
+        }
+      } catch (error) {
+        console.error('Error checking onboarding status:', error);
+      }
+    };
+
+    checkOnboardingStatus();
+  }, [currentUserId]);
 
   // Deduplicate feed items by ID (keep first occurrence)
   const deduplicatedFeedItems = allFeedItems.reduce((acc, item) => {
@@ -1312,6 +1337,15 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
             setIsTikTokIdeaDetailOpen(false);
             setSelectedIdea(null);
           }}
+        />
+      )}
+
+      {/* Onboarding Modal - shown after registration if not completed */}
+      {currentUserId && (
+        <OnboardingModal
+          open={showOnboarding}
+          onClose={() => setShowOnboarding(false)}
+          userId={currentUserId}
         />
       )}
     </div>

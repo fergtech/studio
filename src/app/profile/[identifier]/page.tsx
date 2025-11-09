@@ -108,6 +108,9 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
           }
         },
         createdGeneralPosts: {
+          where: {
+            moderationStatus: 'approved'
+          },
           include: {
             media: true
           },
@@ -140,6 +143,9 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
           },
         },
         createdIssues: {
+          where: {
+            moderationStatus: 'approved'
+          },
           include: {
             society: {
               select: {
@@ -155,6 +161,9 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
           }
         },
         createdIdeas: {
+          where: {
+            moderationStatus: 'approved'
+          },
           include: {
             society: {
               select: {
@@ -164,6 +173,31 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
               },
             },
             media: true,
+          },
+          orderBy: {
+            createdAt: 'desc'
+          }
+        },
+        createdDebateTopics: {
+          where: {
+            moderationStatus: 'approved'
+          },
+          include: {
+            creator: {
+              select: {
+                id: true,
+                name: true,
+                username: true,
+                image: true,
+              },
+            },
+            votes: {
+              select: {
+                id: true,
+                side: true,
+                createdAt: true,
+              },
+            },
           },
           orderBy: {
             createdAt: 'desc'
@@ -241,6 +275,9 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
           }
         },
         createdGeneralPosts: {
+          where: {
+            moderationStatus: 'approved'
+          },
           include: {
             media: true
           },
@@ -273,6 +310,9 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
           },
         },
         createdIssues: {
+          where: {
+            moderationStatus: 'approved'
+          },
           include: {
             society: {
               select: {
@@ -288,6 +328,9 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
           }
         },
         createdIdeas: {
+          where: {
+            moderationStatus: 'approved'
+          },
           include: {
             society: {
               select: {
@@ -297,6 +340,31 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
               },
             },
             media: true,
+          },
+          orderBy: {
+            createdAt: 'desc'
+          }
+        },
+        createdDebateTopics: {
+          where: {
+            moderationStatus: 'approved'
+          },
+          include: {
+            creator: {
+              select: {
+                id: true,
+                name: true,
+                username: true,
+                image: true,
+              },
+            },
+            votes: {
+              select: {
+                id: true,
+                side: true,
+                createdAt: true,
+              },
+            },
           },
           orderBy: {
             createdAt: 'desc'

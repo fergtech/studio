@@ -37,10 +37,18 @@ export async function GET(request: NextRequest) {
         // Counts for activity score calculation
         _count: {
           select: {
-            createdDebateTopics: true,
-            createdGeneralPosts: true,
-            createdIdeas: true,
-            createdIssues: true,
+            createdDebateTopics: {
+              where: { moderationStatus: 'approved' }
+            },
+            createdGeneralPosts: {
+              where: { moderationStatus: 'approved' }
+            },
+            createdIdeas: {
+              where: { moderationStatus: 'approved' }
+            },
+            createdIssues: {
+              where: { moderationStatus: 'approved' }
+            },
             debateVotes: true,
             debateArguments: true,
             comments: true,

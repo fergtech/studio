@@ -8,11 +8,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ users: [], initiatives: [], posts: [], debates: [], societies: [] });
   }
 
-  // Users: name, skills, interests
+  // Users: name, username, bio, profession, skills, interests
   const users = await prisma.user.findMany({
     where: {
       OR: [
         { name: { contains: q, mode: 'insensitive' } },
+        { username: { contains: q, mode: 'insensitive' } },
+        { bio: { contains: q, mode: 'insensitive' } },
+        { profession: { contains: q, mode: 'insensitive' } },
         { skills: { has: q } },
         { interests: { has: q } },
       ],
@@ -118,10 +121,7 @@ export async function GET(req: NextRequest) {
     where: {
       AND: [
         {
-          OR: [
-            { moderationStatus: 'approved' },
-            { moderationStatus: null }
-          ],
+          moderationStatus: 'approved'
         },
         {
           OR: [

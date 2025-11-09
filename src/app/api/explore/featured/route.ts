@@ -8,10 +8,7 @@ export async function GET(req: NextRequest) {
     // Get recent debates
     const featuredDebates = await prisma.debateTopic.findMany({
       where: {
-        OR: [
-          { moderationStatus: 'approved' },
-          { moderationStatus: null }
-        ],
+        moderationStatus: 'approved'
       },
       select: {
         id: true,
@@ -110,6 +107,9 @@ export async function GET(req: NextRequest) {
 
     // Get recent posts
     const featuredPosts = await prisma.generalPost.findMany({
+      where: {
+        moderationStatus: 'approved'
+      },
       select: {
         id: true,
         content: true,

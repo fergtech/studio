@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { InitiativesListModal } from "@/components/initiatives/InitiativesListModal";
 import { Initiative, ContributionItem } from "@/lib/types";
-import { CalendarDays, Globe, Mail, MapPin, User2, Globe2, Link as LinkIcon, Edit2, Building2, School, Star, Users, MessageCircle, UserPlus, Settings, ExternalLink, Github, Linkedin, Globe as GlobeIcon, Coffee, Code, Palette, Rocket, Heart, Eye, TrendingUp, Clock, Award, Target, ChevronRight, Plus, Filter, CheckCircle, Lightbulb, AlertTriangle, Activity, Briefcase, BookOpen, MapPin as MapPinIcon, UserMinus, Users2, X, Save } from 'lucide-react';
+import { CalendarDays, Globe, Mail, MapPin, User2, Globe2, Link as LinkIcon, Edit2, Building2, School, Star, Users, MessageCircle, UserPlus, Settings, ExternalLink, Github, Linkedin, Globe as GlobeIcon, Coffee, Code, Palette, Rocket, Heart, Eye, TrendingUp, Clock, Award, Target, ChevronRight, Plus, Filter, CheckCircle, Lightbulb, AlertTriangle, Activity, Briefcase, BookOpen, MapPin as MapPinIcon, UserMinus, Users2, X, Save, MessageSquare } from 'lucide-react';
 import { followUserAction, unfollowUserAction } from '@/app/actions/userActions';
 import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -93,7 +93,7 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
   }, [user.id]);
 
   // Posts filter state
-  const [postsFilter, setPostsFilter] = useState<'all' | 'general' | 'issues' | 'ideas'>('all');
+  const [postsFilter, setPostsFilter] = useState<'all' | 'general' | 'issues' | 'ideas' | 'debates'>('all');
 
   // Combine all posts and sort by date
   const getAllPosts = () => {
@@ -126,6 +126,16 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
         posts.push({
           ...idea,
           type: 'ideas',
+        });
+      });
+    }
+
+    // Add debates
+    if (user.createdDebateTopics) {
+      user.createdDebateTopics.forEach((debate: any) => {
+        posts.push({
+          ...debate,
+          type: 'debates',
         });
       });
     }
@@ -340,6 +350,11 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
       icon = <Lightbulb className="h-4 w-4 text-white" />;
       gradientClass = 'from-yellow-500 to-yellow-700';
       typeLabel = 'Idea';
+    } else if (post.type === 'debates') {
+      href = `/debates/${post.id}`;
+      icon = <MessageSquare className="h-4 w-4 text-white" />;
+      gradientClass = 'from-purple-600 to-purple-800';
+      typeLabel = 'Debate';
     }
 
     const hasMedia = post.media && post.media.length > 0;
@@ -386,7 +401,12 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
               <span className="text-xs text-gray-300">
                 {new Date(post.createdAt).toLocaleDateString()}
               </span>
-              {(post.championCount !== undefined || post.likeCount !== undefined) && (
+              {/* Show appropriate stats based on post type */}
+              {post.type === 'debates' && (post.totalVotes !== undefined || post.votersCount !== undefined || post.votes) ? (
+                <span className="text-xs text-gray-300">
+                  🗳️ {post.totalVotes || post.votersCount || (post.votes && post.votes.length) || 0}
+                </span>
+              ) : (post.championCount !== undefined || post.likeCount !== undefined) && (
                 <span className="text-xs text-gray-300">
                   💪 {post.championCount || post.likeCount || 0}
                 </span>
@@ -399,10 +419,15 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
   };
 
   // Calculate community impact metrics
+  const contentContributions = (user.createdGeneralPosts?.length || 0) + 
+                               (user.createdIssues?.length || 0) + 
+                               (user.createdIdeas?.length || 0) + 
+                               (user.createdDebateTopics?.length || 0);
+                               
   const communityStats = {
     initiativesCreated: user.createdInitiatives?.length || 0,
     initiativesJoined: user.initiativeMemberships?.length || 0,
-    totalContributions: (user.createdInitiatives?.length || 0) + (user.initiativeMemberships?.length || 0),
+    totalContributions: (user.createdInitiatives?.length || 0) + (user.initiativeMemberships?.length || 0) + contentContributions,
     followers: user.followersCount || 0,
     following: user.followingCount || 0,
     memberSince: user.dateCreated ? new Date(user.dateCreated).toLocaleDateString('en-US', { year: 'numeric', month: 'long' }) : 'Recently'
@@ -614,11 +639,11 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
               <div className="text-center">
                 <div className="text-2xl font-bold text-blue-600">{communityStats.initiativesCreated}</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">Initiatives Created</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">Projects Created</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-green-600">{communityStats.initiativesJoined}</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">Initiatives Joined</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">Projects Joined</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-purple-600">{communityStats.totalContributions}</div>
@@ -650,7 +675,7 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
             </TabsTrigger>
             <TabsTrigger value="initiatives" className="flex-shrink-0 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 min-w-max">
               <Rocket className="w-4 h-4 mr-2" />
-              Initiatives
+              Projects
             </TabsTrigger>
             <TabsTrigger value="societies" className="flex-shrink-0 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 min-w-max">
               <Users className="w-4 h-4 mr-2" />
@@ -973,7 +998,7 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
                     <Rocket className="w-5 h-5" />
-                    Initiatives Created
+                    Projects Created
                   </CardTitle>
                   {user.createdInitiatives && user.createdInitiatives.length > 5 && (
                     <Button variant="outline" size="sm" onClick={() => setShowCreatedInitiativesModal(true)}>
@@ -1163,6 +1188,15 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
                     >
                       <Lightbulb className="w-4 h-4 mr-1" />
                       Ideas
+                    </Button>
+                    <Button
+                      variant={postsFilter === 'debates' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setPostsFilter('debates')}
+                      className="flex-shrink-0"
+                    >
+                      <MessageSquare className="w-4 h-4 mr-1" />
+                      Debates
                     </Button>
                   </div>
                 </div>

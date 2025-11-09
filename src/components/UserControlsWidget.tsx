@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { PlusCircle, Settings, LogOut, User, MessageSquare, Edit } from 'lucide-react';
+import { PlusCircle, Settings, LogOut, User, MessageSquare, Edit, Shield } from 'lucide-react';
 import { useSession, signOut } from 'next-auth/react';
 import { useModal } from '@/context/ModalContext';
 import NotificationBell from '@/components/NotificationBell';
@@ -26,6 +26,7 @@ interface UserControlsWidgetProps {
 
 export default function UserControlsWidget({ collapsed = false, isMobile = false }: UserControlsWidgetProps) {
   const { data: session, status } = useSession();
+  const [userRoles, setUserRoles] = useState<{ isAdmin: boolean; isModerator: boolean } | null>(null);
   const {
     openCreateInitiativeModal,
     openCreateIssueModal,
@@ -34,6 +35,28 @@ export default function UserControlsWidget({ collapsed = false, isMobile = false
     openCreateDebateTopicModal,
     openCreateTopicPostModal,
   } = useModal();
+
+  // Fetch user roles when session is available
+  useEffect(() => {
+    const fetchUserRoles = async () => {
+      if (session?.user?.id) {
+        try {
+          const response = await fetch('/api/user/me');
+          if (response.ok) {
+            const userData = await response.json();
+            setUserRoles({
+              isAdmin: userData.isAdmin || false,
+              isModerator: userData.isModerator || false
+            });
+          }
+        } catch (error) {
+          console.error('Failed to fetch user roles:', error);
+        }
+      }
+    };
+
+    fetchUserRoles();
+  }, [session?.user?.id]);
 
   const isLoading = status === 'loading';
 
@@ -134,6 +157,14 @@ export default function UserControlsWidget({ collapsed = false, isMobile = false
                     Messages
                   </Link>
                 </DropdownMenuItem>
+                {(userRoles?.isModerator || userRoles?.isAdmin) && (
+                  <DropdownMenuItem asChild>
+                    <Link href={`/admin/moderation`}>
+                      <Shield className="h-4 w-4 mr-2" />
+                      Moderation
+                    </Link>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
                   <LogOut className="h-4 w-4 mr-2" />
@@ -249,6 +280,14 @@ export default function UserControlsWidget({ collapsed = false, isMobile = false
                   Messages
                 </Link>
               </DropdownMenuItem>
+              {(userRoles?.isModerator || userRoles?.isAdmin) && (
+                <DropdownMenuItem asChild>
+                  <Link href={`/admin/moderation`}>
+                    <Shield className="h-4 w-4 mr-2" />
+                    Moderation
+                  </Link>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">Log out</DropdownMenuItem>
             </DropdownMenuContent>
@@ -346,6 +385,14 @@ export default function UserControlsWidget({ collapsed = false, isMobile = false
                     Messages
                   </Link>
                 </DropdownMenuItem>
+                {(userRoles?.isModerator || userRoles?.isAdmin) && (
+                  <DropdownMenuItem asChild>
+                    <Link href={`/admin/moderation`}>
+                      <Shield className="h-4 w-4 mr-2" />
+                      Moderation
+                    </Link>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-destructive focus:text-destructive">
                   <LogOut className="h-4 w-4 mr-2" />

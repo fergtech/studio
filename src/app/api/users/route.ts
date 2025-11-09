@@ -38,11 +38,19 @@ export async function GET(req: NextRequest) {
         image: true,
         _count: {
           select: {
-            createdGeneralPosts: true,
-            createdIdeas: true,
-            createdIssues: true,
+            createdGeneralPosts: {
+              where: { moderationStatus: 'approved' }
+            },
+            createdIdeas: {
+              where: { moderationStatus: 'approved' }
+            },
+            createdIssues: {
+              where: { moderationStatus: 'approved' }
+            },
             createdInitiatives: true,
-            createdDebateTopics: true,
+            createdDebateTopics: {
+              where: { moderationStatus: 'approved' }
+            },
             societies: true,
           },
         },

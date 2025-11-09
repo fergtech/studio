@@ -32,10 +32,7 @@ export async function GET(request: NextRequest) {
         where: {
           AND: [
             {
-              OR: [
-                { moderationStatus: 'approved' },
-                { moderationStatus: null } // Include approved and legacy null status
-              ],
+              moderationStatus: 'approved'
             },
             {
               OR: [
@@ -111,7 +108,7 @@ export async function GET(request: NextRequest) {
           username: true,
           image: true,
           bio: true,
-          createdAt: true,
+          dateCreated: true,
         },
         take: 10,
       }),
@@ -121,10 +118,7 @@ export async function GET(request: NextRequest) {
         where: {
           AND: [
             {
-              OR: [
-                { moderationStatus: 'approved' },
-                { moderationStatus: null }
-              ],
+              moderationStatus: 'approved'
             },
             {
               content: {
@@ -134,12 +128,7 @@ export async function GET(request: NextRequest) {
             },
           ],
         },
-        select: {
-          id: true,
-          content: true,
-          type: true,
-          creatorId: true,
-          timestamp: true,
+        include: {
           media: {
             select: {
               url: true,
@@ -216,7 +205,7 @@ export async function GET(request: NextRequest) {
           image: true,
           _count: {
             select: {
-              members: true,
+              memberships: true,
             },
           },
         },
@@ -261,7 +250,7 @@ export async function GET(request: NextRequest) {
     const formattedPosts = posts.map((post) => ({
       id: post.id,
       content: post.content,
-      type: post.type || 'general',
+      type: 'general',
       mediaUrl: post.media?.[0]?.url,
       mediaType: post.media?.[0]?.type,
       userId: post.creatorId,
@@ -285,7 +274,7 @@ export async function GET(request: NextRequest) {
       username: user.username || 'anonymous',
       image: user.image,
       bio: user.bio,
-      dateCreated: user.createdAt,
+      dateCreated: user.dateCreated,
     }));
 
     // Format society results
@@ -295,7 +284,7 @@ export async function GET(request: NextRequest) {
       description: society.description,
       image: society.image,
       imageUrl: society.image,
-      memberCount: society._count.members,
+      memberCount: society._count.memberships,
     }));
 
     return NextResponse.json({

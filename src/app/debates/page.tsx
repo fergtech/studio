@@ -163,9 +163,10 @@ export default function DebatesPage() {
           ) : filteredDebates.length > 0 ? (
             <div className="grid grid-cols-1 gap-6">
               {filteredDebates.map((debate) => {
-                const proVotes = debate.votes.filter(v => v.side === 'PRO').length;
-                const conVotes = debate.votes.filter(v => v.side === 'CON').length;
-                const totalVotes = debate.votes.length;
+                const votes = debate.votes || [];
+                const proVotes = votes.filter(v => v.side === 'PRO').length;
+                const conVotes = votes.filter(v => v.side === 'CON').length;
+                const totalVotes = votes.length;
                 // TODO: Replace 0 with actual argument count if available
                 const argumentCount = 0;
 

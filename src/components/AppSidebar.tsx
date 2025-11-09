@@ -24,7 +24,7 @@ interface AppSidebarProps {
   className?: string;
   children?: React.ReactNode;
   context?: {
-    type?: 'home' | 'profile' | 'society' | 'initiative' | 'initiatives' | 'activity' | 'chat' | 'messages' | 'debates' | 'explore' | 'idea' | 'issue' | 'ideas' | 'issues' | 'societies' | 'profile-edit' | 'topic' | 'goal' | 'post';
+    type?: 'home' | 'profile' | 'society' | 'initiative' | 'initiatives' | 'activity' | 'chat' | 'messages' | 'debates' | 'explore' | 'idea' | 'issue' | 'ideas' | 'issues' | 'societies' | 'profile-edit' | 'topic' | 'goal' | 'post' | 'moderation';
     data?: any;
   };
   onCollapseChange?: (collapsed: boolean) => void;
@@ -35,7 +35,7 @@ export const getDefaultCollapsedState = (context?: AppSidebarProps['context']): 
   if (!context?.type) return false; // Default to open if no context
 
   // Utility/Discovery pages - default to open (false = not collapsed)
-  const utilityPages = ['home', 'explore', 'profile', 'profile-edit', 'chat', 'topic', 'debates', 'ideas', 'issues', 'societies', 'initiatives', 'post', 'messages'];
+  const utilityPages = ['home', 'explore', 'profile', 'profile-edit', 'chat', 'topic', 'debates', 'ideas', 'issues', 'societies', 'initiatives', 'post', 'messages', 'moderation'];
 
   // Core engagement pages - default to closed (true = collapsed)
   const corePages = ['society', 'initiative', 'activity', 'debate', 'idea', 'issue', 'goal'];

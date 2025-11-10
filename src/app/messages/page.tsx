@@ -8,9 +8,12 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
-import { MessageCircle, Search } from 'lucide-react';
+import { MessageCircle, Search, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { formatDistanceToNow } from 'date-fns';
+import { useUserStatus } from '@/hooks/useUserStatus';
+import { OnlineStatusAvatar } from '@/components/OnlineStatusAvatar';
+import { useHeartbeat } from '@/hooks/useHeartbeat';
 
 interface Conversation {
   userId: string;
@@ -32,6 +35,18 @@ export default function MessagesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const router = useRouter();
   const { data: session, status } = useSession();
+  
+  // Get user IDs for status checking
+  const userIds = conversations.map(conv => conv.userId);
+  
+  // Use heartbeat to maintain our own online status
+  useHeartbeat();
+  
+  // Use user status hook - just fetch once, no continuous polling
+  const { userStatuses, isUserOnline, isLoading: statusLoading, refreshStatuses } = useUserStatus({
+    userIds,
+    enabled: status === 'authenticated' && conversations.length > 0,
+  });
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     if (typeof window !== 'undefined' && window.localStorage) {
       const stored = localStorage.getItem('sidebarCollapsed:messages');
@@ -49,16 +64,46 @@ export default function MessagesPage() {
   }, [status, router]);
 
   useEffect(() => {
+    let filtered = conversations;
+    
     if (searchQuery.trim()) {
-      const filtered = conversations.filter(conv =>
-        conv.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        conv.username?.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      setFilteredConversations(filtered);
-    } else {
-      setFilteredConversations(conversations);
+      const searchTerms = searchQuery.toLowerCase().trim().split(/\s+/); // Split by whitespace to support multiple words
+      
+      filtered = conversations.filter(conv => {
+        // Searchable fields
+        const name = (conv.name || '').toLowerCase();
+        const username = (conv.username || '').toLowerCase();
+        const messageText = (conv.lastMessage?.text || '').toLowerCase();
+        
+        // Combined searchable text
+        const searchableContent = `${name} ${username} ${messageText}`;
+        
+        // Check if ALL search terms are found in any combination of the fields
+        return searchTerms.every(term => {
+          return name.includes(term) || 
+                 username.includes(term) || 
+                 messageText.includes(term) ||
+                 searchableContent.includes(term);
+        });
+      });
     }
-  }, [searchQuery, conversations]);
+
+    // Sort conversations: online users first, then by most recent message
+    const sorted = filtered.sort((a, b) => {
+      // Check online status directly from userStatuses to avoid function dependency
+      const aOnline = userStatuses[a.userId]?.isOnline || false;
+      const bOnline = userStatuses[b.userId]?.isOnline || false;
+      
+      // Online users first
+      if (aOnline && !bOnline) return -1;
+      if (!aOnline && bOnline) return 1;
+      
+      // Then by most recent message
+      return new Date(b.lastMessage.timestamp).getTime() - new Date(a.lastMessage.timestamp).getTime();
+    });
+
+    setFilteredConversations(sorted);
+  }, [searchQuery, conversations, userStatuses]); // Removed isUserOnline from dependencies
 
   const fetchConversations = async () => {
     try {
@@ -82,6 +127,21 @@ export default function MessagesPage() {
   const truncateMessage = (text: string, maxLength: number = 50) => {
     if (text.length <= maxLength) return text;
     return text.substring(0, maxLength) + '...';
+  };
+
+  // Function to highlight search terms in text
+  const highlightSearchTerms = (text: string, searchQuery: string) => {
+    if (!searchQuery.trim()) return text;
+    
+    const searchTerms = searchQuery.toLowerCase().trim().split(/\s+/);
+    let highlightedText = text;
+    
+    searchTerms.forEach(term => {
+      const regex = new RegExp(`(${term})`, 'gi');
+      highlightedText = highlightedText.replace(regex, '<mark class="bg-yellow-200 dark:bg-yellow-800 px-0.5 rounded">$1</mark>');
+    });
+    
+    return highlightedText;
   };
 
   if (status === 'loading') {
@@ -136,20 +196,56 @@ export default function MessagesPage() {
           <div className="container max-w-3xl mx-auto p-4">
             {/* Header */}
             <div className="mb-6">
-              <h1 className="text-3xl font-bold mb-2">Messages</h1>
-              <p className="text-muted-foreground">Your direct conversations</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-3xl font-bold mb-2">Messages</h1>
+                  <p className="text-muted-foreground">
+                    Your direct conversations
+                    {filteredConversations.length > 0 && (
+                      <span className="ml-2">
+                        • {Object.values(userStatuses).filter((status: any) => status?.isOnline).length} online
+                      </span>
+                    )}
+                  </p>
+                </div>
+                <button 
+                  onClick={refreshStatuses}
+                  disabled={statusLoading}
+                  className="text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
+                >
+                  {statusLoading ? 'Checking...' : 'Refresh status'}
+                </button>
+              </div>
             </div>
 
             {/* Search */}
-            <div className="mb-4 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Search conversations..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
+            <div className="mb-4 space-y-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Search people, usernames, or message content..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 pr-10"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+              {searchQuery.trim() && (
+                <div className="text-xs text-muted-foreground">
+                  {filteredConversations.length === 0 
+                    ? 'No results' 
+                    : `${filteredConversations.length} ${filteredConversations.length === 1 ? 'result' : 'results'} found`
+                  }
+                </div>
+              )}
             </div>
 
             {/* Conversations List */}
@@ -161,7 +257,7 @@ export default function MessagesPage() {
                 </h3>
                 <p className="text-sm text-muted-foreground">
                   {searchQuery
-                    ? 'Try a different search term'
+                    ? `No matches found for "${searchQuery}". Try searching for names, usernames, or message content.`
                     : 'Start a conversation by visiting someone\'s profile'}
                 </p>
               </Card>
@@ -174,20 +270,24 @@ export default function MessagesPage() {
                     onClick={() => handleConversationClick(conversation.userId)}
                   >
                     <div className="flex items-center gap-4">
-                      {/* Avatar */}
-                      <Avatar className="h-14 w-14 ring-2 ring-border">
-                        <AvatarImage src={conversation.image || ''} alt={conversation.name} />
-                        <AvatarFallback className="text-lg font-semibold">
-                          {conversation.name?.substring(0, 2).toUpperCase() || '??'}
-                        </AvatarFallback>
-                      </Avatar>
+                      {/* Avatar with Online Status */}
+                      <OnlineStatusAvatar
+                        src={conversation.image}
+                        alt={conversation.name}
+                        fallback={conversation.name?.substring(0, 2).toUpperCase() || '??'}
+                        isOnline={isUserOnline(conversation.userId)}
+                        size="md"
+                      />
 
                       {/* Content */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-1">
-                          <h3 className="font-semibold text-base truncate">
-                            {conversation.name}
-                          </h3>
+                          <h3 
+                            className="font-semibold text-base truncate"
+                            dangerouslySetInnerHTML={{
+                              __html: highlightSearchTerms(conversation.name, searchQuery)
+                            }}
+                          />
                           <span className="text-xs text-muted-foreground flex-shrink-0 ml-2">
                             {formatDistanceToNow(new Date(conversation.lastMessage.timestamp), { addSuffix: true })}
                           </span>
@@ -196,9 +296,12 @@ export default function MessagesPage() {
                           {conversation.lastMessage.isFromMe && (
                             <span className="text-xs text-muted-foreground">You:</span>
                           )}
-                          <p className="text-sm text-muted-foreground truncate">
-                            {truncateMessage(conversation.lastMessage.text)}
-                          </p>
+                          <p 
+                            className="text-sm text-muted-foreground truncate"
+                            dangerouslySetInnerHTML={{
+                              __html: highlightSearchTerms(truncateMessage(conversation.lastMessage.text), searchQuery)
+                            }}
+                          />
                         </div>
                       </div>
                     </div>

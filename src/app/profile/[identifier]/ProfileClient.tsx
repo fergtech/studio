@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { InitiativesListModal } from "@/components/initiatives/InitiativesListModal";
 import { Initiative, ContributionItem } from "@/lib/types";
-import { CalendarDays, Globe, Mail, MapPin, User2, Globe2, Link as LinkIcon, Edit2, Building2, School, Star, Users, MessageCircle, UserPlus, Settings, ExternalLink, Github, Linkedin, Globe as GlobeIcon, Coffee, Code, Palette, Rocket, Heart, Eye, TrendingUp, Clock, Award, Target, ChevronRight, Plus, Filter, CheckCircle, Lightbulb, AlertTriangle, Activity, Briefcase, BookOpen, MapPin as MapPinIcon, UserMinus, Users2, X, Save, MessageSquare } from 'lucide-react';
+import { CalendarDays, Globe, Mail, MapPin, User2, Globe2, Link as LinkIcon, Edit2, Building2, School, Star, Users, MessageCircle, UserPlus, Settings, ExternalLink, Github, Linkedin, Globe as GlobeIcon, Coffee, Code, Palette, Rocket, Heart, Eye, TrendingUp, Clock, Award, Target, ChevronRight, ChevronLeft, Plus, Filter, CheckCircle, Lightbulb, AlertTriangle, Activity, Briefcase, BookOpen, MapPin as MapPinIcon, UserMinus, Users2, X, Save, MessageSquare } from 'lucide-react';
 import { followUserAction, unfollowUserAction } from '@/app/actions/userActions';
 import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -55,6 +55,35 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
   const PAGE_SIZE = 20;
   const router = useRouter();
   const [isOnline, setIsOnline] = useState(false);
+
+  // Scroll refs for horizontal carousels
+  const createdProjectsScrollRef = useRef<HTMLDivElement>(null);
+  const participatingProjectsScrollRef = useRef<HTMLDivElement>(null);
+  const [showCreatedLeftArrow, setShowCreatedLeftArrow] = useState(false);
+  const [showCreatedRightArrow, setShowCreatedRightArrow] = useState(false);
+  const [showParticipatingLeftArrow, setShowParticipatingLeftArrow] = useState(false);
+  const [showParticipatingRightArrow, setShowParticipatingRightArrow] = useState(false);
+
+  // Scroll handlers
+  const handleScroll = (ref: React.RefObject<HTMLDivElement>, setShowLeft: (val: boolean) => void, setShowRight: (val: boolean) => void) => {
+    if (!ref.current) return;
+    const { scrollLeft, scrollWidth, clientWidth } = ref.current;
+    setShowLeft(scrollLeft > 10);
+    setShowRight(scrollLeft < scrollWidth - clientWidth - 10);
+  };
+
+  const scrollTo = (ref: React.RefObject<HTMLDivElement>, direction: 'left' | 'right') => {
+    if (!ref.current) return;
+    const scrollAmount = 320; // Card width (300px) + gap (20px)
+    const newPosition = direction === 'left'
+      ? ref.current.scrollLeft - scrollAmount
+      : ref.current.scrollLeft + scrollAmount;
+
+    ref.current.scrollTo({
+      left: newPosition,
+      behavior: 'smooth'
+    });
+  };
 
   // Inline editing state for skills and interests
   const [editingSkills, setEditingSkills] = useState(false);
@@ -474,6 +503,36 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Initialize scroll arrow visibility
+  useEffect(() => {
+    const checkScrollability = () => {
+      if (createdProjectsScrollRef.current) {
+        const { scrollWidth, clientWidth } = createdProjectsScrollRef.current;
+        setShowCreatedRightArrow(scrollWidth > clientWidth);
+        setShowCreatedLeftArrow(false); // Initially at start
+      }
+      if (participatingProjectsScrollRef.current) {
+        const { scrollWidth, clientWidth } = participatingProjectsScrollRef.current;
+        setShowParticipatingRightArrow(scrollWidth > clientWidth);
+        setShowParticipatingLeftArrow(false); // Initially at start
+      }
+    };
+
+    // Check immediately and after a small delay to ensure layout is complete
+    checkScrollability();
+    const timer1 = setTimeout(checkScrollability, 100);
+    const timer2 = setTimeout(checkScrollability, 300);
+
+    // Re-check on window resize
+    window.addEventListener('resize', checkScrollability);
+
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      window.removeEventListener('resize', checkScrollability);
+    };
+  }, [user.createdInitiatives, user.initiativeMemberships]);
+
   useEffect(() => {
     const handleSidebarChange = (event: CustomEvent) => {
       setSidebarCollapsed(event.detail.collapsed);
@@ -666,7 +725,7 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
 
       {/* Main Content with Tabs */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6">
-        <Tabs defaultValue="overview" className="w-full">
+        <Tabs defaultValue="posts" className="w-full">
           <div className="w-full overflow-x-auto scrollbar-hide mb-6">
             <TabsList className="flex bg-gray-100 dark:bg-gray-800 gap-1 p-1 rounded-lg min-w-max">
             <TabsTrigger value="overview" className="flex-shrink-0 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 min-w-max">
@@ -991,118 +1050,384 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
           </TabsContent>
 
           {/* Initiatives Tab */}
-          <TabsContent value="initiatives" className="space-y-6 mt-6">
+          <TabsContent value="initiatives" className="space-y-8 mt-6">
             {/* Created Initiatives */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <Rocket className="w-5 h-5" />
-                    Projects Created
-                  </CardTitle>
-                  {user.createdInitiatives && user.createdInitiatives.length > 5 && (
-                    <Button variant="outline" size="sm" onClick={() => setShowCreatedInitiativesModal(true)}>
-                      View All ({user.createdInitiatives.length})
-                    </Button>
+            <div>
+              <div className="flex items-center justify-between mb-4 px-1">
+                <h3 className="text-xl font-semibold flex items-center gap-2">
+                  <Rocket className="w-5 h-5 text-blue-600" />
+                  Projects Created
+                </h3>
+                {user.createdInitiatives && user.createdInitiatives.length > 5 && (
+                  <span className="text-sm text-gray-500">
+                    {user.createdInitiatives.length} total
+                  </span>
+                )}
+              </div>
+
+              {user.createdInitiatives && user.createdInitiatives.length > 0 ? (
+                <div className="relative group">
+                  {/* Left Arrow */}
+                  {showCreatedLeftArrow && (
+                    <button
+                      onClick={() => scrollTo(createdProjectsScrollRef, 'left')}
+                      className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-lg flex items-center justify-center transition-all duration-200 hover:bg-white dark:hover:bg-gray-800 hover:scale-110"
+                      aria-label="Scroll left"
+                    >
+                      <ChevronLeft className="w-6 h-6 text-gray-700 dark:text-gray-200" />
+                    </button>
                   )}
-                </div>
-              </CardHeader>
-              <CardContent>
-                {user.createdInitiatives && user.createdInitiatives.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {user.createdInitiatives.slice(0, 6).map((initiative: Initiative) => (
-                      <Link key={initiative.id} href={`/initiatives/${initiative.id}`}>
-                        <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                          <CardContent className="p-4">
-                            <div className="flex items-start gap-3">
-                              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center flex-shrink-0">
-                                <Rocket className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <h4 className="font-medium text-gray-900 dark:text-white truncate">
-                                  {initiative.title}
-                                </h4>
-                                <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mt-1">
-                                  {initiative.description}
-                                </p>
-                                <div className="flex items-center gap-2 mt-2">
-                                  <Badge variant="outline" className="text-xs">
-                                    {initiative.status}
-                                  </Badge>
-                                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                                    {initiative.memberships?.length || 0} members
-                                  </span>
+
+                  {/* Right Arrow */}
+                  {showCreatedRightArrow && (
+                    <button
+                      onClick={() => scrollTo(createdProjectsScrollRef, 'right')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-lg flex items-center justify-center transition-all duration-200 hover:bg-white dark:hover:bg-gray-800 hover:scale-110"
+                      aria-label="Scroll right"
+                    >
+                      <ChevronRight className="w-6 h-6 text-gray-700 dark:text-gray-200" />
+                    </button>
+                  )}
+
+                  {/* Gradient Fade Indicators */}
+                  {showCreatedLeftArrow && (
+                    <div className="absolute left-0 top-0 bottom-4 w-20 bg-gradient-to-r from-background to-transparent pointer-events-none z-[5]" />
+                  )}
+                  {showCreatedRightArrow && (
+                    <div className="absolute right-0 top-0 bottom-4 w-20 bg-gradient-to-l from-background to-transparent pointer-events-none z-[5]" />
+                  )}
+
+                  <div
+                    ref={createdProjectsScrollRef}
+                    onScroll={() => handleScroll(createdProjectsScrollRef, setShowCreatedLeftArrow, setShowCreatedRightArrow)}
+                    className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide"
+                  >
+                    {user.createdInitiatives.slice(0, 5).map((initiative: Initiative) => {
+                      const memberCount = initiative.memberships?.length || 0;
+                      const goalCount = initiative.goals?.length || 0;
+                      const completedGoals = initiative.goals?.filter(g => g.status === 'Completed').length || 0;
+                      const progressPercent = goalCount > 0 ? Math.round((completedGoals / goalCount) * 100) : 0;
+
+                      // Status gradient colors
+                      const statusGradient = initiative.status === 'InProgress'
+                        ? 'from-blue-500 to-blue-600'
+                        : initiative.status === 'Completed'
+                        ? 'from-green-500 to-green-600'
+                        : 'from-purple-500 to-purple-600';
+
+                      return (
+                        <Link key={initiative.id} href={`/initiatives/${initiative.id}`} className="flex-shrink-0 w-[300px] snap-center">
+                          <Card className="h-full hover:shadow-xl transition-all duration-300 hover:-translate-y-1 overflow-hidden group">
+                            {/* Cover Image/Gradient */}
+                            <div className={`h-32 bg-gradient-to-br ${statusGradient} relative overflow-hidden`}>
+                              {initiative.imageUrl ? (
+                                <img
+                                  src={initiative.imageUrl}
+                                  alt={initiative.title}
+                                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <Rocket className="w-12 h-12 text-white/30" />
                                 </div>
-                              </div>
+                              )}
+                              {/* Status Badge */}
+                              <Badge className="absolute top-2 right-2 bg-white/90 text-gray-900 backdrop-blur-sm">
+                                {initiative.status}
+                              </Badge>
                             </div>
+
+                            <CardContent className="p-4 space-y-3">
+                              {/* Title */}
+                              <h4 className="font-semibold text-base line-clamp-1 group-hover:text-blue-600 transition-colors">
+                                {initiative.title}
+                              </h4>
+
+                              {/* Description */}
+                              <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 min-h-[40px]">
+                                {initiative.description}
+                              </p>
+
+                              {/* Progress Bar */}
+                              {goalCount > 0 && (
+                                <div className="space-y-1">
+                                  <div className="flex justify-between text-xs text-gray-500">
+                                    <span>Progress</span>
+                                    <span className="font-medium">{progressPercent}%</span>
+                                  </div>
+                                  <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                    <div
+                                      className={`h-full bg-gradient-to-r ${statusGradient} transition-all duration-500`}
+                                      style={{ width: `${progressPercent}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Members & Metrics */}
+                              <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-700">
+                                <div className="flex items-center">
+                                  {initiative.memberships && initiative.memberships.slice(0, 3).length > 0 ? (
+                                    <div className="flex -space-x-2">
+                                      {initiative.memberships.slice(0, 3).map((member, idx) => (
+                                        <Avatar key={idx} className="w-6 h-6 border-2 border-white dark:border-gray-800">
+                                          <AvatarImage src={member.user.image || undefined} />
+                                          <AvatarFallback className="text-xs">{member.user.name?.[0]}</AvatarFallback>
+                                        </Avatar>
+                                      ))}
+                                      {memberCount > 3 && (
+                                        <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700 border-2 border-white dark:border-gray-800 flex items-center justify-center">
+                                          <span className="text-[10px] font-medium">+{memberCount - 3}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <span className="text-xs text-gray-500">{memberCount} members</span>
+                                  )}
+                                </div>
+
+                                <Badge variant="secondary" className="text-xs">
+                                  Creator
+                                </Badge>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </Link>
+                      );
+                    })}
+
+                    {/* View All Card */}
+                    {user.createdInitiatives && user.createdInitiatives.length > 5 && (
+                      <div
+                        onClick={() => setShowCreatedInitiativesModal(true)}
+                        className="flex-shrink-0 w-[300px] snap-center cursor-pointer"
+                      >
+                        <Card className="h-full hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 border-2 border-dashed">
+                          <CardContent className="h-full flex flex-col items-center justify-center p-8 text-center">
+                            <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center mb-4">
+                              <Rocket className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                            </div>
+                            <h4 className="font-semibold text-lg mb-2">View All Projects</h4>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                              See all {user.createdInitiatives.length} projects
+                            </p>
+                            <Button variant="outline" size="sm">
+                              View All
+                            </Button>
                           </CardContent>
                         </Card>
-                      </Link>
-                    ))}
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  <p className="text-gray-500 dark:text-gray-400 text-center py-8">
-                    {isOwnProfile ? "You haven't created any initiatives yet." : "This user hasn't created any initiatives yet."}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
+                </div>
+              ) : (
+                <Card>
+                  <CardContent className="py-12">
+                    <div className="text-center">
+                      <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-4">
+                        <Rocket className="w-8 h-8 text-gray-400" />
+                      </div>
+                      <p className="text-gray-500 dark:text-gray-400">
+                        {isOwnProfile ? "You haven't created any projects yet." : "This user hasn't created any projects yet."}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
 
             {/* Participating Initiatives */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <Users className="w-5 h-5" />
-                    Participating In
-                  </CardTitle>
-                  {user.initiativeMemberships && user.initiativeMemberships.length > 5 && (
-                    <Button variant="outline" size="sm" onClick={() => setShowParticipatingInModal(true)}>
-                      View All ({user.initiativeMemberships.length})
-                    </Button>
+            <div>
+              <div className="flex items-center justify-between mb-4 px-1">
+                <h3 className="text-xl font-semibold flex items-center gap-2">
+                  <Users className="w-5 h-5 text-green-600" />
+                  Participating In
+                </h3>
+                {user.initiativeMemberships && user.initiativeMemberships.length > 5 && (
+                  <span className="text-sm text-gray-500">
+                    {user.initiativeMemberships.length} total
+                  </span>
+                )}
+              </div>
+
+              {user.initiativeMemberships && user.initiativeMemberships.length > 0 ? (
+                <div className="relative group">
+                  {/* Left Arrow */}
+                  {showParticipatingLeftArrow && (
+                    <button
+                      onClick={() => scrollTo(participatingProjectsScrollRef, 'left')}
+                      className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-lg flex items-center justify-center transition-all duration-200 hover:bg-white dark:hover:bg-gray-800 hover:scale-110"
+                      aria-label="Scroll left"
+                    >
+                      <ChevronLeft className="w-6 h-6 text-gray-700 dark:text-gray-200" />
+                    </button>
                   )}
-                </div>
-              </CardHeader>
-              <CardContent>
-                {user.initiativeMemberships && user.initiativeMemberships.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {user.initiativeMemberships.slice(0, 6).map((membership: any) => (
-                      <Link key={membership.initiative.id} href={`/initiatives/${membership.initiative.id}`}>
-                        <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                          <CardContent className="p-4">
-                            <div className="flex items-start gap-3">
-                              <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center flex-shrink-0">
-                                <Users className="w-6 h-6 text-green-600 dark:text-green-400" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <h4 className="font-medium text-gray-900 dark:text-white truncate">
-                                  {membership.initiative.title}
-                                </h4>
-                                <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mt-1">
-                                  {membership.initiative.description}
-                                </p>
-                                <div className="flex items-center gap-2 mt-2">
-                                  <Badge variant="outline" className="text-xs">
-                                    {membership.role}
-                                  </Badge>
-                                  <Badge variant="outline" className="text-xs">
-                                    {membership.initiative.status}
-                                  </Badge>
+
+                  {/* Right Arrow */}
+                  {showParticipatingRightArrow && (
+                    <button
+                      onClick={() => scrollTo(participatingProjectsScrollRef, 'right')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-lg flex items-center justify-center transition-all duration-200 hover:bg-white dark:hover:bg-gray-800 hover:scale-110"
+                      aria-label="Scroll right"
+                    >
+                      <ChevronRight className="w-6 h-6 text-gray-700 dark:text-gray-200" />
+                    </button>
+                  )}
+
+                  {/* Gradient Fade Indicators */}
+                  {showParticipatingLeftArrow && (
+                    <div className="absolute left-0 top-0 bottom-4 w-20 bg-gradient-to-r from-background to-transparent pointer-events-none z-[5]" />
+                  )}
+                  {showParticipatingRightArrow && (
+                    <div className="absolute right-0 top-0 bottom-4 w-20 bg-gradient-to-l from-background to-transparent pointer-events-none z-[5]" />
+                  )}
+
+                  <div
+                    ref={participatingProjectsScrollRef}
+                    onScroll={() => handleScroll(participatingProjectsScrollRef, setShowParticipatingLeftArrow, setShowParticipatingRightArrow)}
+                    className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide"
+                  >
+                    {user.initiativeMemberships.slice(0, 5).map((membership: any) => {
+                      const initiative = membership.initiative;
+                      const memberCount = initiative.memberships?.length || 0;
+                      const goalCount = initiative.goals?.length || 0;
+                      const completedGoals = initiative.goals?.filter((g: any) => g.status === 'Completed').length || 0;
+                      const progressPercent = goalCount > 0 ? Math.round((completedGoals / goalCount) * 100) : 0;
+
+                      // Status gradient colors
+                      const statusGradient = initiative.status === 'InProgress'
+                        ? 'from-green-500 to-emerald-600'
+                        : initiative.status === 'Completed'
+                        ? 'from-green-500 to-green-600'
+                        : 'from-teal-500 to-cyan-600';
+
+                      // Role color
+                      const roleColor = membership.role === 'ADMIN'
+                        ? 'bg-orange-500 text-white'
+                        : membership.role === 'CONTRIBUTOR'
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-gray-500 text-white';
+
+                      return (
+                        <Link key={initiative.id} href={`/initiatives/${initiative.id}`} className="flex-shrink-0 w-[300px] snap-center">
+                          <Card className="h-full hover:shadow-xl transition-all duration-300 hover:-translate-y-1 overflow-hidden group">
+                            {/* Cover Image/Gradient */}
+                            <div className={`h-32 bg-gradient-to-br ${statusGradient} relative overflow-hidden`}>
+                              {initiative.imageUrl ? (
+                                <img
+                                  src={initiative.imageUrl}
+                                  alt={initiative.title}
+                                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <Users className="w-12 h-12 text-white/30" />
                                 </div>
-                              </div>
+                              )}
+                              {/* Status Badge */}
+                              <Badge className="absolute top-2 right-2 bg-white/90 text-gray-900 backdrop-blur-sm">
+                                {initiative.status}
+                              </Badge>
                             </div>
+
+                            <CardContent className="p-4 space-y-3">
+                              {/* Title */}
+                              <h4 className="font-semibold text-base line-clamp-1 group-hover:text-green-600 transition-colors">
+                                {initiative.title}
+                              </h4>
+
+                              {/* Description */}
+                              <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 min-h-[40px]">
+                                {initiative.description}
+                              </p>
+
+                              {/* Progress Bar */}
+                              {goalCount > 0 && (
+                                <div className="space-y-1">
+                                  <div className="flex justify-between text-xs text-gray-500">
+                                    <span>Progress</span>
+                                    <span className="font-medium">{progressPercent}%</span>
+                                  </div>
+                                  <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                    <div
+                                      className={`h-full bg-gradient-to-r ${statusGradient} transition-all duration-500`}
+                                      style={{ width: `${progressPercent}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Members & Role */}
+                              <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-700">
+                                <div className="flex items-center">
+                                  {initiative.memberships && initiative.memberships.slice(0, 3).length > 0 ? (
+                                    <div className="flex -space-x-2">
+                                      {initiative.memberships.slice(0, 3).map((member: any, idx: number) => (
+                                        <Avatar key={idx} className="w-6 h-6 border-2 border-white dark:border-gray-800">
+                                          <AvatarImage src={member.user.image || undefined} />
+                                          <AvatarFallback className="text-xs">{member.user.name?.[0]}</AvatarFallback>
+                                        </Avatar>
+                                      ))}
+                                      {memberCount > 3 && (
+                                        <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700 border-2 border-white dark:border-gray-800 flex items-center justify-center">
+                                          <span className="text-[10px] font-medium">+{memberCount - 3}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <span className="text-xs text-gray-500">{memberCount} members</span>
+                                  )}
+                                </div>
+
+                                <Badge className={`text-xs ${roleColor}`}>
+                                  {membership.role}
+                                </Badge>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </Link>
+                      );
+                    })}
+
+                    {/* View All Card */}
+                    {user.initiativeMemberships && user.initiativeMemberships.length > 5 && (
+                      <div
+                        onClick={() => setShowParticipatingInModal(true)}
+                        className="flex-shrink-0 w-[300px] snap-center cursor-pointer"
+                      >
+                        <Card className="h-full hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 border-2 border-dashed">
+                          <CardContent className="h-full flex flex-col items-center justify-center p-8 text-center">
+                            <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center mb-4">
+                              <Users className="w-8 h-8 text-green-600 dark:text-green-400" />
+                            </div>
+                            <h4 className="font-semibold text-lg mb-2">View All Projects</h4>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                              See all {user.initiativeMemberships.length} projects
+                            </p>
+                            <Button variant="outline" size="sm">
+                              View All
+                            </Button>
                           </CardContent>
                         </Card>
-                      </Link>
-                    ))}
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  <p className="text-gray-500 dark:text-gray-400 text-center py-8">
-                    {isOwnProfile ? "You aren't participating in any initiatives yet." : "This user isn't participating in any initiatives yet."}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
+                </div>
+              ) : (
+                <Card>
+                  <CardContent className="py-12">
+                    <div className="text-center">
+                      <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-4">
+                        <Users className="w-8 h-8 text-gray-400" />
+                      </div>
+                      <p className="text-gray-500 dark:text-gray-400">
+                        {isOwnProfile ? "You aren't participating in any projects yet." : "This user isn't participating in any projects yet."}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           </TabsContent>
 
           {/* Societies Tab */}

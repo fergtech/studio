@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Target, Users, CheckCircle2, Calendar, X, MessageSquare, Lightbulb } from "lucide-react";
+import { Target, Users, CheckCircle2, Calendar, X, MessageSquare, Lightbulb, RefreshCw } from "lucide-react";
 import type { Initiative, Member } from "@/lib/types";
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -20,6 +20,8 @@ interface InitiativeSidebarProps {
   onToggle?: () => void;
   onToggleChat: () => void;
   isChatOpen: boolean;
+  isMember?: boolean; // NEW: Control visibility of sensitive sections
+  currentUserId?: string; // For admin check
 }
 
 interface InitiativeStats {
@@ -37,6 +39,8 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
   onToggle,
   onToggleChat,
   isChatOpen,
+  isMember = false, // Default to false for safety
+  currentUserId,
 }) => {
   // Stats state
   const [stats, setStats] = useState<InitiativeStats | null>(null);
@@ -44,6 +48,12 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
   const [isGeneratingGuidance, setIsGeneratingGuidance] = useState(false);
   const [currentGuidance, setCurrentGuidance] = useState<string | null>(initiative.aiGuidance ?? null);
   const [guidanceError, setGuidanceError] = useState<string | null>(null);
+
+  // Check if current user is admin or creator
+  const isAdmin = currentUserId && (
+    initiative.creator?.id === currentUserId ||
+    members.some(m => m.id === currentUserId && m.role === 'ADMIN')
+  );
   
   // Description truncation logic
   const [showFullDescription, setShowFullDescription] = useState(false);
@@ -75,7 +85,7 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
 
     setIsGeneratingGuidance(true);
     setGuidanceError(null);
-    
+
     try {
       const response = await fetch('/api/initiatives/generate-guidance', {
         method: 'POST',
@@ -93,6 +103,35 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
         }
       } else {
         setGuidanceError('Failed to generate guidance. Please try again.');
+      }
+    } catch (error) {
+      setGuidanceError('Network error. Please check your connection and try again.');
+    } finally {
+      setIsGeneratingGuidance(false);
+    }
+  };
+
+  const handleRefreshGuidance = async () => {
+    setIsGeneratingGuidance(true);
+    setGuidanceError(null);
+
+    try {
+      const response = await fetch('/api/initiatives/generate-guidance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ initiativeId: initiative.id, forceRegenerate: true })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.guidance) {
+          setCurrentGuidance(data.guidance);
+          setIsAiGuidanceDialogOpen(true);
+        } else {
+          setGuidanceError(data.error || 'Failed to refresh guidance');
+        }
+      } else {
+        setGuidanceError('Failed to refresh guidance. Please try again.');
       }
     } catch (error) {
       setGuidanceError('Network error. Please check your connection and try again.');
@@ -194,78 +233,118 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
         </CardContent>
       </Card>
 
-      {/* About Card */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>About</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="whitespace-pre-line text-sm text-muted-foreground">
-            {displayedDescription || 'No description provided.'}
-            {isLongDescription && (
-              <button
-                className="ml-2 text-primary underline text-xs focus:outline-none"
-                onClick={() => setShowFullDescription(v => !v)}
+      {/* Member-Only Sections */}
+      {isMember ? (
+        <>
+          {/* About Card */}
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>About</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="whitespace-pre-line text-sm text-muted-foreground">
+                {displayedDescription || 'No description provided.'}
+                {isLongDescription && (
+                  <button
+                    className="ml-2 text-primary underline text-xs focus:outline-none"
+                    onClick={() => setShowFullDescription(v => !v)}
+                  >
+                    {showFullDescription ? 'Show less' : 'Show more'}
+                  </button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* AI Guidance Card */}
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Lightbulb className="h-4 w-4 mr-2 text-muted-foreground" />
+                AI Guidance
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {currentGuidance && isAdmin ? (
+                // Show both View and Refresh buttons for admins when guidance exists
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={handleGenerateGuidance}
+                    disabled={isGeneratingGuidance}
+                  >
+                    <Lightbulb className="h-4 w-4 mr-2" />
+                    View
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handleRefreshGuidance}
+                    disabled={isGeneratingGuidance}
+                    title="Regenerate AI Guidance"
+                  >
+                    <RefreshCw className={cn("h-4 w-4", isGeneratingGuidance && "animate-spin")} />
+                  </Button>
+                </div>
+              ) : (
+                // Single button for non-admins or when no guidance exists
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={handleGenerateGuidance}
+                  disabled={isGeneratingGuidance}
+                >
+                  <Lightbulb className="h-4 w-4 mr-2" />
+                  {isGeneratingGuidance
+                    ? 'Generating...'
+                    : currentGuidance
+                      ? 'View AI Guidance'
+                      : 'Generate AI Guidance'
+                  }
+                </Button>
+              )}
+              {guidanceError && (
+                <div className="mt-2 text-xs text-red-500 text-center">
+                  {guidanceError}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Related Issues & Ideas Section */}
+          <RelatedIssuesIdeasSection initiativeId={initiative.id} />
+
+          {/* Chat Toggle Card */}
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>Communication</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={onToggleChat}
               >
-                {showFullDescription ? 'Show less' : 'Show more'}
-              </button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+                <MessageSquare className="h-4 w-4 mr-2" />
+                {isChatOpen ? 'Close Chat' : 'Open Chat'}
+              </Button>
+            </CardContent>
+          </Card>
+        </>
+      ) : (
+        <Card className="mb-6">
+          <CardContent className="pt-6 text-center">
+            <Users className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
+            <h3 className="font-semibold mb-2">Member-Only Content</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Join this project to view the full description, AI guidance, updates, goals, and chat with other members!
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
-      {/* AI Guidance Card */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Lightbulb className="h-4 w-4 mr-2 text-muted-foreground" />
-            AI Guidance
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={handleGenerateGuidance}
-            disabled={isGeneratingGuidance}
-          >
-            <Lightbulb className="h-4 w-4 mr-2" />
-            {isGeneratingGuidance 
-              ? 'Generating...' 
-              : currentGuidance 
-                ? 'View AI Guidance' 
-                : 'Generate AI Guidance'
-            }
-          </Button>
-          {guidanceError && (
-            <div className="mt-2 text-xs text-red-500 text-center">
-              {guidanceError}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Related Issues & Ideas Section */}
-      <RelatedIssuesIdeasSection initiativeId={initiative.id} />
-
-      {/* Chat Toggle Card */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Communication</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Button 
-            variant="outline" 
-            className="w-full" 
-            onClick={onToggleChat}
-          >
-            <MessageSquare className="h-4 w-4 mr-2" />
-            {isChatOpen ? 'Close Chat' : 'Open Chat'}
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* Members Card */}
+      {/* Participants Card - Always visible */}
       <Card>
         <CardHeader>
           <CardTitle>Participants</CardTitle>

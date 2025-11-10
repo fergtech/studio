@@ -22,10 +22,11 @@ export const UNLOCK_THRESHOLDS = {
   },
 
   // SECONDARY PATH: User proves general engagement → Can create initiatives freely
+  // UPDATE: Made immediate for all users to encourage collaborative projects
   INITIATIVE_FROM_ACTIVITY: {
-    MIN_ACTIVITY_SCORE: 100,     // Higher bar for general unlock
-    MIN_DEBATES_CREATED: 3,       // Created at least 3 debates
-    MIN_ARGUMENTS_POSTED: 10,     // Posted at least 10 arguments
+    MIN_ACTIVITY_SCORE: 0,     // Immediate access - no activity required
+    MIN_DEBATES_CREATED: 0,    // Immediate access - no debates required
+    MIN_ARGUMENTS_POSTED: 0,   // Immediate access - no arguments required
   },
 
   // ============================================

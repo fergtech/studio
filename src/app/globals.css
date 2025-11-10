@@ -11,6 +11,16 @@ body {
   display: none;
 }
 
+/* Hide scrollbar utility class */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari and Opera */
+}
+
 /* Ensure content isn't blocked by bottom nav */
 .page-container {
   padding-bottom: 8rem; /* Increased from 6rem (pb-24) to 8rem (pb-32) */

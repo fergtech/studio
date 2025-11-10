@@ -4,6 +4,8 @@ import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useModal } from '@/context/ModalContext';
+import { X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 const CreateInitiativeForm = dynamic(() => import('@/components/CreateInitiativeForm').then(mod => ({ default: mod.CreateInitiativeForm })), {
   ssr: false,
@@ -64,19 +66,32 @@ export function GlobalModals() {
     <>
       {/* Create Initiative Modal */}
       <Dialog open={createInitiativeModal.isOpen} onOpenChange={(isOpen) => !isOpen && closeCreateInitiativeModal()}>
-        <DialogContent className="w-[95vw] max-w-[600px] max-h-[85vh] sm:max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="w-[95vw] max-w-[600px] max-h-[85vh] sm:max-h-[90vh] flex flex-col p-0">
+          {/* Sticky Header with Close Button */}
+          <DialogHeader className="sticky top-0 z-50 bg-background border-b px-6 py-4 flex flex-row items-center justify-between">
             <DialogTitle>Create New Initiative</DialogTitle>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={closeCreateInitiativeModal}
+              className="h-6 w-6 p-0 hover:bg-muted"
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close</span>
+            </Button>
           </DialogHeader>
-          <CreateInitiativeForm 
-            setOpen={closeCreateInitiativeModal} 
-            onCreated={handleFeedItemCreated}
-            initialTitle={createInitiativeModal.initialTitle}
-            initialDescription={createInitiativeModal.initialDescription}
-            initialImageUrl={createInitiativeModal.initialImageUrl}
-            originatingIssueId={createInitiativeModal.originatingIssueId}
-            originatingIdeaId={createInitiativeModal.originatingIdeaId}
-          />
+          {/* Scrollable Content */}
+          <div className="overflow-y-auto flex-1 px-6 pb-6">
+            <CreateInitiativeForm 
+              setOpen={closeCreateInitiativeModal} 
+              onCreated={handleFeedItemCreated}
+              initialTitle={createInitiativeModal.initialTitle}
+              initialDescription={createInitiativeModal.initialDescription}
+              initialImageUrl={createInitiativeModal.initialImageUrl}
+              originatingIssueId={createInitiativeModal.originatingIssueId}
+              originatingIdeaId={createInitiativeModal.originatingIdeaId}
+            />
+          </div>
         </DialogContent>
       </Dialog>
 

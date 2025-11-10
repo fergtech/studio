@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 import { useParams, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Target, User, Flag, CheckCircle2, Calendar, AlertCircle, Plus, Clock, Users } from 'lucide-react';
+import { ArrowLeft, Target, User, Flag, CheckCircle2, Calendar, AlertCircle, Plus, Clock, Users, RefreshCw } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,6 +24,7 @@ import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { CalendarIcon } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
 
 import type { Goal, Action, Initiative, GoalStatus, Priority, StepStatus } from '@/lib/types';
 import { getGoalDetails, getInitiativeDetailsForGoalPage, getRelatedActions } from '@/app/actions/goalActions';
@@ -216,8 +217,60 @@ export default function GoalDetailPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [suggestedActions, setSuggestedActions] = useState<Array<{ title: string; description: string }>>([]);
   const [selectedSuggestedAction, setSelectedSuggestedAction] = useState<{ title: string; description: string } | null>(null);
+  const [isLoadingActions, setIsLoadingActions] = useState(false);
+  const [actionsFromCache, setActionsFromCache] = useState(false);
 
   const { data: session } = useSession();
+  const { toast } = useToast();
+
+  // ============================================
+  // localStorage Helper Functions for Actions
+  // ============================================
+
+  const getCachedActions = (goalId: string) => {
+    try {
+      const cacheKey = `aiActions_${goalId}`;
+      const cached = localStorage.getItem(cacheKey);
+      if (!cached) return null;
+
+      const parsed = JSON.parse(cached);
+      const now = Date.now();
+
+      // Check if cache is expired (7 days)
+      if (parsed.expiresAt && now > parsed.expiresAt) {
+        localStorage.removeItem(cacheKey);
+        return null;
+      }
+
+      return parsed.actions;
+    } catch (error) {
+      console.error('Error reading cached actions:', error);
+      return null;
+    }
+  };
+
+  const setCachedActions = (goalId: string, actions: Array<{ title: string; description: string }>) => {
+    try {
+      const cacheKey = `aiActions_${goalId}`;
+      const cacheData = {
+        actions,
+        timestamp: Date.now(),
+        expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000), // 7 days
+      };
+      localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+    } catch (error) {
+      console.error('Error caching actions:', error);
+    }
+  };
+
+  const clearCachedActions = (goalId: string) => {
+    try {
+      const cacheKey = `aiActions_${goalId}`;
+      localStorage.removeItem(cacheKey);
+    } catch (error) {
+      console.error('Error clearing cached actions:', error);
+    }
+  };
 
   // Fetch goal data
   useEffect(() => {
@@ -329,23 +382,45 @@ export default function GoalDetailPage() {
     fetchInitiativeMembers();
   }, [params.id]);
 
-  // Fetch suggested actions
+  // Fetch suggested actions with localStorage caching
   useEffect(() => {
-    const fetchSuggestedActions = async () => {
+    const fetchSuggestedActions = async (forceRefresh = false) => {
       const goalId = params.goalId as string;
       if (!goalId) return;
-      
+
+      // Check cache first unless force refresh
+      if (!forceRefresh) {
+        const cached = getCachedActions(goalId);
+        if (cached) {
+          console.log('Using cached suggested actions for goal:', goalId);
+          setSuggestedActions(cached);
+          setActionsFromCache(true);
+          return;
+        }
+      }
+
+      // Fetch from API
+      console.log('Fetching suggested actions from API for goal:', goalId);
+      setIsLoadingActions(true);
+      setActionsFromCache(false);
+
       try {
         const response = await fetch(`/api/goals/${goalId}/suggest-actions`);
         if (response.ok) {
           const data = await response.json();
           setSuggestedActions(data);
+
+          // Cache the results
+          setCachedActions(goalId, data);
         } else {
+          console.error('Failed to fetch suggested actions:', response.statusText);
           setSuggestedActions([]);
         }
       } catch (error) {
         console.error('Error fetching suggested actions:', error);
         setSuggestedActions([]);
+      } finally {
+        setIsLoadingActions(false);
       }
     };
 
@@ -399,6 +474,46 @@ export default function GoalDetailPage() {
       setSelectedDate(date);
       setNewAction({ ...newAction, dueDate: date.toISOString() });
       setDueDatePickerOpen(false); // Close the popover after selection
+    }
+  };
+
+  const handleRefreshActions = async () => {
+    const goalId = params.goalId as string;
+    if (!goalId) return;
+
+    setIsLoadingActions(true);
+    setActionsFromCache(false);
+    clearCachedActions(goalId);
+
+    try {
+      const response = await fetch(`/api/goals/${goalId}/suggest-actions`);
+      if (response.ok) {
+        const data = await response.json();
+        setSuggestedActions(data);
+        setCachedActions(goalId, data);
+
+        toast({
+          title: "Actions refreshed!",
+          description: "New AI-suggested actions have been generated.",
+        });
+      } else {
+        console.error('Failed to fetch suggested actions:', response.statusText);
+        setSuggestedActions([]);
+        toast({
+          title: "Failed to refresh actions",
+          description: "Please try again later.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error refreshing actions:', error);
+      toast({
+        title: "Error refreshing actions",
+        description: "Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingActions(false);
     }
   };
 
@@ -582,10 +697,29 @@ export default function GoalDetailPage() {
               {suggestedActions.length > 0 && (
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">AI Suggestions</CardTitle>
-                    <CardDescription>
-                      Here are some recommended actions to help achieve this goal
-                    </CardDescription>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="text-lg">AI Suggestions</CardTitle>
+                        <CardDescription>
+                          Here are some recommended actions to help achieve this goal
+                        </CardDescription>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {actionsFromCache && (
+                          <span className="text-xs text-muted-foreground">Cached</span>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleRefreshActions}
+                          disabled={isLoadingActions}
+                          className="h-8"
+                        >
+                          <RefreshCw className={cn("h-4 w-4", isLoadingActions && "animate-spin")} />
+                          <span className="ml-1 text-xs">Refresh</span>
+                        </Button>
+                      </div>
+                    </div>
                   </CardHeader>
                   <CardContent>
                     <div className="flex gap-2 flex-wrap">

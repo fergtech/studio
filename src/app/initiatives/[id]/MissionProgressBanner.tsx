@@ -26,7 +26,7 @@ export function MissionProgressBanner({ initiative, milestones, onContributeClic
       <CardContent className="p-6">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="space-y-2 flex-1 max-w-3xl">
-            <h2 className="text-xl font-semibold">Mission Progress</h2>
+            <h2 className="text-xl font-semibold">Group Progress</h2>
             <div className="space-y-1">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Overall Progress</span>

@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useState, useEffect } from 'react';
-import { useSSE } from './useSSE';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useSession } from 'next-auth/react';
 import { useToast } from '@/components/ui/use-toast';
 
 interface Notification {
@@ -17,85 +17,88 @@ interface Notification {
 export function useNotifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [isPolling, setIsPolling] = useState(false);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const { data: session } = useSession();
   const { toast } = useToast();
 
-  const handleSSEMessage = useCallback((data: any) => {
-    console.log('SSE message received:', data.type);
-    
-    if (data.type === 'new_notifications' && data.data) {
-      const newNotifications = data.data as Notification[];
+  // Check if user is online (simple heuristic)
+  const [isConnected, setIsConnected] = useState(true);
+
+  // Monitor online status
+  useEffect(() => {
+    const handleOnline = () => setIsConnected(true);
+    const handleOffline = () => setIsConnected(false);
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online', handleOnline);
+      window.addEventListener('offline', handleOffline);
       
-      // Only process if we have new notifications
-      if (newNotifications.length > 0) {
-        // Add new notifications to state
-        setNotifications(prev => {
-          const existingIds = new Set(prev.map(n => n.id));
-          const uniqueNew = newNotifications.filter(n => !existingIds.has(n.id));
+      // Initial check
+      setIsConnected(navigator.onLine);
+
+      return () => {
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
+      };
+    }
+  }, []);
+
+  // Polling logic in a single effect
+  useEffect(() => {
+    // Don't start polling if no session or offline
+    if (!session?.user?.id || !isConnected) {
+      return;
+    }
+
+    console.log('Starting notification polling');
+    setIsPolling(true);
+
+    const poll = async () => {
+      try {
+        const response = await fetch('/api/notifications?limit=10');
+        if (response.ok) {
+          const newNotifications = await response.json();
           
-          // Show toast for truly new notifications
-          uniqueNew.forEach(notification => {
-            toast({
-              title: notification.title,
-              description: notification.message,
-            });
+          setNotifications(prev => {
+            // If it's the same data, don't update
+            if (JSON.stringify(prev) === JSON.stringify(newNotifications)) {
+              return prev;
+            }
+            return newNotifications;
           });
-          
-          if (uniqueNew.length > 0) {
-            return [
-              ...uniqueNew,
-              ...prev
-            ].slice(0, 50); // Keep only latest 50 notifications
-          }
-          return prev; // No changes if no new notifications
-        });
 
-        // Update unread count only for truly new notifications
-        const existingIds = new Set(notifications.map(n => n.id));
-        const trulyNew = newNotifications.filter(n => !existingIds.has(n.id));
-        if (trulyNew.length > 0) {
-          setUnreadCount(prev => prev + trulyNew.length);
+          // Update unread count
+          const newUnreadCount = newNotifications.filter((n: Notification) => !n.read).length;
+          setUnreadCount(newUnreadCount);
+        } else {
+          console.warn('Failed to fetch notifications:', response.status);
         }
+      } catch (error) {
+        console.error('Polling error:', error);
       }
-    } else if (data.type === 'connected') {
-      console.log('SSE connected for notifications');
-    } else if (data.type === 'heartbeat') {
-      // Heartbeat - no action needed
-    } else if (data.type === 'error') {
-      console.error('SSE error:', data.message);
-    }
-  }, [toast, notifications]);
+    };
 
-  // Re-enable SSE with fixed endpoint and proper deduplication
-  const { isConnected, isPolling, error } = useSSE({
-    url: '/api/sse/notifications',
-    onMessage: handleSSEMessage,
-    enablePollingFallback: true,
-    pollingUrl: '/api/notifications?limit=10',
-    pollingInterval: 45000, // Increased to 45s to avoid conflicts with SSE
-    maxReconnectAttempts: 3,
-    reconnectDelay: 5000,
-    onConnect: () => {
-      console.log('Notifications SSE connected');
-    },
-    onError: (error) => {
-      // Try to extract useful info from the error event
-      let errorMsg = 'Unknown SSE error';
-      if (error && typeof error === 'object') {
-        if ('type' in error) errorMsg = `SSE error type: ${error.type}`;
-        if ('message' in error) errorMsg += `, message: ${error.message}`;
-        if ('data' in error) errorMsg += `, data: ${error.data}`;
-      }
-      // Only log if there's useful info
-      if (errorMsg !== 'Unknown SSE error' || (error && Object.keys(error).length > 0)) {
-        console.error('Notifications SSE error:', errorMsg, error);
-      }
-      // Optionally, show a toast to the user
-      // toast({ title: 'Notification connection error', description: 'Live notifications may be unavailable.' });
-    }
-  });
+    // Initial poll
+    poll();
 
-  // Fetch initial notifications
+    // Set up polling interval (every 2 minutes instead of 30 seconds)
+    const intervalId = setInterval(poll, 120000);
+    pollingIntervalRef.current = intervalId;
+
+    // Cleanup function
+    return () => {
+      console.log('Stopping notification polling');
+      clearInterval(intervalId);
+      pollingIntervalRef.current = null;
+      setIsPolling(false);
+    };
+  }, [session?.user?.id, isConnected]); // Simple dependencies
+
+  // Manual fetch function for external use
   const fetchNotifications = useCallback(async () => {
+    if (!session?.user?.id) return;
+    
     try {
       const response = await fetch('/api/notifications?limit=10');
       if (response.ok) {
@@ -106,12 +109,7 @@ export function useNotifications() {
     } catch (error) {
       console.error('Error fetching notifications:', error);
     }
-  }, []);
-
-  // Initial fetch
-  useEffect(() => {
-    fetchNotifications();
-  }, [fetchNotifications]);
+  }, [session?.user?.id]);
 
   // Mark notification as read
   const markAsRead = useCallback(async (notificationId: string) => {
@@ -155,7 +153,6 @@ export function useNotifications() {
     unreadCount,
     isConnected,
     isPolling,
-    error,
     fetchNotifications,
     markAsRead,
     markAllAsRead

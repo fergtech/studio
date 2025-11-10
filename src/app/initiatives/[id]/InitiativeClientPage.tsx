@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Send, X, CheckCircle, Paperclip, ExternalLink, TrendingUp, Pin, ThumbsUp, PartyPopper, Heart, Lightbulb, Share2, Image as ImageIcon, Archive, UserPlus, Plus, MessageSquare, Twitter, Facebook, Link2, Edit, Menu, Trash2, Download, Info, RefreshCw } from 'lucide-react';
+import { Send, X, CheckCircle, Paperclip, ExternalLink, TrendingUp, Pin, ThumbsUp, PartyPopper, Heart, Lightbulb, Share2, Image as ImageIcon, Archive, UserPlus, Plus, MessageSquare, Twitter, Facebook, Link2, Edit, Menu, Trash2, Download, Info, RefreshCw, Users } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDistanceToNow } from 'date-fns';
@@ -888,8 +888,8 @@ export function InitiativeClientPage({
       {/* Fixed Initiative Sidebar for Desktop - matches society pattern */}
       {!isMobile && (
         <div className="fixed right-4 top-6 z-30 w-80 h-[calc(100vh-3rem)] overflow-y-auto bg-background/95 backdrop-blur-sm border rounded-lg shadow-lg p-4">
-          <InitiativeSidebar 
-            initiative={initiative} 
+          <InitiativeSidebar
+            initiative={initiative}
             members={initiative.memberships?.map(mem => ({
               id: mem.user.id,
               name: mem.user.name || 'Unknown',
@@ -899,10 +899,12 @@ export function InitiativeClientPage({
               customRole: mem.customRole || null,
               joinedAt: new Date(),
               lastActive: mem.user.lastActive,
-            })) || []} 
+            })) || []}
             isMobile={isMobile}
             onToggleChat={() => setIsChatOpen(!isChatOpen)}
             isChatOpen={isChatOpen}
+            isMember={isMember}
+            currentUserId={userId}
           />
         </div>
       )}
@@ -918,8 +920,8 @@ export function InitiativeClientPage({
       
       {/* Mobile Initiative Sidebar - only render when mobile and needed */}
       {isMobile && (
-        <InitiativeSidebar 
-          initiative={initiative} 
+        <InitiativeSidebar
+          initiative={initiative}
           members={initiative.memberships?.map(mem => ({
             id: mem.user.id,
             name: mem.user.name || 'Unknown',
@@ -929,12 +931,14 @@ export function InitiativeClientPage({
             customRole: mem.customRole || null,
             joinedAt: new Date(),
             lastActive: mem.user.lastActive,
-          })) || []} 
+          })) || []}
           isMobile={isMobile}
           isOpen={isSidebarOpen}
           onToggle={() => setIsSidebarOpen(false)}
           onToggleChat={() => setIsChatOpen(!isChatOpen)}
           isChatOpen={isChatOpen}
+          isMember={isMember}
+          currentUserId={userId}
         />
       )}
 
@@ -1100,17 +1104,14 @@ export function InitiativeClientPage({
               isMember={isMember}
             />
 
-            {/* Goals Section */}
+            {/* Goals Section - Member Only */}
+            {isMember && (
             <div className="mb-8">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-2xl font-semibold">Goals</h2>
-                {isMember ? (
-                  <Button onClick={() => setIsCreateGoalDialogOpen(true)}>
-                    <Plus className="mr-2 h-4 w-4" /> Add Goal
-                  </Button>
-                ) : (
-                  <span className="text-xs text-muted-foreground">Join to create goals!</span>
-                )}
+                <Button onClick={() => setIsCreateGoalDialogOpen(true)}>
+                  <Plus className="mr-2 h-4 w-4" /> Add Goal
+                </Button>
               </div>
               {initiative.goals && initiative.goals.length > 0 ? (
                 <ScrollArea className="w-full">
@@ -1123,7 +1124,7 @@ export function InitiativeClientPage({
                         : 0;
                       return (
                         <Link key={goal.id} href={`/initiatives/${initiativeId}/goals/${goal.id}`} passHref>
-                          <Card className="min-w-[300px] flex-shrink-0 cursor-pointer hover:shadow-lg transition-shadow relative">
+                          <Card className="min-w-[300px] max-w-[298px] flex-shrink-0 cursor-pointer hover:shadow-lg transition-shadow relative">
                             <CardHeader>
                               <CardTitle className="text-base">{goal.title}</CardTitle>
                               <CardDescription className="line-clamp-2">{goal.description}</CardDescription>
@@ -1229,26 +1230,17 @@ export function InitiativeClientPage({
                   ) : (
                     suggestedGoals.map((goal, index) => (
                     <SuggestedGoalTag
-                      key={index} // Using index as key here, consider a unique ID if available
+                      key={index}
                       title={goal.title}
                       description={goal.description}
-                      onClick={() => {
-                        if (!isMember) {
-                          toast({
-                            title: "Join to create goals!",
-                            description: "You need to join this initiative to create a goal.",
-                            variant: "destructive",
-                          });
-                          return;
-                        }
-                        handleSuggestedGoalClick(goal);
-                      }}
+                      onClick={() => handleSuggestedGoalClick(goal)}
                     />
                   ))
                   )}
                 </div>
               </div>
             </div>
+            )}
 
             {/* Updates Section */}
             <div className="space-y-4 mx-auto" style={{ maxWidth: '700px' }}>
@@ -1344,31 +1336,41 @@ export function InitiativeClientPage({
                       }
                     }}
                   />
+
+                  {/* Updates Feed - Only visible to members */}
+                  {localUpdates && localUpdates.length > 0 ? (
+                    <div className="space-y-4">
+                      {localUpdates.map((update) => (
+                        <UpdateCard
+                          key={update.id}
+                          update={update}
+                          currentUserId={userId}
+                          onDelete={handleDeleteUpdate}
+                          onResponse={(parentId, parentContent) => {
+                            setRespondingTo({ id: parentId, content: parentContent });
+                            // Scroll to top where the form is
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <Card className="bg-muted/50">
+                      <CardContent className="p-6 text-center">
+                        <p className="text-muted-foreground">No updates yet</p>
+                        <p className="text-sm mt-2">Be the first to share progress!</p>
+                      </CardContent>
+                    </Card>
+                  )}
                 </>
-              ) : (
-                <div className="text-xs text-muted-foreground mb-2">Join to post updates or interact!</div>
-              )}
-              {localUpdates && localUpdates.length > 0 ? (
-                <div className="space-y-4">
-                  {localUpdates.map((update) => (
-                    <UpdateCard
-                      key={update.id}
-                      update={update}
-                      currentUserId={userId}
-                      onDelete={handleDeleteUpdate}
-                      onResponse={(parentId, parentContent) => {
-                        setRespondingTo({ id: parentId, content: parentContent });
-                        // Scroll to top where the form is
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                      }}
-                    />
-                  ))}
-                </div>
               ) : (
                 <Card className="bg-muted/50">
                   <CardContent className="p-6 text-center">
-                    <p className="text-muted-foreground">No updates yet</p>
-                    <p className="text-sm mt-2">Be the first to share progress!</p>
+                    <Users className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
+                    <h3 className="font-semibold mb-2">Join to View Updates</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Become a member to see project updates and participate in discussions!
+                    </p>
                   </CardContent>
                 </Card>
               )}
@@ -1464,14 +1466,16 @@ export function InitiativeClientPage({
           />
         )}
 
-        {/* Chat Panel */}
-        <ChatPanel
-          isOpen={isChatOpen}
-          onClose={() => setIsChatOpen(false)}
-          initiativeId={initiative.id}
-          currentUserId={userId}
-          mode="modal" // You can make this dynamic: mode={chatMode}
-        />
+        {/* Chat Panel - Members Only */}
+        {isMember && (
+          <ChatPanel
+            isOpen={isChatOpen}
+            onClose={() => setIsChatOpen(false)}
+            initiativeId={initiative.id}
+            currentUserId={userId}
+            mode="modal" // You can make this dynamic: mode={chatMode}
+          />
+        )}
       </div>
     </div>
     </>

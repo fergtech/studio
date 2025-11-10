@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Home, Plus, User, Settings, LogOut, Sun, Moon, Search, MessageSquare, Target, Users, Lightbulb, AlertTriangle, FileText, X, Bell } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Home, Plus, User, Settings, LogOut, Sun, Moon, Search, MessageSquare, Target, Users, Lightbulb, AlertTriangle, FileText, X, Bell, Shield } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -46,6 +46,29 @@ export function BottomNavBar() {
   const { theme, setTheme } = useTheme();
   const [showSearch, setShowSearch] = useState(false);
   const [showCreateSheet, setShowCreateSheet] = useState(false);
+  const [userRoles, setUserRoles] = useState<{ isAdmin: boolean; isModerator: boolean } | null>(null);
+
+  // Fetch user roles when session is available
+  useEffect(() => {
+    const fetchUserRoles = async () => {
+      if (session?.user?.id) {
+        try {
+          const response = await fetch('/api/user/me');
+          if (response.ok) {
+            const userData = await response.json();
+            setUserRoles({
+              isAdmin: userData.isAdmin || false,
+              isModerator: userData.isModerator || false
+            });
+          }
+        } catch (error) {
+          console.error('Failed to fetch user roles:', error);
+        }
+      }
+    };
+
+    fetchUserRoles();
+  }, [session?.user?.id]);
 
   const handleSignOut = () => {
     signOut({ callbackUrl: '/' });
@@ -149,7 +172,7 @@ export function BottomNavBar() {
                   <span>Messages</span>
                 </DropdownMenuItem>
               </Link>
-              <NotificationBell />
+              <NotificationBell asMenuItem />
               <DropdownMenuSeparator />
               <DropdownMenuItem className="cursor-pointer" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
                 <Sun className="mr-2 h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
@@ -162,6 +185,14 @@ export function BottomNavBar() {
                   <span>Settings</span>
                 </DropdownMenuItem>
               </Link>
+              {(userRoles?.isModerator || userRoles?.isAdmin) && (
+                  <DropdownMenuItem asChild>
+                    <Link href={`/admin/moderation`}>
+                      <Shield className="h-4 w-4 mr-2" />
+                      Moderation
+                    </Link>
+                  </DropdownMenuItem>
+                )}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
                 <LogOut className="mr-2 h-4 w-4" />
@@ -265,7 +296,7 @@ export function BottomNavBar() {
                     <span>Messages</span>
                   </DropdownMenuItem>
                 </Link>
-                <NotificationBell />
+                <NotificationBell asMenuItem />
                 
                 <DropdownMenuSeparator />
                 <DropdownMenuItem className="cursor-pointer" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
@@ -279,6 +310,14 @@ export function BottomNavBar() {
                     <span>Settings</span>
                   </DropdownMenuItem>
                 </Link>
+                {(userRoles?.isModerator || userRoles?.isAdmin) && (
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin/moderation">
+                      <Shield className="mr-2 h-4 w-4" />
+                      <span>Moderation</span>
+                    </Link>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
                   <LogOut className="mr-2 h-4 w-4" />

@@ -961,7 +961,7 @@ export function InitiativeClientPage({
 
       <div className={`relative min-h-screen transition-all duration-300 ${
         sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'
-      } lg:pr-[22rem]`}>
+      } lg:pr-[22rem] pb-16 md:pb-0`}>
         <div className="container mx-auto p-0 sm:p-4">
         {/* Header Card */}
         <Card className="mb-6 rounded-none border-x-0 border-t-0">

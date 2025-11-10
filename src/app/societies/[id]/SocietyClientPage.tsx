@@ -755,7 +755,7 @@ export function SocietyClientPage({ society: initialSociety, members, posts: ini
 
       <div className={`relative min-h-screen transition-all duration-300 ${
         sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'
-      } lg:pr-[22rem]`}>
+      } lg:pr-[22rem] pb-16 md:pb-0`}>
         {/* Overlay for Mobile Sidebar */}
         {isMobile && isSidebarOpen && (
           <div

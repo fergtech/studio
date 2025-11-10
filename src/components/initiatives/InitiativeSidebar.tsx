@@ -177,7 +177,7 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
   if (isMobile) {
     computedCardClassName = cn(
       'transition-transform duration-300 ease-in-out',
-      'fixed top-0 right-0 bottom-0 z-50 w-80 bg-background overflow-y-auto shadow-xl border-l',
+      'fixed top-0 right-0 bottom-16 z-50 w-80 bg-background overflow-y-auto shadow-xl border-l',
       isOpen ? 'transform translate-x-0' : 'transform translate-x-full pointer-events-none',
     );
   } else {

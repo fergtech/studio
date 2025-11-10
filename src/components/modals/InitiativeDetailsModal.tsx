@@ -144,10 +144,10 @@ export function InitiativeDetailsModal({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 pb-20 md:pb-4"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="w-full max-w-2xl max-h-[85vh] bg-background border border-border rounded-2xl shadow-2xl flex flex-col">
+            <div className="w-full max-w-2xl max-h-full bg-background border border-border rounded-2xl shadow-2xl flex flex-col">
               {/* Header */}
               <div className="flex items-center justify-between p-6 border-b border-border">
                 <div className="flex items-center gap-3">

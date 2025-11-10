@@ -381,7 +381,7 @@ export function DebateDetailsSheet({
                   className="flex-1 h-10"
                 >
                   <MessageCircle className="w-4 h-4 mr-2" />
-                  Comments
+                  Arguments
                 </Button>
                 <Button
                   onClick={handleShare}

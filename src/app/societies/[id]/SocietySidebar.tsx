@@ -37,7 +37,7 @@ export function SocietySidebar({ society, members, isMobile, isOpen, onToggle }:
   if (isMobile) {
     computedCardClassName = [
       'transition-transform duration-300 ease-in-out',
-      'fixed top-0 left-0 bottom-0 z-50 w-80 bg-background overflow-y-auto shadow-xl',
+      'fixed top-0 left-0 bottom-16 z-50 w-80 bg-background overflow-y-auto shadow-xl',
       isOpen ? 'transform translate-x-0' : 'transform -translate-x-full pointer-events-none',
     ].join(' ');
   } else {

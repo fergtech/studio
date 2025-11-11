@@ -6,42 +6,45 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, CheckCircle, ArrowLeft } from 'lucide-react';
+import { AlertCircle, CheckCircle, ArrowLeft, Copy, ExternalLink } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
 
 export default function ForgotPasswordPage() {
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
+  const [resetUrl, setResetUrl] = useState('');
+  const [expiresAt, setExpiresAt] = useState('');
+  const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setSuccess(false);
+    setResetUrl('');
 
-    if (!email) {
-      setError('Please enter your email address');
+    if (!identifier) {
+      setError('Please enter your email or username');
       return;
     }
 
     setLoading(true);
 
     try {
-      const response = await fetch('/api/auth/forgot-password', {
+      const response = await fetch('/api/auth/request-password-reset-link', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ identifier }),
       });
 
       const data = await response.json();
 
-      if (response.ok) {
-        setSuccess(true);
-        setEmail('');
+      if (response.ok && data.hasLink) {
+        setResetUrl(data.resetUrl);
+        setExpiresAt(data.expiresAt);
       } else {
-        setError(data.error || 'Failed to send password reset email');
+        setError(data.message || data.error || 'Account not found or uses social login');
       }
     } catch (err) {
       setError('An unexpected error occurred. Please try again.');
@@ -49,6 +52,18 @@ export default function ForgotPasswordPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(resetUrl);
+    toast({
+      title: 'Copied!',
+      description: 'Reset link copied to clipboard',
+    });
+  };
+
+  const openInNewTab = () => {
+    window.open(resetUrl, '_blank');
   };
 
   return (
@@ -66,46 +81,75 @@ export default function ForgotPasswordPage() {
           </div>
           <CardTitle className="text-2xl">Forgot Password?</CardTitle>
           <CardDescription>
-            No worries! Enter your email and we'll send you a link to reset your password.
+            Enter your email or username to get a password reset link.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {success ? (
-            <Alert className="border-green-200 bg-green-50">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <AlertDescription className="text-green-800">
-                <strong>Check your email!</strong>
-                <p className="mt-1">
-                  We've sent a password reset link to <strong>{email || 'your email'}</strong>.
-                  The link will expire in 1 hour.
-                </p>
-                <p className="mt-2 text-sm">
-                  Didn't receive the email? Check your spam folder or{' '}
-                  <button
-                    onClick={() => setSuccess(false)}
-                    className="font-medium underline hover:text-green-700"
+          {resetUrl ? (
+            <div className="space-y-4">
+              <Alert className="border-green-200 bg-green-50">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <AlertDescription className="text-green-800">
+                  <strong>Reset link generated!</strong>
+                  <p className="mt-1 text-sm">
+                    Click the link below or copy it. The link expires in 1 hour.
+                  </p>
+                </AlertDescription>
+              </Alert>
+
+              <div className="space-y-3">
+                <div className="p-4 bg-gray-100 rounded-lg border border-gray-200 break-all text-sm">
+                  {resetUrl}
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    onClick={copyToClipboard}
+                    variant="outline"
+                    className="flex-1"
                   >
-                    try again
-                  </button>
-                  .
-                </p>
-              </AlertDescription>
-            </Alert>
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copy Link
+                  </Button>
+                  <Button
+                    onClick={openInNewTab}
+                    className="flex-1"
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Open Link
+                  </Button>
+                </div>
+
+                <Button
+                  onClick={() => {
+                    setResetUrl('');
+                    setIdentifier('');
+                  }}
+                  variant="ghost"
+                  className="w-full"
+                >
+                  Generate Another Link
+                </Button>
+              </div>
+            </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <label htmlFor="email" className="text-sm font-medium">
-                  Email Address
+                <label htmlFor="identifier" className="text-sm font-medium">
+                  Email or Username
                 </label>
                 <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  id="identifier"
+                  type="text"
+                  placeholder="you@example.com or username"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
                   required
                   disabled={loading}
                 />
+                <p className="text-xs text-gray-500">
+                  Enter either your email address or username
+                </p>
               </div>
 
               {error && (
@@ -116,7 +160,7 @@ export default function ForgotPasswordPage() {
               )}
 
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? 'Sending...' : 'Send Reset Link'}
+                {loading ? 'Generating...' : 'Get Reset Link'}
               </Button>
 
               <div className="text-center text-sm text-gray-600">

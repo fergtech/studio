@@ -14,7 +14,7 @@ export async function sendPasswordResetEmail(
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'Studio <onboarding@resend.dev>', // For testing. Update to your verified domain in production
+      from: 'Society+ <admin@societyplus.app>',
       to: [email],
       subject: 'Reset Your Password',
       html: `

@@ -474,7 +474,7 @@ export default function EditProfileForm({ user }: EditProfileFormProps) {
                   <PasswordResetButton email={user.email || ''} />
                 </div>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Click the button above to receive a password reset link via email
+                  Click the button above to generate a secure password reset link
                 </p>
               </div>
 

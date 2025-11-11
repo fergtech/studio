@@ -93,6 +93,18 @@ model User {
   socialPosts           SocialPost[]           @relation("UserSocialPosts")
 }
 
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  used      Boolean  @default(false)
+
+  @@index([email])
+  @@index([token])
+}
+
 model Initiative {
   id                 String                 @id @default(cuid())
   title              String

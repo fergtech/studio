@@ -14,6 +14,7 @@ import { MapPin } from 'lucide-react';
 
 import LocationInput from '@/components/LocationInput';
 import { ResolvedLocation } from '@/services/location';
+import PasswordResetButton from '@/components/PasswordResetButton';
 
 interface EditProfileUser {
   id: string;
@@ -462,6 +463,19 @@ export default function EditProfileForm({ user }: EditProfileFormProps) {
                     suppressHydrationWarning
                   />
                 </div>
+              </div>
+
+              {/* Password Reset */}
+              <div className="col-span-full">
+                <label htmlFor="password" className="block text-sm font-medium leading-6">
+                  Password
+                </label>
+                <div className="mt-2">
+                  <PasswordResetButton email={user.email || ''} />
+                </div>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Click the button above to receive a password reset link via email
+                </p>
               </div>
 
               {/* Gender */}

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSemanticAnalyzer } from '@/services/semanticAnalyzer';
 
+export const dynamic = 'force-dynamic';
+
 // Available Lucide icon names that we can use
 const AVAILABLE_ICONS = [
   'Home', 'Car', 'Bus', 'Plane', 'Bike', 'Train',

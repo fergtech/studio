@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic';
+
 // Cache for 60 seconds to balance freshness with performance
 export const revalidate = 60; // Revalidate every 60 seconds
 

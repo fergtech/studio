@@ -550,6 +550,285 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
   return (
     <div className="min-h-screen bg-background">
       <div className="w-full">
+        {/* Mobile Profile View - Only visible on mobile */}
+        <div className="lg:hidden">
+          {/* Mobile Header */}
+          <div className="bg-gray-900 dark:bg-gray-900 border-b border-gray-800 h-[69px] fixed top-0 left-0 right-0 z-50">
+            <div className="flex items-center justify-between h-full px-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => router.back()}
+                className="text-white hover:bg-gray-800"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+              <h1 className="text-lg font-semibold text-white">Profile</h1>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-white hover:bg-gray-800"
+              >
+                <Settings className="h-5 w-5" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Mobile Profile Content */}
+          <div className="pt-[69px] pb-[85px] bg-gray-900 dark:bg-gray-900 min-h-screen">
+            {/* Profile Header Section */}
+            <div className="px-4 pt-6 pb-8">
+              {/* Avatar */}
+              <div className="flex justify-center mb-7">
+                <div className="relative">
+                  <Avatar className="h-24 w-24 border-2 border-gray-700">
+                    <AvatarImage src={user.image || undefined} alt={user.name || 'User'} />
+                    <AvatarFallback className="text-2xl">{user.name?.charAt(0).toUpperCase() || '?'}</AvatarFallback>
+                  </Avatar>
+                  {isOnline && (
+                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 border-2 border-gray-900 rounded-full flex items-center justify-center">
+                      <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Name & Info */}
+              <div className="text-center space-y-2 mb-6">
+                <h2 className="text-2xl font-bold text-white">{user.name}</h2>
+                <p className="text-base text-gray-400">@{user.username}</p>
+                <p className="text-sm font-medium text-gray-300">{user.profession || user.bio?.slice(0, 50) || 'Member'}</p>
+                
+                {/* Location & Join Date */}
+                <div className="flex items-center justify-center gap-6 text-sm text-gray-400 pt-2">
+                  <div className="flex items-center gap-1.5">
+                    <MapPinIcon className="w-3.5 h-3.5" />
+                    <span>
+                      {(() => {
+                        const hasLocationSet = user.location || user.city;
+                        if (user.showLocation) {
+                          if (user.location) {
+                            try {
+                              const parsedLocation = JSON.parse(user.location);
+                              return parsedLocation.displayName?.split(',')[0] || 'Location';
+                            } catch {
+                              return user.location.split(',')[0] || 'Location';
+                            }
+                          }
+                          if (user.city) return user.city.split(',')[0];
+                        } else if (hasLocationSet) {
+                          return 'Hidden';
+                        }
+                        return 'Not set';
+                      })()}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <CalendarDays className="w-3.5 h-3.5" />
+                    <span>Joined {new Date(user.dateCreated).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 justify-center">
+                {isOwnProfile ? (
+                  <Button 
+                    onClick={() => router.push(`/profile/${user.id}/edit`)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 h-[42px] rounded-lg font-medium"
+                  >
+                    <Edit2 className="w-4 h-4 mr-2" />
+                    Edit Profile
+                  </Button>
+                ) : (
+                  <>
+                    <Button 
+                      onClick={isFollowing ? handleUnfollow : handleFollow}
+                      disabled={isFollowLoading}
+                      className="bg-blue-600 hover:bg-blue-700 text-white h-[42px] rounded-lg font-medium flex-1 max-w-[120px]"
+                    >
+                      {isFollowing ? 'Following' : 'Follow'}
+                    </Button>
+                    <Button 
+                      variant="outline"
+                      onClick={() => router.push(`/chat/${user.id}`)}
+                      className="bg-gray-800 border-gray-700 text-white hover:bg-gray-700 h-[42px] rounded-lg font-medium flex-1 max-w-[140px]"
+                    >
+                      Message
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Impact Overview Section */}
+            <div className="px-4 pb-8">
+              <div className="bg-gray-800/50 border border-gray-700/50 rounded-2xl p-6">
+                <h3 className="text-lg font-semibold text-white text-center mb-6">Impact Overview</h3>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Initiatives Created */}
+                  <div className="bg-gray-900/50 border border-gray-700/30 rounded-xl p-4 text-center">
+                    <div className="w-10 h-10 bg-blue-600/20 rounded-lg flex items-center justify-center mx-auto mb-3">
+                      <Rocket className="w-5 h-5 text-blue-400" />
+                    </div>
+                    <div className="text-2xl font-bold text-white mb-1">{communityStats.initiativesCreated}</div>
+                    <div className="text-xs text-gray-400 leading-tight">
+                      Initiatives<br />Created
+                    </div>
+                  </div>
+
+                  {/* Initiatives Joined */}
+                  <div className="bg-gray-900/50 border border-gray-700/30 rounded-xl p-4 text-center">
+                    <div className="w-10 h-10 bg-green-600/20 rounded-lg flex items-center justify-center mx-auto mb-3">
+                      <Users className="w-5 h-5 text-green-400" />
+                    </div>
+                    <div className="text-2xl font-bold text-white mb-1">{communityStats.initiativesJoined}</div>
+                    <div className="text-xs text-gray-400 leading-tight">
+                      Initiatives<br />Joined
+                    </div>
+                  </div>
+
+                  {/* Total Contributions */}
+                  <div className="bg-gray-900/50 border border-gray-700/30 rounded-xl p-4 text-center">
+                    <div className="w-10 h-10 bg-purple-600/20 rounded-lg flex items-center justify-center mx-auto mb-3">
+                      <Activity className="w-5 h-5 text-purple-400" />
+                    </div>
+                    <div className="text-2xl font-bold text-white mb-1">{communityStats.totalContributions}</div>
+                    <div className="text-xs text-gray-400 leading-tight">
+                      Total<br />Contributions
+                    </div>
+                  </div>
+
+                  {/* Circle Members */}
+                  <div className="bg-gray-900/50 border border-gray-700/30 rounded-xl p-4 text-center">
+                    <div className="w-10 h-10 bg-orange-600/20 rounded-lg flex items-center justify-center mx-auto mb-3">
+                      <Users2 className="w-5 h-5 text-orange-400" />
+                    </div>
+                    <div className="text-2xl font-bold text-white mb-1">
+                      {communityStats.followers > 999 ? `${(communityStats.followers / 1000).toFixed(1)}K` : communityStats.followers}
+                    </div>
+                    <div className="text-xs text-gray-400 leading-tight">
+                      Circle<br />Members
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Recent Activity Section */}
+            <div className="px-4">
+              <h3 className="text-lg font-semibold text-white mb-4">Recent Activity</h3>
+              
+              <div className="space-y-3">
+                {visibleActivityItems.slice(0, 3).map((item: ContributionItem, index: number) => {
+                  // Determine activity type and icon
+                  const activityType = item.title.toLowerCase();
+                  let iconBg = 'bg-blue-600/20';
+                  let iconColor = 'text-blue-400';
+                  let IconComponent = Rocket;
+
+                  if (activityType.includes('joined')) {
+                    iconBg = 'bg-green-600/20';
+                    iconColor = 'text-green-400';
+                    IconComponent = Users;
+                  } else if (activityType.includes('contribution') || activityType.includes('added')) {
+                    iconBg = 'bg-purple-600/20';
+                    iconColor = 'text-purple-400';
+                    IconComponent = Activity;
+                  }
+
+                  return (
+                    <div key={index} className="bg-gray-800/30 border border-gray-700/30 rounded-xl p-4">
+                      <div className="flex gap-3">
+                        <div className={`w-8 h-8 ${iconBg} rounded-lg flex items-center justify-center flex-shrink-0`}>
+                          <IconComponent className={`w-4 h-4 ${iconColor}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-white mb-1">{item.title}</p>
+                          {item.details && (
+                            <p className="text-xs text-gray-400 line-clamp-2 mb-2">{item.details}</p>
+                          )}
+                          <p className="text-xs text-gray-500">
+                            {(() => {
+                              const now = new Date();
+                              const itemDate = new Date(item.date);
+                              const diffInHours = Math.floor((now.getTime() - itemDate.getTime()) / (1000 * 60 * 60));
+                              const diffInDays = Math.floor(diffInHours / 24);
+                              
+                              if (diffInHours < 1) return 'Just now';
+                              if (diffInHours < 24) return `${diffInHours} hours ago`;
+                              if (diffInDays === 1) return '1 day ago';
+                              if (diffInDays < 7) return `${diffInDays} days ago`;
+                              return itemDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                            })()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {activityFeed.length === 0 && (
+                  <div className="bg-gray-800/30 border border-gray-700/30 rounded-xl p-8 text-center">
+                    <Activity className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                    <p className="text-gray-400 text-sm">
+                      {isOwnProfile ? "No recent activity yet" : "This user has no recent activity"}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Mobile Bottom Navigation */}
+          <div className="fixed bottom-0 left-0 right-0 bg-gray-900 dark:bg-gray-900 border-t border-gray-800 h-[69px] z-50">
+            <div className="flex items-center justify-around h-full px-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => router.push('/')}
+                className="text-gray-400 hover:text-white hover:bg-gray-800"
+              >
+                <Activity className="h-5 w-5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => router.push('/explore')}
+                className="text-gray-400 hover:text-white hover:bg-gray-800"
+              >
+                <Globe className="h-5 w-5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => router.push('/initiatives/create')}
+                className="text-gray-400 hover:text-white hover:bg-gray-800"
+              >
+                <Plus className="h-5 w-5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => router.push('/activity')}
+                className="text-gray-400 hover:text-white hover:bg-gray-800"
+              >
+                <MessageCircle className="h-5 w-5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-blue-500 hover:text-blue-400 hover:bg-gray-800"
+              >
+                <User2 className="h-5 w-5" />
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop Profile View - Hidden on mobile */}
+        <div className="hidden lg:block">
         {/* Main Profile Content */}
         <div className={`px-4 lg:px-6 pt-20 lg:pt-6 pb-32 transition-all duration-300 ${
           sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'
@@ -1861,6 +2140,7 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
           </div>
         </DialogContent>
       </Dialog>
+        </div>
         </div>
       </div>
     </div>

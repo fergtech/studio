@@ -22,8 +22,6 @@ import { Button } from '../ui/button';
 import { SearchModal } from '../SearchModal';
 import { CreateDrawerModal } from './CreateDrawerModal';
 import NotificationBell from '@/components/NotificationBell';
-import { useNotifications } from '@/hooks/useNotifications';
-import { Badge } from '@/components/ui/badge';
 
 // Mock user avatars matching main feed pattern
 const mockUserAvatars: Record<string, string | undefined> = {
@@ -49,7 +47,6 @@ export function BottomNavBar() {
   const [showSearch, setShowSearch] = useState(false);
   const [showCreateSheet, setShowCreateSheet] = useState(false);
   const [userRoles, setUserRoles] = useState<{ isAdmin: boolean; isModerator: boolean } | null>(null);
-  const { unreadCount } = useNotifications();
 
   // Fetch user roles when session is available
   useEffect(() => {
@@ -140,30 +137,11 @@ export function BottomNavBar() {
           <span className="text-xs">Create</span>
         </button>
 
-        {/* Conditional 5th Button: Notifications (logged in) / Projects (logged out) */}
-        {isLoading ? (
-          <div className="h-8 w-8 bg-muted rounded-full animate-pulse" />
-        ) : session?.user ? (
-          <Link href="/notifications" className={cn("flex flex-col items-center gap-1 text-muted-foreground transition-colors relative", pathname === '/notifications' && 'text-primary')}>
-            <div className="relative">
-              <Bell className="h-6 w-6" />
-              {unreadCount > 0 && (
-                <Badge
-                  variant="destructive"
-                  className="absolute -top-2 -right-2 h-4 w-4 rounded-full p-0 flex items-center justify-center text-[10px] font-semibold"
-                >
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </Badge>
-              )}
-            </div>
-            <span className="text-xs">Alerts</span>
-          </Link>
-        ) : (
-          <Link href="/initiatives" className={cn("flex flex-col items-center gap-1 text-muted-foreground transition-colors", pathname === '/initiatives' && 'text-primary')}>
-            <Target className="h-6 w-6" />
-            <span className="text-xs">Projects</span>
-          </Link>
-        )}
+        {/* Projects Button */}
+        <Link href="/initiatives" className={cn("flex flex-col items-center gap-1 text-muted-foreground transition-colors", pathname === '/initiatives' && 'text-primary')}>
+          <Target className="h-6 w-6" />
+          <span className="text-xs">Projects</span>
+        </Link>
 
         {/* Profile Popover */}
         {isLoading ? (

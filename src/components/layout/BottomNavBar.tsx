@@ -22,6 +22,8 @@ import { Button } from '../ui/button';
 import { SearchModal } from '../SearchModal';
 import { CreateDrawerModal } from './CreateDrawerModal';
 import NotificationBell from '@/components/NotificationBell';
+import { useNotifications } from '@/hooks/useNotifications';
+import { Badge } from '@/components/ui/badge';
 
 // Mock user avatars matching main feed pattern
 const mockUserAvatars: Record<string, string | undefined> = {
@@ -47,6 +49,7 @@ export function BottomNavBar() {
   const [showSearch, setShowSearch] = useState(false);
   const [showCreateSheet, setShowCreateSheet] = useState(false);
   const [userRoles, setUserRoles] = useState<{ isAdmin: boolean; isModerator: boolean } | null>(null);
+  const { unreadCount } = useNotifications();
 
   // Fetch user roles when session is available
   useEffect(() => {
@@ -117,6 +120,11 @@ export function BottomNavBar() {
           <span className="text-xs">Home</span>
         </Link>
 
+        <Link href="/explore" className={cn("flex flex-col items-center gap-1 text-muted-foreground transition-colors", pathname === '/explore' && 'text-primary')}>
+          <Search className="h-6 w-6" />
+          <span className="text-xs">Explore</span>
+        </Link>
+
         {/* Create Button */}
         <button
           suppressHydrationWarning={true}
@@ -132,10 +140,30 @@ export function BottomNavBar() {
           <span className="text-xs">Create</span>
         </button>
 
-        <Link href="/explore" className={cn("flex flex-col items-center gap-1 text-muted-foreground transition-colors", pathname === '/explore' && 'text-primary')}>
-          <Search className="h-6 w-6" />
-          <span className="text-xs">Explore</span>
-        </Link>
+        {/* Conditional 5th Button: Notifications (logged in) / Projects (logged out) */}
+        {isLoading ? (
+          <div className="h-8 w-8 bg-muted rounded-full animate-pulse" />
+        ) : session?.user ? (
+          <Link href="/notifications" className={cn("flex flex-col items-center gap-1 text-muted-foreground transition-colors relative", pathname === '/notifications' && 'text-primary')}>
+            <div className="relative">
+              <Bell className="h-6 w-6" />
+              {unreadCount > 0 && (
+                <Badge
+                  variant="destructive"
+                  className="absolute -top-2 -right-2 h-4 w-4 rounded-full p-0 flex items-center justify-center text-[10px] font-semibold"
+                >
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </Badge>
+              )}
+            </div>
+            <span className="text-xs">Alerts</span>
+          </Link>
+        ) : (
+          <Link href="/initiatives" className={cn("flex flex-col items-center gap-1 text-muted-foreground transition-colors", pathname === '/initiatives' && 'text-primary')}>
+            <Target className="h-6 w-6" />
+            <span className="text-xs">Projects</span>
+          </Link>
+        )}
 
         {/* Profile Popover */}
         {isLoading ? (
@@ -145,9 +173,9 @@ export function BottomNavBar() {
             <DropdownMenuTrigger asChild>
               <button className={cn("flex flex-col items-center gap-1 text-muted-foreground transition-colors", (pathname.startsWith('/u/') || pathname.startsWith('/profile')) && 'text-primary')}>
                 <Avatar className="h-10 w-10">
-                    <AvatarImage 
-                      src={getAvatarUrl(session.user.id, session.user.image)} 
-                      alt={session.user.name || 'User'} 
+                    <AvatarImage
+                      src={getAvatarUrl(session.user.id, session.user.image)}
+                      alt={session.user.name || 'User'}
                     />
                     <AvatarFallback>{getInitials(session.user.name)}</AvatarFallback>
                   </Avatar>
@@ -236,18 +264,6 @@ export function BottomNavBar() {
             </Button>
           </Link>
 
-          {/* Create Button with subtle animation */}
-          <div className="relative mx-1">
-            <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping" style={{ animationDuration: '3s' }} />
-            <Button
-              onClick={() => setShowCreateSheet(true)}
-              className="relative rounded-full gap-2 bg-gradient-to-br from-primary via-primary to-primary/90 hover:shadow-lg transition-all"
-            >
-              <Plus className="h-4 w-4" />
-              <span className="text-sm font-medium">Create</span>
-            </Button>
-          </div>
-
           {/* Explore */}
           <Link href="/explore">
             <Button
@@ -262,6 +278,18 @@ export function BottomNavBar() {
               <span className="text-sm">Explore</span>
             </Button>
           </Link>
+
+          {/* Create Button with subtle animation */}
+          <div className="relative mx-1">
+            <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping" style={{ animationDuration: '3s' }} />
+            <Button
+              onClick={() => setShowCreateSheet(true)}
+              className="relative rounded-full gap-2 bg-gradient-to-br from-primary via-primary to-primary/90 hover:shadow-lg transition-all"
+            >
+              <Plus className="h-4 w-4" />
+              <span className="text-sm font-medium">Create</span>
+            </Button>
+          </div>
 
           {isLoading ? (
             <div className="h-10 w-10 bg-muted rounded-full animate-pulse" />

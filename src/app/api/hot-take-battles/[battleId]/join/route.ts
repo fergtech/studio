@@ -4,9 +4,11 @@ import { authOptions } from '@/lib/auth';
 import { joinHotTakeBattle } from '@/services/hotTakeBattles';
 import { HotTakeStance } from '@prisma/client';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(
   request: NextRequest,
-  { params }: { params: { battleId: string } }
+  { params }: { params: Promise<{ battleId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -14,7 +16,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { battleId } = params;
+    const { battleId } = await params;
     const body = await request.json();
     const { stance, takePostId } = body;
 

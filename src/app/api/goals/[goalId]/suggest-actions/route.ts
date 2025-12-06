@@ -2,9 +2,10 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma'; // Assuming prisma client is available
 import { generateSuggestedActionsAction } from '@/app/actions/aiActions'; // Import the AI action function
 
-export async function GET(request: Request, { params }: { params: { goalId: string } }) {
-  const awaitedParams = await params;
-  const goalId = awaitedParams.goalId;
+export const dynamic = 'force-dynamic';
+
+export async function GET(request: Request, { params }: { params: Promise<{ goalId: string }> }) {
+  const { goalId } = await params;
 
   try {
     const goal = await prisma.goal.findUnique({

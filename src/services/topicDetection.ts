@@ -173,7 +173,7 @@ export async function detectTopicsFromContent(content: string, postId?: string):
       const assignedTopics = await processPostForTopics(postId, content);
 
       // Also run the enhanced detection for additional metadata
-      const enhancedResult = detectTopicsEnhanced(content);
+      const enhancedResult = await detectTopicsEnhanced(content);
       const hashtagTopics = extractHashtags(content);
 
       return {

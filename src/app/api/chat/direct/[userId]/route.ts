@@ -114,6 +114,55 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ use
       }
     });
 
+    // Create notification and send email
+    try {
+      // Get receiver info including email preferences
+      const receiver = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true, emailNotifications: true, username: true },
+      });
+
+      // Create in-app notification
+      await prisma.notification.create({
+        data: {
+          userId: userId,
+          type: 'DIRECT_MESSAGE',
+          title: 'New Message',
+          message: `${session.user.name || 'Someone'}: ${text.trim().substring(0, 50)}${text.trim().length > 50 ? '...' : ''}`,
+          data: {
+            senderId: currentUserId,
+            senderName: session.user.name,
+            messageId: message.id,
+          },
+        },
+      });
+
+      // Send email notification if user has email notifications enabled
+      if (receiver?.emailNotifications) {
+        try {
+          const { sendNotificationEmail } = await import('@/lib/email');
+          const senderUsername = session.user.email?.split('@')[0] || 'user';
+          const actionUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/chat/${senderUsername}`;
+
+          await sendNotificationEmail(
+            receiver.email,
+            'DIRECT_MESSAGE',
+            'New Message',
+            `${session.user.name || 'Someone'}: ${text.trim().substring(0, 50)}${text.trim().length > 50 ? '...' : ''}`,
+            actionUrl,
+            'View Message'
+          );
+          console.log('Email notification sent successfully to', receiver.email);
+        } catch (emailError) {
+          console.error('Error sending email notification:', emailError);
+          // Don't fail the request if email fails
+        }
+      }
+    } catch (notificationError) {
+      console.error('Error creating notification:', notificationError);
+      // Don't fail the entire request if notification fails
+    }
+
     return NextResponse.json(message, { status: 201 });
   } catch (error) {
     console.error('Error sending direct message:', error);

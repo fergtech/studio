@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 export async function PATCH(request: Request) {
   try {
@@ -68,6 +70,80 @@ export async function PATCH(request: Request) {
       where: { id: action.initiativeId },
       data: { progress: initiativeProgress },
     });
+
+    // 7. Send notifications if goal was just completed
+    if (goalStatus === 'Completed' && updatedGoal.status !== 'Completed') {
+      try {
+        const session = await getServerSession(authOptions);
+        const goal = await prisma.goal.findUnique({
+          where: { id: action.goalId },
+          select: { title: true },
+        });
+
+        const initiative = await prisma.initiative.findUnique({
+          where: { id: action.initiativeId },
+          select: { title: true },
+        });
+
+        const members = await prisma.initiativeMembership.findMany({
+          where: {
+            initiativeId: action.initiativeId,
+          },
+          include: {
+            user: {
+              select: {
+                id: true,
+                email: true,
+                emailNotifications: true,
+                username: true,
+              },
+            },
+          },
+        });
+
+        const baseUrl = (process.env.NEXTAUTH_URL || 'http://localhost:3000').replace(/\/$/, '');
+        const goalUrl = `${baseUrl}/initiatives/${action.initiativeId}`;
+
+        for (const member of members) {
+          try {
+            // Create in-app notification
+            await prisma.notification.create({
+              data: {
+                userId: member.userId,
+                type: 'GOAL_COMPLETED',
+                title: 'Goal Completed',
+                message: `Goal "${goal?.title}" was completed in ${initiative?.title || 'an initiative'}! 🎉`,
+                data: {
+                  initiativeId: action.initiativeId,
+                  goalId: action.goalId,
+                  completedById: session?.user?.id,
+                },
+              },
+            });
+
+            // Send email notification if enabled
+            if (member.user.emailNotifications) {
+              const { sendNotificationEmail } = await import('@/lib/email');
+              await sendNotificationEmail(
+                member.user.email,
+                'GOAL_COMPLETED',
+                'Goal Completed',
+                `Goal "${goal?.title}" was completed in ${initiative?.title || 'an initiative'}! 🎉`,
+                goalUrl,
+                'View Initiative',
+                member.user.username || member.userId
+              );
+            }
+          } catch (notifError) {
+            console.error('Error sending goal completion notification to member:', notifError);
+            // Continue with other members
+          }
+        }
+      } catch (error) {
+        console.error('Error sending goal completion notifications:', error);
+        // Don't fail the action update if notifications fail
+      }
+    }
 
     return NextResponse.json({
       action: updatedAction,

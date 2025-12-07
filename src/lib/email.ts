@@ -73,9 +73,10 @@ export async function sendPasswordResetEmail(
 
 // Email template helper
 function getEmailTemplate(content: string, userIdentifier?: string) {
+  const baseUrl = BASE_URL.replace(/\/$/, ''); // Remove trailing slash
   const settingsUrl = userIdentifier
-    ? `${BASE_URL}/profile/${userIdentifier}/edit`
-    : `${BASE_URL}/profile/me/edit`;
+    ? `${baseUrl}/profile/${userIdentifier}/edit`
+    : `${baseUrl}/profile/me/edit`;
 
   return `
     <!DOCTYPE html>

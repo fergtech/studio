@@ -150,7 +150,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ use
           // Use sender's actual username or ID for the chat link
           const senderIdentifier = sender?.username || currentUserId;
           const receiverIdentifier = receiver?.username || userId;
-          const actionUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/chat/${senderIdentifier}`;
+          const baseUrl = (process.env.NEXTAUTH_URL || 'http://localhost:3000').replace(/\/$/, '');
+          const actionUrl = `${baseUrl}/chat/${senderIdentifier}`;
 
           await sendNotificationEmail(
             receiver.email,

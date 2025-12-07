@@ -116,12 +116,18 @@ export async function POST(req: NextRequest) {
       logger.debug('API /api/direct-messages POST: Notification created');
 
       // Send email notification if user has email notifications enabled
+      logger.info(`API /api/direct-messages POST: Checking email notifications - receiver.emailNotifications: ${receiver?.emailNotifications}, receiver.email: ${receiver?.email}`);
+
       if (receiver?.emailNotifications) {
+        logger.info('API /api/direct-messages POST: Email notifications enabled, attempting to send email');
         try {
           const { sendNotificationEmail } = await import('@/lib/email');
+          logger.info('API /api/direct-messages POST: Email module imported successfully');
+
           const senderUsername = session.user.email?.split('@')[0] || 'user';
           const actionUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/chat/${senderUsername}`;
 
+          logger.info(`API /api/direct-messages POST: Sending email to ${receiver.email}`);
           await sendNotificationEmail(
             receiver.email,
             'DIRECT_MESSAGE',
@@ -130,11 +136,14 @@ export async function POST(req: NextRequest) {
             actionUrl,
             'View Message'
           );
-          logger.debug('API /api/direct-messages POST: Email notification sent');
+          logger.info('API /api/direct-messages POST: Email notification sent successfully');
         } catch (emailError) {
           logger.error('API /api/direct-messages POST: Error sending email notification', emailError);
+          console.error('Full email error:', emailError);
           // Don't fail the request if email fails
         }
+      } else {
+        logger.info(`API /api/direct-messages POST: Skipping email notification - emailNotifications: ${receiver?.emailNotifications}`);
       }
     } catch (notificationError) {
       logger.error('API /api/direct-messages POST: Error creating notification', notificationError);

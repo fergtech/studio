@@ -147,11 +147,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ use
       if (receiver?.emailNotifications) {
         try {
           const { sendNotificationEmail } = await import('@/lib/email');
-          // Use sender's actual username or ID for the chat link
-          const senderIdentifier = sender?.username || currentUserId;
+          // Use sender's ID for the chat link (chat route uses IDs, not usernames)
           const receiverIdentifier = receiver?.username || userId;
           const baseUrl = (process.env.NEXTAUTH_URL || 'http://localhost:3000').replace(/\/$/, '');
-          const actionUrl = `${baseUrl}/chat/${senderIdentifier}`;
+          const actionUrl = `${baseUrl}/chat/${currentUserId}`;
 
           await sendNotificationEmail(
             receiver.email,

@@ -16,7 +16,7 @@ export async function sendPasswordResetEmail(
 
   try {
     const { data, error} = await resend.emails.send({
-      from: 'Society+ <notifications@send.societyplus.app>',
+      from: 'Society+ <notifications@societyplus.app>',
       to: [email],
       subject: 'Reset Your Password',
       html: `
@@ -221,7 +221,7 @@ export async function sendNotificationEmail(
     }
 
     const { data, error } = await resend.emails.send({
-      from: 'Society+ <notifications@send.societyplus.app>',
+      from: 'Society+ <notifications@societyplus.app>',
       to: [email],
       subject,
       html: getEmailTemplate(content, userIdentifier),

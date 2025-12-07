@@ -410,3 +410,32 @@ export interface Idea {
   championedByInitiativeId?: string | null; // Optional link to an initiative
 }
 
+// Event-related types
+export type EventType = 'in_person' | 'virtual' | 'hybrid';
+
+export interface EventDetails {
+  eventDate: string; // ISO datetime string
+  eventEndDate?: string; // Optional end datetime
+  eventLocation?: string; // Human-readable location
+  eventType: EventType;
+  maxAttendees?: number;
+  virtualLink?: string; // For virtual/hybrid events
+  locationLat?: number; // Geographic coordinates
+  locationLng?: number;
+}
+
+export interface EventRSVP {
+  id: string;
+  updateId: string;
+  userId: string;
+  status: 'GOING' | 'MAYBE' | 'NOT_GOING';
+  createdAt: Date;
+  updatedAt: Date;
+  user?: UserForDisplay; // Include user info when fetching RSVPs
+}
+
+export interface EventUpdate extends Update {
+  details: EventDetails; // Override details to be specifically EventDetails
+  rsvps?: EventRSVP[]; // Include RSVPs when fetched
+}
+

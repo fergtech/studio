@@ -157,14 +157,14 @@ export default async function InitiativePage({ params: incomingParams }: { param
       roles: rawInit.roles || [],
       creator: rawInit.creator,
       memberships: rawInit.memberships,
-      updates: rawInit.updates,
+      updates: rawInit.updates || [], // Real updates from database
       chatMessages: rawInit.chatMessages,
       goals: rawInit.goals,
       milestones: rawInit.milestones,
       societyId: rawInit.societyId,
       society: rawInit.society,
     };
-    transformedInitiative = transformDatabaseInitiative(initiativeDataForTransform); // Ensure correct usage of the locally defined function
+    transformedInitiative = transformDatabaseInitiative(initiativeDataForTransform);
   } catch (err) {
     console.error("Error transforming initiative data:", err);
     return (

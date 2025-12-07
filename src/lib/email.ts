@@ -1,19 +1,21 @@
 import { Resend } from 'resend';
+import { NotificationType } from '@prisma/client';
 
 if (!process.env.RESEND_API_KEY) {
   throw new Error('RESEND_API_KEY environment variable is not set');
 }
 
 const resend = new Resend(process.env.RESEND_API_KEY);
+const BASE_URL = process.env.NEXTAUTH_URL || 'http://localhost:3000';
 
 export async function sendPasswordResetEmail(
   email: string,
   resetToken: string
 ) {
-  const resetUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/reset-password/${resetToken}`;
+  const resetUrl = `${BASE_URL}/reset-password/${resetToken}`;
 
   try {
-    const { data, error } = await resend.emails.send({
+    const { data, error} = await resend.emails.send({
       from: 'Society+ <admin@societyplus.app>',
       to: [email],
       subject: 'Reset Your Password',
@@ -65,6 +67,169 @@ export async function sendPasswordResetEmail(
     return { success: true, data };
   } catch (error) {
     console.error('Error sending password reset email:', error);
+    throw error;
+  }
+}
+
+// Email template helper
+function getEmailTemplate(content: string) {
+  return `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+        <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #f5f5f5;">
+          <tr>
+            <td align="center" style="padding: 40px 0;">
+              <table role="presentation" style="width: 600px; max-width: 100%; border-collapse: collapse; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2 8px rgba(0,0,0,0.05);">
+                <tr>
+                  <td style="padding: 40px 30px;">
+                    ${content}
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 20px 30px; border-top: 1px solid #eeeeee; text-align: center;">
+                    <p style="margin: 0; font-size: 12px; color: #999999;">
+                      © ${new Date().getFullYear()} Society+. All rights reserved.
+                    </p>
+                    <p style="margin: 10px 0 0; font-size: 12px; color: #999999;">
+                      <a href="${BASE_URL}/settings" style="color: #2563eb; text-decoration: none;">Notification Settings</a>
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+    </html>
+  `;
+}
+
+export async function sendNotificationEmail(
+  email: string,
+  notificationType: NotificationType,
+  title: string,
+  message: string,
+  actionUrl?: string,
+  actionLabel?: string
+) {
+  try {
+    let subject = '';
+    let content = '';
+
+    switch (notificationType) {
+      case 'DIRECT_MESSAGE':
+        subject = 'New Message on Society+';
+        content = `
+          <h1 style="margin: 0 0 20px; font-size: 24px; font-weight: 600; color: #1a1a1a;">💬 ${title}</h1>
+          <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.5; color: #666666;">
+            ${message}
+          </p>
+          ${actionUrl ? `
+            <a href="${actionUrl}" style="display: inline-block; padding: 14px 32px; background-color: #2563eb; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 16px;">
+              ${actionLabel || 'View Message'}
+            </a>
+          ` : ''}
+          <p style="margin: 30px 0 0; font-size: 14px; line-height: 1.5; color: #999999;">
+            Reply directly on Society+ to continue the conversation.
+          </p>
+        `;
+        break;
+
+      case 'FOLLOW':
+        subject = 'New Follower on Society+';
+        content = `
+          <h1 style="margin: 0 0 20px; font-size: 24px; font-weight: 600; color: #1a1a1a;">👤 ${title}</h1>
+          <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.5; color: #666666;">
+            ${message}
+          </p>
+          ${actionUrl ? `
+            <a href="${actionUrl}" style="display: inline-block; padding: 14px 32px; background-color: #2563eb; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 16px;">
+              ${actionLabel || 'View Profile'}
+            </a>
+          ` : ''}
+        `;
+        break;
+
+      case 'INITIATIVE_INVITE':
+        subject = 'Initiative Invitation on Society+';
+        content = `
+          <h1 style="margin: 0 0 20px; font-size: 24px; font-weight: 600; color: #1a1a1a;">🎯 ${title}</h1>
+          <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.5; color: #666666;">
+            ${message}
+          </p>
+          ${actionUrl ? `
+            <a href="${actionUrl}" style="display: inline-block; padding: 14px 32px; background-color: #2563eb; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 16px;">
+              ${actionLabel || 'View Invitation'}
+            </a>
+          ` : ''}
+        `;
+        break;
+
+      case 'GOAL_COMPLETED':
+        subject = 'Goal Completed on Society+';
+        content = `
+          <h1 style="margin: 0 0 20px; font-size: 24px; font-weight: 600; color: #1a1a1a;">🎉 ${title}</h1>
+          <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.5; color: #666666;">
+            ${message}
+          </p>
+          ${actionUrl ? `
+            <a href="${actionUrl}" style="display: inline-block; padding: 14px 32px; background-color: #2563eb; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 16px;">
+              ${actionLabel || 'View Goal'}
+            </a>
+          ` : ''}
+        `;
+        break;
+
+      case 'MILESTONE_REACHED':
+        subject = 'Milestone Reached on Society+';
+        content = `
+          <h1 style="margin: 0 0 20px; font-size: 24px; font-weight: 600; color: #1a1a1a;">🏆 ${title}</h1>
+          <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.5; color: #666666;">
+            ${message}
+          </p>
+          ${actionUrl ? `
+            <a href="${actionUrl}" style="display: inline-block; padding: 14px 32px; background-color: #2563eb; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 16px;">
+              ${actionLabel || 'View Milestone'}
+            </a>
+          ` : ''}
+        `;
+        break;
+
+      default:
+        subject = 'New Notification on Society+';
+        content = `
+          <h1 style="margin: 0 0 20px; font-size: 24px; font-weight: 600; color: #1a1a1a;">${title}</h1>
+          <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.5; color: #666666;">
+            ${message}
+          </p>
+          ${actionUrl ? `
+            <a href="${actionUrl}" style="display: inline-block; padding: 14px 32px; background-color: #2563eb; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 16px;">
+              ${actionLabel || 'View on Society+'}
+            </a>
+          ` : ''}
+        `;
+    }
+
+    const { data, error } = await resend.emails.send({
+      from: 'Society+ <admin@societyplus.app>',
+      to: [email],
+      subject,
+      html: getEmailTemplate(content),
+    });
+
+    if (error) {
+      console.error('Error sending notification email:', error);
+      throw new Error('Failed to send notification email');
+    }
+
+    return { success: true, data };
+  } catch (error) {
+    console.error('Error sending notification email:', error);
     throw error;
   }
 }

@@ -36,6 +36,7 @@ interface EditProfileUser {
   enableLocalNews?: boolean;
   newsRadius?: number | null;
   newsTypes?: string[];
+  emailNotifications?: boolean;
 }
 
 interface EditProfileFormProps {
@@ -78,6 +79,7 @@ export default function EditProfileForm({ user }: EditProfileFormProps) {
   const [enableLocalNews, setEnableLocalNews] = useState(user.enableLocalNews ?? true);
   const [newsRadius, setNewsRadius] = useState(user.newsRadius ?? 25);
   const [newsTypes, setNewsTypes] = useState<string[]>(user.newsTypes ?? ['local', 'community', 'government']);
+  const [emailNotifications, setEmailNotifications] = useState(user.emailNotifications ?? true);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bannerFileInputRef = useRef<HTMLInputElement>(null);
@@ -254,6 +256,7 @@ export default function EditProfileForm({ user }: EditProfileFormProps) {
     formData.append('enableLocalNews', enableLocalNews ? 'true' : 'false');
     formData.append('newsRadius', newsRadius.toString());
     newsTypes.forEach(type => formData.append('newsTypes', type));
+    formData.append('emailNotifications', emailNotifications ? 'true' : 'false');
 
     if (finalImageUrl) {
       formData.append('imageUrl', finalImageUrl);
@@ -571,6 +574,47 @@ export default function EditProfileForm({ user }: EditProfileFormProps) {
                   </label>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Notification Preferences Section */}
+      <div className="grid grid-cols-1 gap-x-8 gap-y-10 border-t border-border pt-12 md:grid-cols-3">
+        <div className="px-4 sm:px-0">
+          <h2 className="text-base font-semibold leading-7">Notification Preferences</h2>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">
+            Manage how you receive notifications from Society+.
+          </p>
+        </div>
+
+        <div className="bg-card shadow-sm ring-1 ring-border sm:rounded-xl md:col-span-2">
+          <div className="px-4 py-6 sm:p-8">
+            <div className="max-w-2xl space-y-10">
+              <fieldset>
+                <div className="space-y-6">
+                  <div className="flex gap-x-3">
+                    <div className="flex h-6 items-center">
+                      <input
+                        id="email-notifications"
+                        name="email-notifications"
+                        type="checkbox"
+                        checked={emailNotifications}
+                        onChange={(e) => setEmailNotifications(e.target.checked)}
+                        className="h-4 w-4 rounded border-border bg-muted/50 text-primary focus:ring-2 focus:ring-ring"
+                      />
+                    </div>
+                    <div className="text-sm leading-6">
+                      <label htmlFor="email-notifications" className="font-medium">
+                        Email Notifications
+                      </label>
+                      <p className="text-muted-foreground">
+                        Receive email notifications when you get messages, new followers, and other important updates
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </fieldset>
             </div>
           </div>
         </div>

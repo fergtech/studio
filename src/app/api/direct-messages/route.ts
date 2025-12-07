@@ -92,6 +92,14 @@ export async function POST(req: NextRequest) {
     // Create notification for the receiver
     try {
       const previewText = getMessagePreview(encodedText, 50);
+
+      // Get receiver info including email preferences
+      const receiver = await prisma.user.findUnique({
+        where: { id: receiverId },
+        select: { email: true, emailNotifications: true, username: true },
+      });
+
+      // Create in-app notification
       await prisma.notification.create({
         data: {
           userId: receiverId,
@@ -106,6 +114,28 @@ export async function POST(req: NextRequest) {
         },
       });
       logger.debug('API /api/direct-messages POST: Notification created');
+
+      // Send email notification if user has email notifications enabled
+      if (receiver?.emailNotifications) {
+        try {
+          const { sendNotificationEmail } = await import('@/lib/email');
+          const senderUsername = session.user.email?.split('@')[0] || 'user';
+          const actionUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/chat/${senderUsername}`;
+
+          await sendNotificationEmail(
+            receiver.email,
+            'DIRECT_MESSAGE',
+            'New Message',
+            `${session.user.name || 'Someone'}: ${previewText}`,
+            actionUrl,
+            'View Message'
+          );
+          logger.debug('API /api/direct-messages POST: Email notification sent');
+        } catch (emailError) {
+          logger.error('API /api/direct-messages POST: Error sending email notification', emailError);
+          // Don't fail the request if email fails
+        }
+      }
     } catch (notificationError) {
       logger.error('API /api/direct-messages POST: Error creating notification', notificationError);
       // Don't fail the entire request if notification fails

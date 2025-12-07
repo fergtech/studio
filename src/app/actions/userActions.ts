@@ -22,6 +22,7 @@ const UpdateProfileSchema = z.object({
   enableLocalNews: z.boolean().optional(),
   newsRadius: z.number().min(1).max(500).nullable().optional(),
   newsTypes: z.array(z.string()).optional(),
+  emailNotifications: z.boolean().optional(),
 });
 
 export interface UpdateUserProfileActionState {
@@ -114,6 +115,13 @@ export async function updateUserProfileAction(
   newsTypes = newsTypes.filter(type => type.trim() !== '');
   const finalNewsTypes = newsTypes.length > 0 ? newsTypes : undefined;
 
+  // Extract email notification preference
+  let emailNotificationsRaw = formData.get('emailNotifications');
+  let emailNotifications: boolean | undefined = undefined;
+  if (emailNotificationsRaw !== undefined && emailNotificationsRaw !== null) {
+    emailNotifications = emailNotificationsRaw === 'true' || emailNotificationsRaw === 'on';
+  }
+
   const rawData: {
     name?: string;
     bio?: string;
@@ -128,6 +136,7 @@ export async function updateUserProfileAction(
     enableLocalNews?: boolean;
     newsRadius?: number | null;
     newsTypes?: string[];
+    emailNotifications?: boolean;
   } = {
     // Only include fields in rawData if they have a value (or are explicitly meant to be processed by Zod)
     // This helps Zod correctly interpret optional fields.
@@ -146,6 +155,7 @@ export async function updateUserProfileAction(
   if (enableLocalNews !== undefined) rawData.enableLocalNews = enableLocalNews;
   if (newsRadius !== undefined) rawData.newsRadius = newsRadius;
   if (finalNewsTypes !== undefined) rawData.newsTypes = finalNewsTypes;
+  if (emailNotifications !== undefined) rawData.emailNotifications = emailNotifications;
 
   const validatedFields = UpdateProfileSchema.safeParse(rawData);
 
@@ -157,7 +167,7 @@ export async function updateUserProfileAction(
     };
   }
 
-  const { name: validatedName, bio: validatedBio, imageUrl: validatedImageUrl, bannerImageUrl: validatedBannerImageUrl, username: validatedUsername, gender: validatedGender, websites: validatedWebsites, city: validatedCity, location: validatedLocation, showLocation: validatedShowLocation, enableLocalNews: validatedEnableLocalNews, newsRadius: validatedNewsRadius, newsTypes: validatedNewsTypes } = validatedFields.data;
+  const { name: validatedName, bio: validatedBio, imageUrl: validatedImageUrl, bannerImageUrl: validatedBannerImageUrl, username: validatedUsername, gender: validatedGender, websites: validatedWebsites, city: validatedCity, location: validatedLocation, showLocation: validatedShowLocation, enableLocalNews: validatedEnableLocalNews, newsRadius: validatedNewsRadius, newsTypes: validatedNewsTypes, emailNotifications: validatedEmailNotifications } = validatedFields.data;
 
   try {
     // Prepare data for Prisma update. 
@@ -235,6 +245,9 @@ export async function updateUserProfileAction(
       if (validatedNewsTypes !== undefined) {
         dataToUpdate.newsTypes = validatedNewsTypes;
       }
+    }
+    if (validatedFields.data.hasOwnProperty('emailNotifications')) {
+      dataToUpdate.emailNotifications = validatedEmailNotifications;
     }
 
     if (Object.keys(dataToUpdate).length === 0) {
@@ -325,9 +338,16 @@ export async function followUserAction(userId: string): Promise<{ success: boole
     // Create notification for the followed user
     const follower = await prisma.user.findUnique({
       where: { id: followerId },
-      select: { name: true },
+      select: { name: true, username: true },
     });
 
+    // Get the followed user's email preferences
+    const followedUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, emailNotifications: true },
+    });
+
+    // Create in-app notification
     await prisma.notification.create({
       data: {
         userId: userId,
@@ -340,6 +360,27 @@ export async function followUserAction(userId: string): Promise<{ success: boole
         },
       },
     });
+
+    // Send email notification if user has email notifications enabled
+    if (followedUser?.emailNotifications) {
+      try {
+        const { sendNotificationEmail } = await import('@/lib/email');
+        const followerUsername = follower?.username || followerId;
+        const actionUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/profile/${followerUsername}`;
+
+        await sendNotificationEmail(
+          followedUser.email,
+          'FOLLOW',
+          'New Follower',
+          `${follower?.name || 'Someone'} started following you`,
+          actionUrl,
+          'View Profile'
+        );
+      } catch (emailError) {
+        console.error('Error sending follow email notification:', emailError);
+        // Don't fail the follow action if email fails
+      }
+    }
 
     // Emit real-time notification
     const notification = {

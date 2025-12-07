@@ -12,7 +12,7 @@ datasource db {
 model User {
   id                    String                 @id @default(cuid())
   email                 String                 @unique
-  passwordHash          String?                // Optional: OAuth users won't have passwords
+  passwordHash          String?
   name                  String?
   image                 String?
   dateCreated           DateTime               @default(now())
@@ -29,31 +29,33 @@ model User {
   primaryIntent         String?
   location              String?
   city                  String?
-  latitude              Float?
-  longitude             Float?
   showLocation          Boolean                @default(true)
   lastActiveAt          DateTime?
   enableLocalNews       Boolean                @default(true)
   newsRadius            Int?                   @default(25)
   newsTypes             String[]               @default(["local", "community", "government"])
-  isModerator           Boolean                @default(false)
+  latitude              Float?
+  longitude             Float?
   isAdmin               Boolean                @default(false)
-  // Gamification & Progressive Unlocking (V2/V3 Features)
-  activityScore         Int                    @default(0) // Composite engagement score
-  canCreateSociety      Boolean                @default(false) // Unlocked via debate thresholds
-  canCreateInitiative   Boolean                @default(false) // Unlocked via user activity
-  societyUnlockedAt     DateTime?              // Timestamp when unlocked
-  initiativeUnlockedAt  DateTime?              // Timestamp when unlocked
+  isModerator           Boolean                @default(false)
+  activityScore         Int                    @default(0)
+  canCreateInitiative   Boolean                @default(false)
+  canCreateSociety      Boolean                @default(false)
+  initiativeUnlockedAt  DateTime?
+  societyUnlockedAt     DateTime?
+  emailNotifications    Boolean                @default(true)
   assignedActions       Action[]               @relation("AssigneeOfAction")
   completedActionsBy    Action[]               @relation("CompleterOfAction")
   createdActions        Action[]               @relation("CreatorOfAction")
   receivedChatMessages  ChatMessage[]          @relation("ReceiverOfChatMessage")
   sentChatMessages      ChatMessage[]          @relation("SenderOfChatMessage")
+  chatReactions         ChatMessageReaction[]  @relation("UserChatReactions")
   comments              Comment[]              @relation("UserComments")
   debateArguments       DebateArgument[]
   debateArgumentVotes   DebateArgumentVote[]
   createdDebateTopics   DebateTopic[]
   debateVotes           DebateVote[]
+  eventRSVPs            EventRSVP[]            @relation("UserEventRSVPs")
   createdGeneralPosts   GeneralPost[]          @relation("CreatorOfGeneralPost")
   generalPostComments   GeneralPostComment[]
   generalPostLikes      GeneralPostLike[]
@@ -76,6 +78,8 @@ model User {
   newsActions           NewsAction[]           @relation("UserNewsActions")
   notifications         Notification[]         @relation("UserNotifications")
   posts                 Post[]                 @relation("UserPosts")
+  socialAccounts        SocialAccount[]        @relation("UserSocialAccounts")
+  socialPosts           SocialPost[]           @relation("UserSocialPosts")
   societies             Society[]              @relation("CreatorOfSociety")
   societyMemberships    SocietyMembership[]
   societyPosts          SocietyPost[]
@@ -88,9 +92,6 @@ model User {
   userFollowers         UserFollow[]           @relation("UserFollowers")
   userFollowing         UserFollow[]           @relation("UserFollowing")
   topicInterests        UserTopicInterest[]    @relation("UserTopicInterests")
-  chatReactions         ChatMessageReaction[]  @relation("UserChatReactions")
-  socialAccounts        SocialAccount[]        @relation("UserSocialAccounts")
-  socialPosts           SocialPost[]           @relation("UserSocialPosts")
 }
 
 model PasswordResetToken {
@@ -117,13 +118,13 @@ model Initiative {
   aiGuidance         String?
   updatedAt          DateTime?              @updatedAt
   location           String?
-  latitude           Float?
-  longitude          Float?
   progress           Int?
   showLocation       Boolean                @default(true)
   societyId          String?
   originatingIdeaId  String?                @unique
   originatingIssueId String?                @unique
+  latitude           Float?
+  longitude          Float?
   actions            Action[]
   chatMessages       ChatMessage[]
   linkedPosts        GeneralPost[]          @relation("LinkedInitiativePosts")
@@ -178,17 +179,17 @@ model ChatMessage {
   initiativeId String?
   senderId     String
   senderName   String
-  text         String // Can contain plain text OR JSON-encoded rich media (images, files, etc)
+  text         String
   timestamp    DateTime              @default(now())
   receiverId   String?
-  replyToId    String? // Message this is replying to
-  isDeleted    Boolean               @default(false) // Soft delete
-  deletedAt    DateTime? // When message was deleted
+  deletedAt    DateTime?
+  isDeleted    Boolean               @default(false)
+  replyToId    String?
   initiative   Initiative?           @relation(fields: [initiativeId], references: [id])
   receiver     User?                 @relation("ReceiverOfChatMessage", fields: [receiverId], references: [id])
-  sender       User                  @relation("SenderOfChatMessage", fields: [senderId], references: [id])
   replyTo      ChatMessage?          @relation("MessageReplies", fields: [replyToId], references: [id])
   replies      ChatMessage[]         @relation("MessageReplies")
+  sender       User                  @relation("SenderOfChatMessage", fields: [senderId], references: [id])
   reactions    ChatMessageReaction[]
 
   @@index([senderId, receiverId, isDeleted, timestamp])
@@ -233,10 +234,24 @@ model Update {
   createdAt    DateTime    @default(now())
   goalId       String?
   updatedAt    DateTime?   @updatedAt
+  rsvps        EventRSVP[]
   media        MediaItem[]
   goal         Goal?       @relation("GoalUpdates", fields: [goalId], references: [id])
   initiative   Initiative  @relation(fields: [initiativeId], references: [id])
   user         User        @relation("CreatorOfUpdate", fields: [userId], references: [id])
+}
+
+model EventRSVP {
+  id        String     @id @default(cuid())
+  updateId  String
+  userId    String
+  status    RSVPStatus
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  update    Update     @relation(fields: [updateId], references: [id], onDelete: Cascade)
+  user      User       @relation("UserEventRSVPs", fields: [userId], references: [id])
+
+  @@unique([updateId, userId])
 }
 
 model GeneralPost {
@@ -250,11 +265,11 @@ model GeneralPost {
   linkedInitiativeId  String?
   linkPreviewId       String?
   linkUrl             String?
-  topics              String[]              @default([]) // Keep for backward compatibility during migration
-  moderationStatus    String?               @default("approved") // 'approved', 'rejected', 'pending_review'
+  topics              String[]              @default([])
   moderationFlags     String[]              @default([])
-  moderationScore     Float?
   moderationReasoning String?
+  moderationScore     Float?
+  moderationStatus    String?               @default("approved")
   creator             User                  @relation("CreatorOfGeneralPost", fields: [creatorId], references: [id])
   linkPreview         LinkPreview?          @relation(fields: [linkPreviewId], references: [id])
   linkedInitiative    Initiative?           @relation("LinkedInitiativePosts", fields: [linkedInitiativeId], references: [id])
@@ -412,17 +427,17 @@ model Issue {
   createdAt                DateTime       @default(now())
   tags                     String[]       @default([])
   location                 String?
-  latitude                 Float?
-  longitude                Float?
   championedByInitiativeId String?        @unique
   championCount            Int            @default(0)
   championedById           String?
   addressedByInitiativeId  String?        @unique
   societyId                String?
-  moderationStatus         String?        @default("approved") // 'approved', 'rejected', 'pending_review'
+  latitude                 Float?
+  longitude                Float?
   moderationFlags          String[]       @default([])
-  moderationScore          Float?
   moderationReasoning      String?
+  moderationScore          Float?
+  moderationStatus         String?        @default("approved")
   relatedIdeas             Idea[]         @relation("IssueIdeas")
   addressedByInitiative    Initiative?    @relation("InitiativeAddressingIssue", fields: [addressedByInitiativeId], references: [id])
   championedBy             User?          @relation("ChampionedIssueBy", fields: [championedById], references: [id])
@@ -445,18 +460,18 @@ model Idea {
   createdAt                 DateTime      @default(now())
   tags                      String[]      @default([])
   location                  String?
-  latitude                  Float?
-  longitude                 Float?
   championedByInitiativeId  String?       @unique
   championCount             Int           @default(0)
   championedById            String?
   addressingIssueId         String?
   implementedAsInitiativeId String?       @unique
   societyId                 String?
-  moderationStatus          String?       @default("approved") // 'approved', 'rejected', 'pending_review'
+  latitude                  Float?
+  longitude                 Float?
   moderationFlags           String[]      @default([])
-  moderationScore           Float?
   moderationReasoning       String?
+  moderationScore           Float?
+  moderationStatus          String?       @default("approved")
   addressingIssue           Issue?        @relation("IssueIdeas", fields: [addressingIssueId], references: [id])
   championedBy              User?         @relation("ChampionedIdeaBy", fields: [championedById], references: [id])
   championedByInitiative    Initiative?   @relation("ChampionedIdea", fields: [championedByInitiativeId], references: [id])
@@ -561,8 +576,8 @@ model Society {
   image       String?
   createdAt   DateTime            @default(now())
   creatorId   String
-  location    String?
   latitude    Float?
+  location    String?
   longitude   Float?
   ideas       Idea[]              @relation("SocietyIdeas")
   initiatives Initiative[]
@@ -726,24 +741,24 @@ model GeneralPostDocument {
 }
 
 model DebateTopic {
-  id                  String              @id @default(cuid())
+  id                  String             @id @default(cuid())
   title               String
   content             String
   creatorId           String
   imageUrl            String?
-  topics              String[]            @default([]) // Keep for backward compatibility during migration
-  moderationStatus    String?             @default("approved") // 'approved', 'rejected', 'pending_review'
-  moderationFlags     String[]            @default([])
-  moderationScore     Float?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  moderationFlags     String[]           @default([])
   moderationReasoning String?
-  proVoteCount        Int                 @default(0) // Cached PRO vote count for performance
-  conVoteCount        Int                 @default(0) // Cached CON vote count for performance
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @updatedAt
+  moderationScore     Float?
+  moderationStatus    String?            @default("approved")
+  topics              String[]           @default([])
+  conVoteCount        Int                @default(0)
+  proVoteCount        Int                @default(0)
   arguments           DebateArgument[]
-  creator             User                @relation(fields: [creatorId], references: [id])
+  creator             User               @relation(fields: [creatorId], references: [id])
+  debateTopics        DebateTopicTopic[] @relation("DebateTopics")
   votes               DebateVote[]
-  debateTopics        DebateTopicTopic[]  @relation("DebateTopics")
 
   @@index([topics])
   @@index([moderationStatus])
@@ -796,19 +811,19 @@ model Topic {
   id             String              @id @default(cuid())
   name           String              @unique
   description    String?
-  category       String? // e.g., "civic", "entertainment", "technology"
-  isSystem       Boolean             @default(false) // True for auto-generated topics
-  confidence     Float? // Confidence score for auto-generated topics
   createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
   postCount      Int                 @default(0)
   weeklyPosts    Int                 @default(0)
-  debateCount    Int                 @default(0) // Number of debates with this topic
-  weeklyDebates  Int                 @default(0) // Weekly debate count
   popularInAreas String[]            @default([])
-  userInterests  UserTopicInterest[] @relation("TopicUserInterests")
-  postTopics     PostTopic[]         @relation("TopicPosts")
+  category       String?
+  confidence     Float?
+  isSystem       Boolean             @default(false)
+  updatedAt      DateTime            @updatedAt
+  debateCount    Int                 @default(0)
+  weeklyDebates  Int                 @default(0)
   debateTopics   DebateTopicTopic[]  @relation("TopicDebates")
+  postTopics     PostTopic[]         @relation("TopicPosts")
+  userInterests  UserTopicInterest[] @relation("TopicUserInterests")
 
   @@index([name])
   @@index([postCount])
@@ -821,7 +836,7 @@ model PostTopic {
   id         String      @id @default(cuid())
   postId     String
   topicId    String
-  confidence Float? // Confidence score for this topic assignment
+  confidence Float?
   createdAt  DateTime    @default(now())
   post       GeneralPost @relation("PostTopics", fields: [postId], references: [id], onDelete: Cascade)
   topic      Topic       @relation("TopicPosts", fields: [topicId], references: [id], onDelete: Cascade)
@@ -835,7 +850,7 @@ model DebateTopicTopic {
   id         String      @id @default(cuid())
   debateId   String
   topicId    String
-  confidence Float? // Confidence score for this topic assignment
+  confidence Float?
   createdAt  DateTime    @default(now())
   debate     DebateTopic @relation("DebateTopics", fields: [debateId], references: [id], onDelete: Cascade)
   topic      Topic       @relation("TopicDebates", fields: [topicId], references: [id], onDelete: Cascade)
@@ -946,6 +961,67 @@ model NewsAction {
   @@index([actionType])
 }
 
+model Area {
+  id        String   @id @default(cuid())
+  name      String
+  city      String
+  state     String
+  country   String
+  latitude  Float
+  longitude Float
+  createdAt DateTime @default(now())
+
+  @@index([latitude, longitude])
+  @@index([city])
+}
+
+model SocialAccount {
+  id               String         @id @default(cuid())
+  userId           String
+  platform         SocialPlatform
+  platformUserId   String
+  platformUsername String?
+  accessToken      String
+  refreshToken     String?
+  tokenExpiresAt   DateTime?
+  scope            String[]       @default([])
+  isActive         Boolean        @default(true)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  user             User           @relation("UserSocialAccounts", fields: [userId], references: [id], onDelete: Cascade)
+  posts            SocialPost[]   @relation("SocialAccountPosts")
+
+  @@unique([userId, platform])
+  @@index([userId])
+  @@index([platform])
+}
+
+model SocialPost {
+  id              String           @id @default(cuid())
+  userId          String
+  socialAccountId String
+  contentType     String
+  contentId       String
+  platform        SocialPlatform
+  platformPostId  String?
+  platformPostUrl String?
+  caption         String?
+  imageUrl        String?
+  status          SocialPostStatus @default(PENDING)
+  errorMessage    String?
+  metrics         Json?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  socialAccount   SocialAccount    @relation("SocialAccountPosts", fields: [socialAccountId], references: [id], onDelete: Cascade)
+  user            User             @relation("UserSocialPosts", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([socialAccountId])
+  @@index([contentType, contentId])
+  @@index([platform])
+  @@index([status])
+}
+
 enum HotTakeBattleStatus {
   ACTIVE
   ARCHIVED
@@ -994,6 +1070,9 @@ enum UpdateType {
   resource_share
   milestone_creation
   milestone_status
+  event_creation
+  event_update
+  event_cancelled
 }
 
 enum ContributionType {
@@ -1037,6 +1116,12 @@ enum InitiativeRoleType {
   MENTOR
 }
 
+enum RSVPStatus {
+  GOING
+  MAYBE
+  NOT_GOING
+}
+
 enum DebateSide {
   PRO
   CON
@@ -1048,70 +1133,6 @@ enum NotificationType {
   INITIATIVE_INVITE
   GOAL_COMPLETED
   MILESTONE_REACHED
-}
-
-// A searchable geographic area (e.g., city, neighborhood)
-model Area {
-  id        String   @id @default(cuid())
-  name      String // e.g., "Downtown", "The Fan District"
-  city      String // e.g., "Richmond"
-  state     String // e.g., "VA"
-  country   String // e.g., "USA"
-  latitude  Float
-  longitude Float
-  createdAt DateTime @default(now())
-
-  @@index([latitude, longitude])
-  @@index([city])
-}
-
-model SocialAccount {
-  id               String         @id @default(cuid())
-  userId           String
-  platform         SocialPlatform // instagram, facebook, tiktok
-  platformUserId   String // User's ID on the platform
-  platformUsername String? // Username on the platform
-  accessToken      String // Encrypted OAuth access token
-  refreshToken     String? // Encrypted OAuth refresh token (if applicable)
-  tokenExpiresAt   DateTime? // When the access token expires
-  scope            String[]       @default([]) // OAuth scopes granted
-  isActive         Boolean        @default(true)
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
-
-  user  User         @relation("UserSocialAccounts", fields: [userId], references: [id], onDelete: Cascade)
-  posts SocialPost[] @relation("SocialAccountPosts")
-
-  @@unique([userId, platform])
-  @@index([userId])
-  @@index([platform])
-}
-
-model SocialPost {
-  id              String           @id @default(cuid())
-  userId          String
-  socialAccountId String
-  contentType     String // idea, issue, initiative, post
-  contentId       String // ID of the content being shared
-  platform        SocialPlatform
-  platformPostId  String? // ID of the post on the platform
-  platformPostUrl String? // URL of the post on the platform
-  caption         String? // Custom caption used
-  imageUrl        String? // URL of generated image
-  status          SocialPostStatus @default(PENDING)
-  errorMessage    String? // Error message if failed
-  metrics         Json? // Platform-specific metrics (likes, shares, views, etc.)
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-
-  user          User          @relation("UserSocialPosts", fields: [userId], references: [id], onDelete: Cascade)
-  socialAccount SocialAccount @relation("SocialAccountPosts", fields: [socialAccountId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([socialAccountId])
-  @@index([contentType, contentId])
-  @@index([platform])
-  @@index([status])
 }
 
 enum SocialPlatform {

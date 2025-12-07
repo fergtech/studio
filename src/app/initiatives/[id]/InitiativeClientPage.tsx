@@ -28,12 +28,16 @@ import { InitiativeSidebar } from '@/components/initiatives/InitiativeSidebar'; 
 import AppSidebar, { getDefaultCollapsedState } from '@/components/AppSidebar'; // Add global AppSidebar
 import { CreateUpdateForm } from './CreateUpdateForm';
 import { UpdateCard } from '@/components/UpdateCard';
+import { EventUpdateCard } from '@/components/EventUpdateCard';
+import { EventDetailsSheet } from '@/components/EventDetailsSheet';
+import { EventsSection } from '@/components/EventsSection';
 import { EditInitiativeDialog } from './EditInitiativeDialog';
 import { RoleSelectionModal } from './RoleSelectionModal';
 import { useSession } from "next-auth/react";
 import { joinInitiativeAction, updateInitiativeAction, updateInitiativeMembershipAction, leaveInitiativeAction, createUpdate as createUpdateAction, deleteInitiative } from "@/app/actions/initiativeActions"; // Added updateInitiativeAction, createUpdateAction, and deleteInitiative
 import { InitiativeRoleType, UpdateType } from '@prisma/client'; // Added this import
 import { CreateGoalDialog } from './CreateGoalDialog'; // Import CreateGoalDialog
+import { CreateEventDialog } from './CreateEventDialog'; // Import CreateEventDialog
 import { useIsMobile } from '@/hooks/use-mobile';
 import { ChatPanel } from '@/components/initiatives/ChatPanel';
 // import { io, Socket } from 'socket.io-client'; // Temporarily disabled for Vercel deployment
@@ -215,6 +219,7 @@ export function InitiativeClientPage({
   const [selectedRoleForChange, setSelectedRoleForChange] = useState<UserSelectableMembershipRole | null>(null);
   const [isChangeRoleModalOpen, setIsChangeRoleModalOpen] = useState(false);
   const [isCreateGoalDialogOpen, setIsCreateGoalDialogOpen] = useState(false); // State for goal dialog
+  const [isCreateEventDialogOpen, setIsCreateEventDialogOpen] = useState(false); // State for event dialog
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => getDefaultCollapsedState({ type: 'initiative', data: initiative })); // State for sidebar collapsed
   const isMobile = useIsMobile();
@@ -1109,9 +1114,14 @@ export function InitiativeClientPage({
             <div className="mb-8">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-2xl font-semibold">Goals</h2>
-                <Button onClick={() => setIsCreateGoalDialogOpen(true)}>
-                  <Plus className="mr-2 h-4 w-4" /> Add Goal
-                </Button>
+                <div className="flex gap-2">
+                  <Button onClick={() => setIsCreateGoalDialogOpen(true)} variant="outline">
+                    <Plus className="mr-2 h-4 w-4" /> Add Goal
+                  </Button>
+                  <Button onClick={() => setIsCreateEventDialogOpen(true)}>
+                    <Plus className="mr-2 h-4 w-4" /> Create Event
+                  </Button>
+                </div>
               </div>
               {initiative.goals && initiative.goals.length > 0 ? (
                 <ScrollArea className="w-full">
@@ -1242,6 +1252,56 @@ export function InitiativeClientPage({
             </div>
             )}
 
+            {/* Events Section - Shows pinned current event + horizontal past events */}
+            <EventsSection
+              events={localUpdates.filter(u =>
+                u.type === 'event_creation' || u.type === 'event_update' || u.type === 'event_cancelled'
+              )}
+              currentUserId={userId}
+              initiativeId={initiativeId}
+              onRSVP={async (eventId, status) => {
+                if (!userId) {
+                  toast({
+                    title: 'Login Required',
+                    description: 'Please log in to RSVP to events',
+                    variant: 'destructive',
+                  });
+                  return;
+                }
+
+                try {
+                  const response = await fetch(`/api/initiatives/${initiativeId}/events/${eventId}/rsvp`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status }),
+                  });
+
+                  if (!response.ok) {
+                    throw new Error('Failed to RSVP');
+                  }
+
+                  const newRSVP = await response.json();
+
+                  // Update the event in localUpdates with the new RSVP
+                  setLocalUpdates(prev => prev.map(update => {
+                    if (update.id === eventId) {
+                      // Remove existing RSVP from this user if any, then add the new one
+                      const filteredRSVPs = (update.rsvps || []).filter((r: any) => r.userId !== userId);
+                      return {
+                        ...update,
+                        rsvps: [...filteredRSVPs, newRSVP]
+                      };
+                    }
+                    return update;
+                  }));
+                } catch (error) {
+                  console.error('Error RSVPing:', error);
+                  throw error; // Re-throw so EventUpdateCard can handle the error
+                }
+              }}
+              onDelete={handleDeleteUpdate}
+            />
+
             {/* Updates Section */}
             <div className="space-y-4 mx-auto" style={{ maxWidth: '700px' }}>
               <h2 className="text-xl font-semibold">Updates</h2>
@@ -1337,22 +1397,26 @@ export function InitiativeClientPage({
                     }}
                   />
 
-                  {/* Updates Feed - Only visible to members */}
-                  {localUpdates && localUpdates.length > 0 ? (
+                  {/* Updates Feed - Only visible to members (excluding events) */}
+                  {localUpdates && localUpdates.filter(u =>
+                    u.type !== 'event_creation' && u.type !== 'event_update' && u.type !== 'event_cancelled'
+                  ).length > 0 ? (
                     <div className="space-y-4">
-                      {localUpdates.map((update) => (
-                        <UpdateCard
-                          key={update.id}
-                          update={update}
-                          currentUserId={userId}
-                          onDelete={handleDeleteUpdate}
-                          onResponse={(parentId, parentContent) => {
-                            setRespondingTo({ id: parentId, content: parentContent });
-                            // Scroll to top where the form is
-                            window.scrollTo({ top: 0, behavior: 'smooth' });
-                          }}
-                        />
-                      ))}
+                      {localUpdates
+                        .filter(u => u.type !== 'event_creation' && u.type !== 'event_update' && u.type !== 'event_cancelled')
+                        .map((update) => (
+                          <UpdateCard
+                            key={update.id}
+                            update={update}
+                            currentUserId={userId}
+                            onDelete={handleDeleteUpdate}
+                            onResponse={(parentId, parentContent) => {
+                              setRespondingTo({ id: parentId, content: parentContent });
+                              // Scroll to top where the form is
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}
+                          />
+                        ))}
                     </div>
                   ) : (
                     <Card className="bg-muted/50">
@@ -1463,6 +1527,20 @@ export function InitiativeClientPage({
             onGoalCreated={handleGoalCreated} // Pass the callback
             initialTitle={selectedSuggestedGoal?.title}
             initialDescription={selectedSuggestedGoal?.description}
+          />
+        )}
+
+        {/* Create Event Dialog */}
+        {isCreateEventDialogOpen && (
+          <CreateEventDialog
+            initiativeId={initiativeId}
+            isOpen={isCreateEventDialogOpen}
+            onClose={() => setIsCreateEventDialogOpen(false)}
+            onEventCreated={(newEvent) => {
+              // Add the new event to local updates
+              setLocalUpdates([newEvent, ...localUpdates]);
+              setIsCreateEventDialogOpen(false);
+            }}
           />
         )}
 

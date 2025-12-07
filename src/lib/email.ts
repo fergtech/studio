@@ -72,7 +72,11 @@ export async function sendPasswordResetEmail(
 }
 
 // Email template helper
-function getEmailTemplate(content: string) {
+function getEmailTemplate(content: string, userIdentifier?: string) {
+  const settingsUrl = userIdentifier
+    ? `${BASE_URL}/profile/${userIdentifier}/edit`
+    : `${BASE_URL}/profile/me/edit`;
+
   return `
     <!DOCTYPE html>
     <html>
@@ -96,7 +100,7 @@ function getEmailTemplate(content: string) {
                       © ${new Date().getFullYear()} Society+. All rights reserved.
                     </p>
                     <p style="margin: 10px 0 0; font-size: 12px; color: #999999;">
-                      <a href="${BASE_URL}/settings" style="color: #2563eb; text-decoration: none;">Notification Settings</a>
+                      <a href="${settingsUrl}" style="color: #2563eb; text-decoration: none;">Notification Settings</a>
                     </p>
                   </td>
                 </tr>
@@ -115,7 +119,8 @@ export async function sendNotificationEmail(
   title: string,
   message: string,
   actionUrl?: string,
-  actionLabel?: string
+  actionLabel?: string,
+  userIdentifier?: string
 ) {
   try {
     let subject = '';
@@ -219,7 +224,7 @@ export async function sendNotificationEmail(
       from: 'Society+ <admin@societyplus.app>',
       to: [email],
       subject,
-      html: getEmailTemplate(content),
+      html: getEmailTemplate(content, userIdentifier),
     });
 
     if (error) {

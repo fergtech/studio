@@ -122,6 +122,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ use
         select: { email: true, emailNotifications: true, username: true },
       });
 
+      // Get sender info for the chat link
+      const sender = await prisma.user.findUnique({
+        where: { id: currentUserId },
+        select: { username: true },
+      });
+
       // Create in-app notification
       await prisma.notification.create({
         data: {
@@ -141,8 +147,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ use
       if (receiver?.emailNotifications) {
         try {
           const { sendNotificationEmail } = await import('@/lib/email');
-          const senderUsername = session.user.email?.split('@')[0] || 'user';
-          const actionUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/chat/${senderUsername}`;
+          // Use sender's actual username or ID for the chat link
+          const senderIdentifier = sender?.username || currentUserId;
+          const receiverIdentifier = receiver?.username || userId;
+          const actionUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/chat/${senderIdentifier}`;
 
           await sendNotificationEmail(
             receiver.email,
@@ -150,7 +158,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ use
             'New Message',
             `${session.user.name || 'Someone'}: ${text.trim().substring(0, 50)}${text.trim().length > 50 ? '...' : ''}`,
             actionUrl,
-            'View Message'
+            'View Message',
+            receiverIdentifier
           );
           console.log('Email notification sent successfully to', receiver.email);
         } catch (emailError) {

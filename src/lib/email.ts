@@ -77,6 +77,7 @@ function getEmailTemplate(content: string, userIdentifier?: string) {
   const settingsUrl = userIdentifier
     ? `${baseUrl}/profile/${userIdentifier}/edit`
     : `${baseUrl}/profile/me/edit`;
+  const logoUrl = `${baseUrl}/apple-touch-icon.png`;
 
   return `
     <!DOCTYPE html>
@@ -89,19 +90,31 @@ function getEmailTemplate(content: string, userIdentifier?: string) {
         <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #f5f5f5;">
           <tr>
             <td align="center" style="padding: 40px 0;">
-              <table role="presentation" style="width: 600px; max-width: 100%; border-collapse: collapse; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2 8px rgba(0,0,0,0.05);">
+              <table role="presentation" style="width: 600px; max-width: 100%; border-collapse: collapse; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); overflow: hidden;">
+                <!-- Header with logo and branding -->
+                <tr>
+                  <td style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); padding: 30px; text-align: center;">
+                    <img src="${logoUrl}" alt="Society+" style="width: 60px; height: 60px; border-radius: 12px; margin-bottom: 12px;" />
+                    <h2 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 600; letter-spacing: 0.5px;">Society+</h2>
+                    <p style="margin: 8px 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">Building communities together</p>
+                  </td>
+                </tr>
+                <!-- Content -->
                 <tr>
                   <td style="padding: 40px 30px;">
                     ${content}
                   </td>
                 </tr>
+                <!-- Footer -->
                 <tr>
-                  <td style="padding: 20px 30px; border-top: 1px solid #eeeeee; text-align: center;">
+                  <td style="padding: 20px 30px; border-top: 1px solid #eeeeee; text-align: center; background-color: #fafafa;">
                     <p style="margin: 0; font-size: 12px; color: #999999;">
                       © ${new Date().getFullYear()} Society+. All rights reserved.
                     </p>
                     <p style="margin: 10px 0 0; font-size: 12px; color: #999999;">
-                      <a href="${settingsUrl}" style="color: #2563eb; text-decoration: none;">Notification Settings</a>
+                      <a href="${settingsUrl}" style="color: #2563eb; text-decoration: none; font-weight: 500;">Notification Settings</a>
+                      <span style="margin: 0 8px; color: #cccccc;">•</span>
+                      <a href="${baseUrl}" style="color: #2563eb; text-decoration: none; font-weight: 500;">Visit Society+</a>
                     </p>
                   </td>
                 </tr>

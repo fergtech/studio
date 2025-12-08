@@ -352,8 +352,8 @@ export async function followUserAction(userId: string): Promise<{ success: boole
       data: {
         userId: userId,
         type: 'FOLLOW',
-        title: 'New Follower',
-        message: `${follower?.name || 'Someone'} started following you`,
+        title: 'Added to Circle',
+        message: `${follower?.name || 'Someone'} added you to their circle`,
         data: {
           followerId: followerId,
           followerName: follower?.name,
@@ -371,8 +371,8 @@ export async function followUserAction(userId: string): Promise<{ success: boole
         await sendNotificationEmail(
           followedUser.email,
           'FOLLOW',
-          'New Follower',
-          `${follower?.name || 'Someone'} started following you`,
+          'Added to Circle',
+          `${follower?.name || 'Someone'} added you to their circle`,
           actionUrl,
           'View Profile'
         );

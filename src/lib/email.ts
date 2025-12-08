@@ -160,9 +160,9 @@ export async function sendNotificationEmail(
         break;
 
       case 'FOLLOW':
-        subject = 'New Follower on Society+';
+        subject = 'Added to Circle on Society+';
         content = `
-          <h1 style="margin: 0 0 20px; font-size: 24px; font-weight: 600; color: #1a1a1a;">👤 ${title}</h1>
+          <h1 style="margin: 0 0 20px; font-size: 24px; font-weight: 600; color: #1a1a1a;">👥 ${title}</h1>
           <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.5; color: #666666;">
             ${message}
           </p>
@@ -175,18 +175,47 @@ export async function sendNotificationEmail(
         break;
 
       case 'INITIATIVE_INVITE':
-        subject = 'Initiative Invitation on Society+';
-        content = `
-          <h1 style="margin: 0 0 20px; font-size: 24px; font-weight: 600; color: #1a1a1a;">🎯 ${title}</h1>
-          <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.5; color: #666666;">
-            ${message}
-          </p>
-          ${actionUrl ? `
-            <a href="${actionUrl}" style="display: inline-block; padding: 14px 32px; background-color: #2563eb; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 16px;">
-              ${actionLabel || 'View Invitation'}
-            </a>
-          ` : ''}
-        `;
+        // Determine the type based on the title
+        if (title.includes('Event')) {
+          subject = 'New Event in Initiative on Society+';
+          content = `
+            <h1 style="margin: 0 0 20px; font-size: 24px; font-weight: 600; color: #1a1a1a;">📅 ${title}</h1>
+            <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.5; color: #666666;">
+              ${message}
+            </p>
+            ${actionUrl ? `
+              <a href="${actionUrl}" style="display: inline-block; padding: 14px 32px; background-color: #2563eb; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 16px;">
+                ${actionLabel || 'View Event'}
+              </a>
+            ` : ''}
+          `;
+        } else if (title.includes('Goal')) {
+          subject = 'New Goal in Initiative on Society+';
+          content = `
+            <h1 style="margin: 0 0 20px; font-size: 24px; font-weight: 600; color: #1a1a1a;">🎯 ${title}</h1>
+            <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.5; color: #666666;">
+              ${message}
+            </p>
+            ${actionUrl ? `
+              <a href="${actionUrl}" style="display: inline-block; padding: 14px 32px; background-color: #2563eb; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 16px;">
+                ${actionLabel || 'View Goal'}
+              </a>
+            ` : ''}
+          `;
+        } else {
+          subject = 'Initiative Invitation on Society+';
+          content = `
+            <h1 style="margin: 0 0 20px; font-size: 24px; font-weight: 600; color: #1a1a1a;">🎯 ${title}</h1>
+            <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.5; color: #666666;">
+              ${message}
+            </p>
+            ${actionUrl ? `
+              <a href="${actionUrl}" style="display: inline-block; padding: 14px 32px; background-color: #2563eb; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 16px;">
+                ${actionLabel || 'View Invitation'}
+              </a>
+            ` : ''}
+          `;
+        }
         break;
 
       case 'GOAL_COMPLETED':

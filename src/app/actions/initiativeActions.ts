@@ -455,6 +455,77 @@ export async function createUpdate(args: CreateUpdateArgs): Promise<{ success: b
     // Sync ResourceMetadata entries
     await syncResourceMetadata(update);
 
+    // Send notification if this is a response to another update
+    if (args.details?.parentUpdateId) {
+      try {
+        // Get the original update and its author
+        const parentUpdate = await prisma.update.findUnique({
+          where: { id: args.details.parentUpdateId },
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                emailNotifications: true,
+                username: true,
+              }
+            },
+            initiative: {
+              select: {
+                id: true,
+                title: true,
+              }
+            }
+          },
+        });
+
+        // Only notify if the responder is not the original poster
+        if (parentUpdate && parentUpdate.userId !== args.userId) {
+          const responder = await prisma.user.findUnique({
+            where: { id: args.userId },
+            select: { name: true }
+          });
+
+          // Create in-app notification
+          await prisma.notification.create({
+            data: {
+              userId: parentUpdate.userId,
+              type: 'INITIATIVE_INVITE', // Reusing existing type, could add UPDATE_RESPONSE type
+              title: 'New Response to Your Update',
+              message: `${responder?.name || 'Someone'} responded to your update in ${parentUpdate.initiative?.title || 'an initiative'}`,
+              data: {
+                initiativeId: args.initiativeId,
+                updateId: update.id,
+                parentUpdateId: args.details.parentUpdateId,
+                responderId: args.userId,
+              },
+            },
+          });
+
+          // Send email notification if enabled
+          if (parentUpdate.user.emailNotifications) {
+            const { sendNotificationEmail } = await import('@/lib/email');
+            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+            const updateUrl = `${baseUrl}/initiatives/${args.initiativeId}`;
+            
+            await sendNotificationEmail(
+              parentUpdate.user.email,
+              'INITIATIVE_INVITE',
+              'New Response to Your Update',
+              `${responder?.name || 'Someone'} responded to your update in ${parentUpdate.initiative?.title || 'an initiative'}: "${args.content.substring(0, 100)}${args.content.length > 100 ? '...' : ''}"`,
+              updateUrl,
+              'View Response',
+              parentUpdate.user.username || parentUpdate.userId
+            );
+          }
+        }
+      } catch (notifError) {
+        console.error('Error sending update response notification:', notifError);
+        // Don't fail the update creation if notification fails
+      }
+    }
+
     revalidatePath(`/initiatives/${args.initiativeId}`);
     return { success: true, update };
   } catch (error) {

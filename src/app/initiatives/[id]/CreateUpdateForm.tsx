@@ -11,6 +11,7 @@ import { LinkPreview, LinkPreviewLoading, LinkPreviewError } from '@/components/
 import { DocumentPreview } from '@/components/ui/document-preview';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface CreateUpdateFormProps {
   initiativeId: string;
@@ -26,6 +27,7 @@ interface CreateUpdateFormProps {
 export function CreateUpdateForm({ initiativeId, onPostUpdate }: CreateUpdateFormProps) {
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resourceCategory, setResourceCategory] = useState<string>('');
   const { toast } = useToast();
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -333,13 +335,17 @@ export function CreateUpdateForm({ initiativeId, onPostUpdate }: CreateUpdateFor
           title: link.metadata?.title || '',
           description: link.metadata?.description || '',
           imageUrl: link.metadata?.image || link.metadata?.imageUrl || null,
-          siteName: link.metadata?.siteName || null
+          siteName: link.metadata?.siteName || null,
+          category: resourceCategory || null
         }));
 
       // Prepare documents data
       const documentsData = documents
         .filter(doc => doc.metadata && !doc.error)
-        .map(doc => doc.metadata!);
+        .map(doc => ({
+          ...doc.metadata!,
+          category: resourceCategory || null
+        }));
 
       // Call parent callback
       onPostUpdate({
@@ -361,6 +367,7 @@ export function CreateUpdateForm({ initiativeId, onPostUpdate }: CreateUpdateFor
       setLinks([]);
       setDocuments([]);
       setShowLinkInput(false);
+      setResourceCategory('');
 
       toast({
         title: "Update posted!",
@@ -389,6 +396,41 @@ export function CreateUpdateForm({ initiativeId, onPostUpdate }: CreateUpdateFor
             onChange={(e) => setContent(e.target.value)}
             className="min-h-[100px] resize-none"
           />
+
+          {/* Resource Category Selection - shown when links or documents are added */}
+          {(links.length > 0 || documents.length > 0) && (
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-muted-foreground whitespace-nowrap">
+                Resource Category:
+              </label>
+              <Select value={resourceCategory} onValueChange={setResourceCategory}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Select category (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Administrative">Administrative</SelectItem>
+                  <SelectItem value="Finance">Finance</SelectItem>
+                  <SelectItem value="Design">Design</SelectItem>
+                  <SelectItem value="Planning">Planning</SelectItem>
+                  <SelectItem value="Reference">Reference</SelectItem>
+                  <SelectItem value="Technical">Technical</SelectItem>
+                  <SelectItem value="Marketing">Marketing</SelectItem>
+                  <SelectItem value="Research">Research</SelectItem>
+                </SelectContent>
+              </Select>
+              {resourceCategory && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setResourceCategory('')}
+                  className="text-xs"
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
+          )}
 
           {/* Image Preview */}
           {imagePreview && (

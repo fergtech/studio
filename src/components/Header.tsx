@@ -31,7 +31,6 @@ export function Header() {
   const { data: session, status } = useSession();
   const [currentUser, setCurrentUser] = useState<any>(null);
   const {
-    openCreateInitiativeModal,
     createInitiativeModal,
     closeCreateInitiativeModal,
     openCreateIssueModal,
@@ -40,12 +39,10 @@ export function Header() {
     openCreateIdeaModal,
     closeCreateIdeaModal,
     createIdeaModal,
-    // Add society modal handlers
-    openCreateSocietyModal,
+    // Society and initiative modals removed - now use routes
     closeCreateSocietyModal,
     createSocietyModal,
-    // Add debate topic modal handlers
-    openCreateDebateTopicModal,
+    // Add debate topic modal handlers (kept for context, but modal removed)
     closeCreateDebateTopicModal,
     createDebateTopicModal,
   } = useModal();
@@ -130,11 +127,23 @@ export function Header() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56" align="end" forceMount>
-                <DropdownMenuItem onClick={() => openCreateInitiativeModal()} className="cursor-pointer">Create Initiative</DropdownMenuItem>
+                <DropdownMenuItem asChild className="cursor-pointer">
+                  <Link href="/initiatives/create">
+                    Create Initiative
+                  </Link>
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => openCreateIssueModal()} className="cursor-pointer">Create Issue</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => openCreateIdeaModal()} className="cursor-pointer">Create Idea</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => openCreateSocietyModal()} className="cursor-pointer">Create Society</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => openCreateDebateTopicModal()} className="cursor-pointer">Create Debate Topic</DropdownMenuItem>
+                <DropdownMenuItem asChild className="cursor-pointer">
+                  <Link href="/societies/create">
+                    Create Society
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild className="cursor-pointer">
+                  <Link href="/debates/create">
+                    Create Debate Topic
+                  </Link>
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           )}
@@ -236,11 +245,23 @@ export function Header() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className="w-56" align="start" forceMount>
-                      <DropdownMenuItem onClick={() => openCreateInitiativeModal()} className="cursor-pointer">Create Initiative</DropdownMenuItem>
+                      <DropdownMenuItem asChild className="cursor-pointer">
+                        <Link href="/initiatives/create">
+                          Create Initiative
+                        </Link>
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => openCreateIssueModal()} className="cursor-pointer">Create Issue</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => openCreateIdeaModal()} className="cursor-pointer">Create Idea</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => openCreateSocietyModal()} className="cursor-pointer">Create Society</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => openCreateDebateTopicModal()} className="cursor-pointer">Create Debate Topic</DropdownMenuItem>
+                      <DropdownMenuItem asChild className="cursor-pointer">
+                        <Link href="/societies/create">
+                          Create Society
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild className="cursor-pointer">
+                        <Link href="/debates/create">
+                          Create Debate Topic
+                        </Link>
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                   <Separator className="my-2" />

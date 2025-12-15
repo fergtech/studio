@@ -51,7 +51,6 @@ interface IssueCardProps {
 }
 
 export function IssueCard({ issue, currentUserId, onIssueDeleted }: IssueCardProps) {
-  const { openCreateInitiativeModal } = useModal();
   const router = useRouter();
   
   // --- Likes ---
@@ -219,7 +218,12 @@ export function IssueCard({ issue, currentUserId, onIssueDeleted }: IssueCardPro
 
   const handleCreateInitiativeFromIssue = () => {
     // Don't pass image - let user choose their own for the initiative
-    openCreateInitiativeModal(issue.title, issue.description, undefined, issue.id, undefined);
+    const params = new URLSearchParams({
+      title: issue.title,
+      description: issue.description,
+      originatingIssueId: issue.id
+    });
+    router.push(`/initiatives/create?${params.toString()}`);
   };
 
   const [isDeleting, setIsDeleting] = useState(false);

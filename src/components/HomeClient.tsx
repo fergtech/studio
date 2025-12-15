@@ -339,7 +339,7 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
   const [feedFilter, setFeedFilter] = useState<FeedFilterType>('debates');
   const [filterSwitching, setFilterSwitching] = useState(false);
   const { toast } = useToast();
-  const { openCreateBattleResponseModal, openCreateSocietyModal, openCreateInitiativeModal, openCreateDebateTopicModal } = useModal();
+  const { openCreateBattleResponseModal, openCreateSocietyModal, openCreateInitiativeModal } = useModal();
   const [showMoreNews, setShowMoreNews] = useState(false);
 
   // Sidebar collapsed state for desktop
@@ -1298,7 +1298,7 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
           context="general"
           onOpenSocietyModal={openCreateSocietyModal}
           onOpenInitiativeModal={() => openCreateInitiativeModal()}
-          onOpenDebateTopicModal={() => openCreateDebateTopicModal()}
+          onOpenDebateTopicModal={() => router.push('/debates/create')}
         />
       </div>
 

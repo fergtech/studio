@@ -102,7 +102,7 @@ export async function GET(request: NextRequest) {
         OFFSET ${query.offset}
       `;
 
-      // Fetch creators for ideas
+      // Fetch creators and media for ideas
       const ideaIds = ideas.map(i => i.id);
       if (ideaIds.length > 0) {
         const creators = await prisma.user.findMany({
@@ -110,7 +110,21 @@ export async function GET(request: NextRequest) {
           select: { id: true, name: true, image: true, username: true },
         });
         const creatorMap = new Map(creators.map(c => [c.id, c]));
-        ideas = ideas.map(i => ({ ...i, creator: creatorMap.get(i.creatorId) }));
+        
+        const media = await prisma.mediaItem.findMany({
+          where: { ideaId: { in: ideaIds } },
+        });
+        const mediaMap = new Map<string, any[]>();
+        media.forEach(m => {
+          if (!mediaMap.has(m.ideaId!)) mediaMap.set(m.ideaId!, []);
+          mediaMap.get(m.ideaId!)!.push(m);
+        });
+        
+        ideas = ideas.map(i => ({ 
+          ...i, 
+          creator: creatorMap.get(i.creatorId),
+          media: mediaMap.get(i.id) || []
+        }));
       }
     }
 
@@ -140,7 +154,7 @@ export async function GET(request: NextRequest) {
         OFFSET ${query.offset}
       `;
 
-      // Fetch creators for issues
+      // Fetch creators and media for issues
       const issueIds = issues.map(i => i.id);
       if (issueIds.length > 0) {
         const creators = await prisma.user.findMany({
@@ -148,7 +162,21 @@ export async function GET(request: NextRequest) {
           select: { id: true, name: true, image: true, username: true },
         });
         const creatorMap = new Map(creators.map(c => [c.id, c]));
-        issues = issues.map(i => ({ ...i, creator: creatorMap.get(i.creatorId) }));
+        
+        const media = await prisma.mediaItem.findMany({
+          where: { issueId: { in: issueIds } },
+        });
+        const mediaMap = new Map<string, any[]>();
+        media.forEach(m => {
+          if (!mediaMap.has(m.issueId!)) mediaMap.set(m.issueId!, []);
+          mediaMap.get(m.issueId!)!.push(m);
+        });
+        
+        issues = issues.map(i => ({ 
+          ...i, 
+          creator: creatorMap.get(i.creatorId),
+          media: mediaMap.get(i.id) || []
+        }));
       }
     }
 

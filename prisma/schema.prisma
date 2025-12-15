@@ -92,6 +92,7 @@ model User {
   userFollowers         UserFollow[]           @relation("UserFollowers")
   userFollowing         UserFollow[]           @relation("UserFollowing")
   topicInterests        UserTopicInterest[]    @relation("UserTopicInterests")
+  createdResources      ResourceMetadata[]
 }
 
 model PasswordResetToken {
@@ -139,6 +140,7 @@ model Initiative {
   milestones         Milestone[]
   steps              Step[]
   updates            Update[]
+  resources          ResourceMetadata[]
 }
 
 model Milestone {
@@ -225,20 +227,43 @@ model MediaItem {
 }
 
 model Update {
-  id           String      @id @default(cuid())
+  id           String             @id @default(cuid())
   initiativeId String
   type         UpdateType
   userId       String
   content      String
   details      Json?
-  createdAt    DateTime    @default(now())
+  createdAt    DateTime           @default(now())
   goalId       String?
-  updatedAt    DateTime?   @updatedAt
+  updatedAt    DateTime?          @updatedAt
   rsvps        EventRSVP[]
   media        MediaItem[]
-  goal         Goal?       @relation("GoalUpdates", fields: [goalId], references: [id])
-  initiative   Initiative  @relation(fields: [initiativeId], references: [id])
-  user         User        @relation("CreatorOfUpdate", fields: [userId], references: [id])
+  resources    ResourceMetadata[]
+  goal         Goal?              @relation("GoalUpdates", fields: [goalId], references: [id])
+  initiative   Initiative         @relation(fields: [initiativeId], references: [id])
+  user         User               @relation("CreatorOfUpdate", fields: [userId], references: [id])
+}
+
+model ResourceMetadata {
+  id           String       @id @default(cuid())
+  initiativeId String
+  updateId     String
+  resourceType ResourceType
+  title        String
+  description  String?
+  url          String
+  category     String?
+  tags         String[]     @default([])
+  isPinned     Boolean      @default(false)
+  order        Int?
+  createdAt    DateTime     @default(now())
+  createdBy    String
+  initiative   Initiative   @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  update       Update       @relation(fields: [updateId], references: [id], onDelete: Cascade)
+  creator      User         @relation(fields: [createdBy], references: [id])
+
+  @@index([initiativeId, resourceType])
+  @@index([initiativeId, isPinned])
 }
 
 model EventRSVP {
@@ -1105,6 +1130,12 @@ enum Priority {
 enum MediaType {
   image
   video
+}
+
+enum ResourceType {
+  LINK
+  DOCUMENT
+  MEDIA
 }
 
 enum InitiativeRoleType {

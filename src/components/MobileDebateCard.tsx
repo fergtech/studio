@@ -638,7 +638,7 @@ export function MobileDebateCard({
                 <MessageSquare className="w-6 h-6 text-white" />
               </div>
               <span className="text-xs font-semibold drop-shadow-lg">
-                {stats.argumentCount > 0 ? stats.argumentCount : 'Reply'}
+                {stats.argumentCount > 0 ? stats.argumentCount : 'Comment'}
               </span>
             </motion.button>
 

@@ -35,12 +35,8 @@ export function BottomNavBar() {
   const pathname = usePathname();
   const router = useRouter();
   const {
-    openCreateDebateTopicModal,
-    openCreateInitiativeModal,
-    openCreateSocietyModal,
     openCreateIdeaModal,
-    openCreateIssueModal,
-    openCreateTopicPostModal
+    openCreateIssueModal
   } = useModal();
   const { data: session, status } = useSession();
   const { theme, setTheme } = useTheme();
@@ -91,16 +87,16 @@ export function BottomNavBar() {
     setShowCreateSheet(false);
     switch (type) {
       case 'debate':
-        openCreateDebateTopicModal();
+        router.push('/debates/create');
         break;
       case 'initiative':
-        openCreateInitiativeModal();
+        router.push('/initiatives/create');
         break;
       case 'society':
-        openCreateSocietyModal();
+        router.push('/societies/create');
         break;
       case 'post':
-        openCreateTopicPostModal('general');
+        router.push('/posts/create');
         break;
     }
   };

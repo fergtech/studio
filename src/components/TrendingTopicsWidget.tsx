@@ -238,7 +238,7 @@ export function TrendingTopicsWidget({ limit = 8, showHeader = true }: TrendingT
   if (loading) {
     return (
       <div>
-        {showHeader && (
+        {/* {showHeader && (
           <div className="pb-4 px-4">
             <h2 className="text-base font-medium flex items-center gap-1.5 text-foreground opacity-80">
               <div className="p-1 rounded-full bg-gradient-to-r from-blue-500 to-purple-500">
@@ -247,7 +247,7 @@ export function TrendingTopicsWidget({ limit = 8, showHeader = true }: TrendingT
               Topics
             </h2>
           </div>
-        )}
+        )} */}
         <div className="px-4">
           <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-3">
             {[...Array(limit)].map((_, i) => (
@@ -268,7 +268,7 @@ export function TrendingTopicsWidget({ limit = 8, showHeader = true }: TrendingT
   if (topics.length === 0) {
     return (
       <div>
-        {showHeader && (
+        {/* {showHeader && (
           <div className="pb-4 px-4">
             <h2 className="text-base font-medium flex items-center gap-1.5 text-foreground opacity-80">
               <div className="p-1 rounded-full bg-gradient-to-r from-blue-500 to-purple-500">
@@ -277,7 +277,7 @@ export function TrendingTopicsWidget({ limit = 8, showHeader = true }: TrendingT
               Topics
             </h2>
           </div>
-        )}
+        )} */}
         <div className="px-4">
           <div className="text-center py-8 text-muted-foreground">
             <div className="p-3 rounded-full bg-gradient-to-r from-muted/20 to-muted/10 inline-block mb-3">
@@ -293,7 +293,7 @@ export function TrendingTopicsWidget({ limit = 8, showHeader = true }: TrendingT
 
   return (
     <div>
-      {showHeader && (
+      {/* {showHeader && (
         <div className="pb-4 px-4">
           <h2 className="text-base font-medium flex items-center gap-1.5 text-foreground opacity-80">
             <div className="p-1 rounded-full bg-gradient-to-r from-blue-500 to-purple-500">
@@ -302,7 +302,7 @@ export function TrendingTopicsWidget({ limit = 8, showHeader = true }: TrendingT
             Trending Topics
           </h2>
         </div>
-      )}
+      )} */}
       <div className="px-4 relative group">
         {/* Left Navigation Arrow - Desktop */}
         {topics.length > 0 && (

@@ -11,7 +11,6 @@ import { MessageSquare, Filter, Plus } from 'lucide-react';
 import Link from 'next/link';
 import AppSidebar from '@/components/AppSidebar';
 import { MobileDebateCard } from '@/components/MobileDebateCard';
-import { useModal } from '@/context/ModalContext';
 
 interface Debate {
   id: string;
@@ -29,7 +28,6 @@ interface Debate {
 
 export default function DebatesPage() {
   const { data: session } = useSession();
-  const { openCreateDebateTopicModal } = useModal();
   const [debates, setDebates] = useState<Debate[]>([]);
   const [filteredDebates, setFilteredDebates] = useState<Debate[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -126,9 +124,11 @@ export default function DebatesPage() {
                 <p className="text-lg text-muted-foreground">Join the conversation</p>
               </div>
             </div>
-            <Button onClick={openCreateDebateTopicModal}>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Debate
+            <Button asChild>
+              <Link href="/debates/create">
+                <Plus className="h-4 w-4 mr-2" />
+                Create Debate
+              </Link>
             </Button>
           </div>
 
@@ -205,9 +205,11 @@ export default function DebatesPage() {
                 }
               </p>
               {!searchQuery && (
-                <Button onClick={openCreateDebateTopicModal}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create First Debate
+                <Button asChild>
+                  <Link href="/debates/create">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create First Debate
+                  </Link>
                 </Button>
               )}
             </div>

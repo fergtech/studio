@@ -1,31 +1,68 @@
 "use client";
 
-// Removed duplicated form logic (schema, type, useForm, useFieldArray, onSubmit)
-// This page might need refactoring depending on whether initiative creation
-// should happen here standalone or only via the Header dialog.
-
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-
-export const dynamic = "force-dynamic";
+import { useRouter, useSearchParams } from 'next/navigation';
+import { ArrowLeft, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { CreateInitiativeForm } from '@/components/CreateInitiativeForm';
 
 export default function CreateInitiativePage() {
-  // If the form should be standalone here, import and use CreateInitiativeForm
-  // but it needs adjustments as it currently expects a `setOpen` prop for a dialog.
-  // For now, rendering a placeholder.
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Extract query params for pre-filling
+  const initialTitle = searchParams.get('title');
+  const initialDescription = searchParams.get('description');
+  const initialImageUrl = searchParams.get('imageUrl');
+  const originatingIssueId = searchParams.get('originatingIssueId');
+  const originatingIdeaId = searchParams.get('originatingIdeaId');
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <Card className="max-w-2xl mx-auto">
-        <CardHeader>
-          <CardTitle>Create Initiative</CardTitle>
-          <CardDescription>Define your new project.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {/* Placeholder: Initiative creation form would go here if intended for this page */}
-          <p>Initiative creation form placeholder.</p>
-          <p>Currently, creation is handled via the dialog in the header.</p>
-        </CardContent>
-      </Card>
+    <div className="fixed inset-0 z-50 bg-background flex flex-col">
+      {/* Header with close button - full width */}
+      <div className="sticky top-0 z-50 bg-background border-b px-4 sm:px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.back()}
+            className="h-9 w-9 p-0 hover:bg-muted"
+          >
+            <ArrowLeft className="h-5 w-5" />
+            <span className="sr-only">Go back</span>
+          </Button>
+          <div>
+            <h1 className="text-xl font-semibold">Create New Initiative</h1>
+            {(originatingIssueId || originatingIdeaId) && (
+              <p className="text-xs text-muted-foreground">
+                {originatingIssueId && 'Addressing an issue'}
+                {originatingIdeaId && 'Implementing an idea'}
+              </p>
+            )}
+          </div>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => router.back()}
+          className="h-9 w-9 p-0 hover:bg-muted"
+        >
+          <X className="h-5 w-5" />
+          <span className="sr-only">Close</span>
+        </Button>
+      </div>
+
+      {/* Scrollable form content */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6">
+          <CreateInitiativeForm
+            initialTitle={initialTitle}
+            initialDescription={initialDescription}
+            initialImageUrl={initialImageUrl}
+            originatingIssueId={originatingIssueId}
+            originatingIdeaId={originatingIdeaId}
+          />
+        </div>
+      </div>
     </div>
   );
 }

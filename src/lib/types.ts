@@ -133,7 +133,10 @@ export interface Update {
 
   // Optional client-side enhancements or aggregated data
   reactionCount?: number; 
-  commentCount?: number;  
+  commentCount?: number;
+  
+  // Event-specific fields (optional, only present for event updates)
+  rsvps?: EventRSVP[]; // RSVPs for event-type updates
 }
 
 export interface ChatMessage extends Omit<PrismaChatMessage, 'initiativeId' | 'senderId' | 'timestamp'> {

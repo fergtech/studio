@@ -234,28 +234,28 @@ export default function LocationBasedWidget() {
       icon: Target, 
       label: 'Issues', 
       count: primary.counts.issues, 
-      href: '/issues',
+      href: '/local/issues',
       color: 'text-red-600'
     },
     { 
       icon: Lightbulb, 
       label: 'Ideas', 
       count: primary.counts.ideas, 
-      href: '/ideas',
+      href: '/local/ideas',
       color: 'text-yellow-600'
     },
     { 
       icon: Handshake, 
       label: 'Initiatives', 
       count: primary.counts.initiatives, 
-      href: '/initiatives',
+      href: '/local/initiatives',
       color: 'text-blue-600'
     },
     { 
       icon: Users, 
       label: 'Societies', 
       count: primary.counts.societies, 
-      href: '/societies',
+      href: '/local/societies',
       color: 'text-green-600'
     },
   ];

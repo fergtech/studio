@@ -20,9 +20,11 @@ export function InitiativesListModal({ isOpen, onClose, initiatives, title, empt
       <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>
-            {emptyMessage}
-          </DialogDescription>
+          {initiatives.length === 0 && (
+            <DialogDescription>
+              {emptyMessage}
+            </DialogDescription>
+          )}
         </DialogHeader>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 py-4">
           {initiatives.length > 0 ? (

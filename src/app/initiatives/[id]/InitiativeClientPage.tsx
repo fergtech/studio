@@ -44,6 +44,7 @@ import { ChatPanel } from '@/components/initiatives/ChatPanel';
 import { SuggestedGoalTag } from '@/components/initiatives/SuggestedGoalTag';
 import { deleteGoal } from '@/app/actions/goalActions';
 import { SocialShareDialog } from '@/components/social/SocialShareDialog';
+import ResourcesTab from '@/components/initiatives/ResourcesTab';
 
 // Helper function to parse and display location data
 const getLocationDisplay = (location: string | null | undefined): string | null => {
@@ -162,6 +163,9 @@ export function InitiativeClientPage({
 
   // State for response context
   const [respondingTo, setRespondingTo] = useState<{ id: string; content: string } | null>(null);
+
+  // Tab navigation state
+  const [activeTab, setActiveTab] = useState<'feed' | 'goals' | 'events' | 'resources'>('feed');
 
   // Log the initiative state right after initialization
   console.log('InitiativeClientPage: Initiative state after useState initialization:', initiative);
@@ -1109,19 +1113,88 @@ export function InitiativeClientPage({
               isMember={isMember}
             />
 
-            {/* Goals Section - Member Only */}
+            {/* Tab Navigation */}
             {isMember && (
+              <div className="border-b border-border">
+                <div className="flex gap-1 overflow-x-auto scrollbar-hide">
+                  <button
+                    onClick={() => setActiveTab('feed')}
+                    className={cn(
+                      "px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors relative",
+                      activeTab === 'feed'
+                        ? "text-primary"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    Feed
+                    {activeTab === 'feed' && (
+                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('goals')}
+                    className={cn(
+                      "px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors relative",
+                      activeTab === 'goals'
+                        ? "text-primary"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    Goals
+                    {initiative.goals && initiative.goals.length > 0 && (
+                      <span className="ml-1.5 px-1.5 py-0.5 bg-primary/10 text-primary text-xs rounded-full">
+                        {initiative.goals.length}
+                      </span>
+                    )}
+                    {activeTab === 'goals' && (
+                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('events')}
+                    className={cn(
+                      "px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors relative",
+                      activeTab === 'events'
+                        ? "text-primary"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    Events
+                    {localUpdates.filter(u => u.type === 'event_creation' || u.type === 'event_update' || u.type === 'event_cancelled').length > 0 && (
+                      <span className="ml-1.5 px-1.5 py-0.5 bg-primary/10 text-primary text-xs rounded-full">
+                        {localUpdates.filter(u => u.type === 'event_creation' || u.type === 'event_update' || u.type === 'event_cancelled').length}
+                      </span>
+                    )}
+                    {activeTab === 'events' && (
+                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('resources')}
+                    className={cn(
+                      "px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors relative",
+                      activeTab === 'resources'
+                        ? "text-primary"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    Resources
+                    {activeTab === 'resources' && (
+                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Goals Section - Member Only */}
+            {isMember && activeTab === 'goals' && (
             <div className="mb-8">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-2xl font-semibold">Goals</h2>
-                <div className="flex gap-2">
-                  <Button onClick={() => setIsCreateGoalDialogOpen(true)} variant="outline">
-                    <Plus className="mr-2 h-4 w-4" /> Add Goal
-                  </Button>
-                  <Button onClick={() => setIsCreateEventDialogOpen(true)}>
-                    <Plus className="mr-2 h-4 w-4" /> Create Event
-                  </Button>
-                </div>
+                <Button onClick={() => setIsCreateGoalDialogOpen(true)} variant="outline">
+                  <Plus className="mr-2 h-4 w-4" /> Add Goal
+                </Button>
               </div>
               {initiative.goals && initiative.goals.length > 0 ? (
                 <ScrollArea className="w-full">
@@ -1253,12 +1326,22 @@ export function InitiativeClientPage({
             )}
 
             {/* Events Section - Shows pinned current event + horizontal past events */}
-            <EventsSection
-              events={localUpdates.filter(u =>
-                u.type === 'event_creation' || u.type === 'event_update' || u.type === 'event_cancelled'
+            {activeTab === 'events' && (
+            <div className="space-y-4">
+              {isMember && (
+                <div className="flex justify-between items-center">
+                  <h2 className="text-2xl font-semibold">Events</h2>
+                  <Button onClick={() => setIsCreateEventDialogOpen(true)}>
+                    <Plus className="mr-2 h-4 w-4" /> Create Event
+                  </Button>
+                </div>
               )}
-              currentUserId={userId}
-              initiativeId={initiativeId}
+              <EventsSection
+                events={localUpdates.filter(u =>
+                  u.type === 'event_creation' || u.type === 'event_update' || u.type === 'event_cancelled'
+                )}
+                currentUserId={userId}
+                initiativeId={initiativeId}
               onRSVP={async (eventId, status) => {
                 if (!userId) {
                   toast({
@@ -1301,8 +1384,28 @@ export function InitiativeClientPage({
               }}
               onDelete={handleDeleteUpdate}
             />
+            </div>
+            )}
+
+            {/* Resources Section - Member Only */}
+            {isMember && userId && activeTab === 'resources' && (
+              <div className="mb-8">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-2xl font-semibold">Resources</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Documents, links, and media from updates
+                  </p>
+                </div>
+                <Card>
+                  <CardContent className="p-6">
+                    <ResourcesTab initiativeId={initiativeId} userId={userId} />
+                  </CardContent>
+                </Card>
+              </div>
+            )}
 
             {/* Updates Section */}
+            {activeTab === 'feed' && (
             <div className="space-y-4 mx-auto" style={{ maxWidth: '700px' }}>
               <h2 className="text-xl font-semibold">Updates</h2>
               {isMember ? (
@@ -1439,6 +1542,7 @@ export function InitiativeClientPage({
                 </Card>
               )}
             </div>
+            )}
         </div>
 
         {/* Edit Dialog */}

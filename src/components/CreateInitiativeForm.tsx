@@ -329,8 +329,15 @@ export function CreateInitiativeForm({
           onSuccess();
         } else {
           // Original modal flow
-          if (setOpen) setOpen(false);
+          if (setOpen) {
+            setOpen(false);
+          }
           if (onCreated) onCreated(result.initiative);
+          
+          // Navigate to initiative page when used as route (no modal)
+          if (!setOpen) {
+            router.push(`/initiatives/${result.initiative.id}`);
+          }
         }
         
         form.reset();

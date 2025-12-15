@@ -42,6 +42,7 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
   });
   const [showFollowersModal, setShowFollowersModal] = useState(false);
   const [showFollowingModal, setShowFollowingModal] = useState(false);
+  const [showCircleModal, setShowCircleModal] = useState(false);
   // Pagination and loading state for followers
   const [followers, setFollowers] = useState<any[]>([]);
   const [followersPage, setFollowersPage] = useState(1);
@@ -207,7 +208,7 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
 
   // Fetch followers when modal opens or page changes
   useEffect(() => {
-    if (showFollowersModal) {
+    if (showFollowersModal || showCircleModal) {
       setFollowersLoading(true);
       fetch(`/api/users/${user.id}/followers?page=${followersPage}&limit=${PAGE_SIZE}`)
         .then(res => res.json())
@@ -217,11 +218,11 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
         })
         .finally(() => setFollowersLoading(false));
     }
-  }, [showFollowersModal, followersPage, user.id]);
+  }, [showFollowersModal, showCircleModal, followersPage, user.id]);
 
   // Fetch following when modal opens or page changes
   useEffect(() => {
-    if (showFollowingModal) {
+    if (showFollowingModal || showCircleModal) {
       setFollowingLoading(true);
       fetch(`/api/users/${user.id}/following?page=${followingPage}&limit=${PAGE_SIZE}`)
         .then(res => res.json())
@@ -231,7 +232,7 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
         })
         .finally(() => setFollowingLoading(false));
     }
-  }, [showFollowingModal, followingPage, user.id]);
+  }, [showFollowingModal, showCircleModal, followingPage, user.id]);
 
   const handleFollow = async () => {
     if (isFollowing || isFollowLoading) return; // Prevent duplicate follow
@@ -668,7 +669,10 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
                 
                 <div className="grid grid-cols-2 gap-4">
                   {/* Initiatives Created */}
-                  <div className="bg-gray-900/50 border border-gray-700/30 rounded-xl p-4 text-center">
+                  <button 
+                    onClick={() => setShowCreatedInitiativesModal(true)}
+                    className="bg-gray-900/50 border border-gray-700/30 rounded-xl p-4 text-center transition-transform active:scale-95 hover:bg-gray-800/50"
+                  >
                     <div className="w-10 h-10 bg-blue-600/20 rounded-lg flex items-center justify-center mx-auto mb-3">
                       <Rocket className="w-5 h-5 text-blue-400" />
                     </div>
@@ -676,10 +680,13 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
                     <div className="text-xs text-gray-400 leading-tight">
                       Initiatives<br />Created
                     </div>
-                  </div>
+                  </button>
 
                   {/* Initiatives Joined */}
-                  <div className="bg-gray-900/50 border border-gray-700/30 rounded-xl p-4 text-center">
+                  <button 
+                    onClick={() => setShowParticipatingInModal(true)}
+                    className="bg-gray-900/50 border border-gray-700/30 rounded-xl p-4 text-center transition-transform active:scale-95 hover:bg-gray-800/50"
+                  >
                     <div className="w-10 h-10 bg-green-600/20 rounded-lg flex items-center justify-center mx-auto mb-3">
                       <Users className="w-5 h-5 text-green-400" />
                     </div>
@@ -687,7 +694,7 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
                     <div className="text-xs text-gray-400 leading-tight">
                       Initiatives<br />Joined
                     </div>
-                  </div>
+                  </button>
 
                   {/* Total Contributions */}
                   <div className="bg-gray-900/50 border border-gray-700/30 rounded-xl p-4 text-center">
@@ -701,7 +708,10 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
                   </div>
 
                   {/* Circle Members */}
-                  <div className="bg-gray-900/50 border border-gray-700/30 rounded-xl p-4 text-center">
+                  <button 
+                    onClick={() => setShowCircleModal(true)}
+                    className="bg-gray-900/50 border border-gray-700/30 rounded-xl p-4 text-center transition-transform active:scale-95 hover:bg-gray-800/50"
+                  >
                     <div className="w-10 h-10 bg-orange-600/20 rounded-lg flex items-center justify-center mx-auto mb-3">
                       <Users2 className="w-5 h-5 text-orange-400" />
                     </div>
@@ -711,7 +721,7 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
                     <div className="text-xs text-gray-400 leading-tight">
                       Circle<br />Members
                     </div>
-                  </div>
+                  </button>
                 </div>
               </div>
             </div>
@@ -778,51 +788,6 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
                   </div>
                 )}
               </div>
-            </div>
-          </div>
-
-          {/* Mobile Bottom Navigation */}
-          <div className="fixed bottom-0 left-0 right-0 bg-gray-900 dark:bg-gray-900 border-t border-gray-800 h-[69px] z-50">
-            <div className="flex items-center justify-around h-full px-4">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => router.push('/')}
-                className="text-gray-400 hover:text-white hover:bg-gray-800"
-              >
-                <Activity className="h-5 w-5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => router.push('/explore')}
-                className="text-gray-400 hover:text-white hover:bg-gray-800"
-              >
-                <Globe className="h-5 w-5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => router.push('/initiatives/create')}
-                className="text-gray-400 hover:text-white hover:bg-gray-800"
-              >
-                <Plus className="h-5 w-5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => router.push('/activity')}
-                className="text-gray-400 hover:text-white hover:bg-gray-800"
-              >
-                <MessageCircle className="h-5 w-5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-blue-500 hover:text-blue-400 hover:bg-gray-800"
-              >
-                <User2 className="h-5 w-5" />
-              </Button>
             </div>
           </div>
         </div>
@@ -2037,7 +2002,7 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
         isOpen={showCreatedInitiativesModal}
         onClose={() => setShowCreatedInitiativesModal(false)}
         initiatives={user.createdInitiatives}
-        title="Your Created Initiatives"
+        title={isOwnProfile ? "Your Created Initiatives" : `${user.name?.split(' ')[0] || 'Their'} Created Initiatives`}
         emptyMessage={isOwnProfile ? "You haven't created any initiatives yet." : "This user hasn't created any initiatives yet."}
       />
 
@@ -2045,7 +2010,7 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
         isOpen={showParticipatingInModal}
         onClose={() => setShowParticipatingInModal(false)}
         initiatives={user.initiativeMemberships.map((m: any) => m.initiative)}
-        title="Initiatives You're Participating In"
+        title={isOwnProfile ? "Initiatives You're Participating In" : `${user.name?.split(' ')[0] || 'Their'} Participating Initiatives`}
         emptyMessage={isOwnProfile ? "You aren't participating in any initiatives yet." : "This user isn't participating in any initiatives yet."}
       />
 
@@ -2092,6 +2057,101 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
             <span>Page {followersPage} of {Math.max(1, Math.ceil(followersTotal / PAGE_SIZE))}</span>
             <Button size="sm" disabled={followersPage * PAGE_SIZE >= followersTotal} onClick={() => setFollowersPage(p => p + 1)}>Next</Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Combined Circle Modal for Mobile */}
+      <Dialog open={showCircleModal} onOpenChange={setShowCircleModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {isOwnProfile ? 'Your Circle' : `${user.name?.split(' ')[0] || 'Their'} Circle`}
+            </DialogTitle>
+          </DialogHeader>
+          <Tabs defaultValue="followers" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="followers">
+                {isOwnProfile ? 'Added You' : 'Added Them'}
+              </TabsTrigger>
+              <TabsTrigger value="following">
+                {isOwnProfile ? 'You Added' : 'They Added'}
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="followers" className="mt-4">
+              <div className="space-y-3 max-h-80 overflow-y-auto">
+                {followersLoading ? (
+                  <div>Loading...</div>
+                ) : followers.length > 0 ? (
+                  followers.map((f: any) => (
+                    <div
+                      key={f.id}
+                      className="flex items-center gap-3 p-2 rounded hover:bg-muted transition cursor-pointer"
+                      onClick={() => goToUserProfile(f, () => setShowCircleModal(false))}
+                      tabIndex={0}
+                      role="button"
+                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') goToUserProfile(f, () => setShowCircleModal(false)); }}
+                    >
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={f.image || undefined} alt={f.name || f.username} />
+                        <AvatarFallback>{f.name?.[0]?.toUpperCase() || f.username?.[0]?.toUpperCase() || '?'}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="font-medium">{f.name || f.username}</div>
+                        <div className="text-xs text-gray-400">@{f.username}</div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center text-gray-500">
+                    {isOwnProfile ? "No one has added you to their circle yet." : "This user hasn't been added to any circles yet."}
+                  </div>
+                )}
+              </div>
+              <div className="flex justify-between mt-4">
+                <Button size="sm" disabled={followersPage === 1} onClick={() => setFollowersPage(p => Math.max(1, p - 1))}>Prev</Button>
+                <span className="text-sm">Page {followersPage} of {Math.max(1, Math.ceil(followersTotal / PAGE_SIZE))}</span>
+                <Button size="sm" disabled={followersPage * PAGE_SIZE >= followersTotal} onClick={() => setFollowersPage(p => p + 1)}>Next</Button>
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="following" className="mt-4">
+              <div className="space-y-3 max-h-80 overflow-y-auto">
+                {followingLoading ? (
+                  <div>Loading...</div>
+                ) : following.length > 0 ? (
+                  following.map((f: any) => (
+                    <div
+                      key={f.id}
+                      className="flex items-center gap-3 p-2 rounded hover:bg-muted transition cursor-pointer"
+                      onClick={() => goToUserProfile(f, () => setShowCircleModal(false))}
+                      tabIndex={0}
+                      role="button"
+                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') goToUserProfile(f, () => setShowCircleModal(false)); }}
+                    >
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={f.image || undefined} alt={f.name || f.username} />
+                        <AvatarFallback>{f.name?.[0]?.toUpperCase() || f.username?.[0]?.toUpperCase() || '?'}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="font-medium">{f.name || f.username}</div>
+                        <div className="text-xs text-gray-400">@{f.username}</div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center text-gray-500">
+                    {isOwnProfile ? "You haven't added anyone to your circle yet." : "This user hasn't added anyone to their circle yet."}
+                  </div>
+                )}
+              </div>
+              <div className="flex justify-between mt-4">
+                <Button size="sm" disabled={followingPage === 1} onClick={() => setFollowingPage(p => Math.max(1, p - 1))}>Prev</Button>
+                <span className="text-sm">Page {followingPage} of {Math.max(1, Math.ceil(followingTotal / PAGE_SIZE))}</span>
+                <Button size="sm" disabled={followingPage * PAGE_SIZE >= followingTotal} onClick={() => setFollowingPage(p => p + 1)}>Next</Button>
+              </div>
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
 

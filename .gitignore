@@ -110,3 +110,5 @@ migrations/*.sql
 # Alternative package managers
 pnpm-lock.yaml*
 .claude/settings.local.json
+
+certificates

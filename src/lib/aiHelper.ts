@@ -47,7 +47,7 @@ async function generateWithCloudflare(prompt: string): Promise<AIResponse> {
             content: prompt
           }
         ],
-        max_tokens: 2048,
+        max_tokens: 4096,
         temperature: 0.7
       }),
     });
@@ -136,24 +136,40 @@ export async function generateAIText(prompt: string): Promise<AIResponse> {
 
 /**
  * Generate JSON from AI with automatic parsing and validation
+ * Includes automatic fallback to Gemini if Cloudflare fails
  */
 export async function generateAIJSON<T = any>(prompt: string): Promise<{ data: T | null; success: boolean; provider: string }> {
-  const result = await generateAIText(prompt);
+  let result = await generateAIText(prompt);
 
   if (!result.success || !result.text) {
     return { data: null, success: false, provider: result.provider };
   }
+
+  // Track if we should try Gemini fallback
+  let shouldTryGemini = false;
 
   try {
     // Clean markdown code fences
     let cleaned = result.text.trim();
     cleaned = cleaned.replace(/^```json\n?|\n?```$/gi, '').trim();
 
+    // Replace smart quotes with regular quotes
+    cleaned = cleaned.replace(/[\u201C\u201D]/g, '"'); // Replace " and "
+    cleaned = cleaned.replace(/[\u2018\u2019]/g, "'"); // Replace ' and '
+
+    // Remove any zero-width characters
+    cleaned = cleaned.replace(/[\u200B-\u200D\uFEFF]/g, '');
+
     // Remove trailing commas before } or ]
     cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
 
-    // Try to extract JSON array or object
-    const jsonMatch = cleaned.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
+    // Fix common AI JSON generation errors
+    // Fix missing closing brace before array end: "text"\n] -> "text"\n}\n]
+    // This handles the pattern where AI forgets to close the last object in an array
+    cleaned = cleaned.replace(/(")\s*\n\s*(\])(?!\s*[}\]])/g, '$1\n  }\n$2');
+
+    // Try to extract JSON array or object (greedy match to get complete JSON)
+    const jsonMatch = cleaned.match(/(\[[\s\S]*\]|\{[\s\S]*\})/);
     if (!jsonMatch) {
       console.error('No JSON found in AI response');
       console.error('Raw AI response:', result.text);
@@ -163,17 +179,85 @@ export async function generateAIJSON<T = any>(prompt: string): Promise<{ data: T
     try {
       const parsed = JSON.parse(jsonMatch[0]);
       return { data: parsed, success: true, provider: result.provider };
-    } catch (error) {
+    } catch (error: any) {
       // Log raw response for debugging
       console.error('Failed to parse AI JSON response:', error);
       console.error('Raw AI response:', result.text);
-      return { data: null, success: false, provider: result.provider };
+      console.error('Extracted JSON match:', jsonMatch[0]);
+
+      // Show character codes around the error position if available
+      if (error.message && error.message.includes('position')) {
+        const posMatch = error.message.match(/position (\d+)/);
+        if (posMatch) {
+          const pos = parseInt(posMatch[1]);
+          const start = Math.max(0, pos - 50);
+          const end = Math.min(jsonMatch[0].length, pos + 50);
+          const snippet = jsonMatch[0].substring(start, end);
+          console.error(`\n📍 Context around position ${pos}:`);
+          console.error(snippet);
+          console.error(`\n🔍 Character codes around error:`);
+          for (let i = Math.max(0, pos - 10); i < Math.min(jsonMatch[0].length, pos + 10); i++) {
+            const char = jsonMatch[0][i];
+            console.error(`  [${i}] '${char}' (code: ${char.charCodeAt(0)})`);
+          }
+        }
+      }
+
+      // Check if response looks truncated
+      const rawJson = jsonMatch[0];
+      if (rawJson.endsWith(',') || !rawJson.trim().match(/[\]}]$/)) {
+        console.error('⚠️ JSON appears truncated - response may have hit token limit');
+        console.error('Consider increasing max_tokens or requesting fewer items');
+      }
+
+      // If Cloudflare failed, try Gemini as fallback
+      if (result.provider === 'cloudflare') {
+        shouldTryGemini = true;
+      } else {
+        return { data: null, success: false, provider: result.provider };
+      }
     }
   } catch (error) {
     console.error('Unexpected error in AI JSON parsing:', error);
     console.error('Raw AI response:', result.text);
-    return { data: null, success: false, provider: result.provider };
+
+    // If Cloudflare failed, try Gemini as fallback
+    if (result.provider === 'cloudflare') {
+      shouldTryGemini = true;
+    } else {
+      return { data: null, success: false, provider: result.provider };
+    }
   }
+
+  // Try Gemini fallback if Cloudflare JSON parsing failed
+  if (shouldTryGemini) {
+    console.log('🔄 Cloudflare JSON parsing failed, trying Gemini fallback...');
+    const geminiResult = await generateWithGemini(prompt);
+
+    if (geminiResult.success && geminiResult.text) {
+      // Try to parse Gemini's response with the same cleaning logic
+      try {
+        let cleaned = geminiResult.text.trim();
+        cleaned = cleaned.replace(/^```json\n?|\n?```$/gi, '').trim();
+        cleaned = cleaned.replace(/[\u201C\u201D]/g, '"');
+        cleaned = cleaned.replace(/[\u2018\u2019]/g, "'");
+        cleaned = cleaned.replace(/[\u200B-\u200D\uFEFF]/g, '');
+        cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
+        cleaned = cleaned.replace(/(")\s*\n\s*(\])(?!\s*[}\]])/g, '$1\n  }\n$2');
+
+        const jsonMatch = cleaned.match(/(\[[\s\S]*\]|\{[\s\S]*\})/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          console.log('✅ Gemini fallback successful!');
+          return { data: parsed, success: true, provider: 'gemini' };
+        }
+      } catch (geminiError) {
+        console.error('❌ Gemini fallback also failed:', geminiError);
+      }
+    }
+  }
+
+  return { data: null, success: false, provider: result.provider };
 }
 
 /**

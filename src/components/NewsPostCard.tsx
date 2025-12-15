@@ -26,6 +26,7 @@ import { cn } from '@/lib/utils';
 import { useModal } from '@/context/ModalContext';
 import { useSession } from 'next-auth/react';
 import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
 
 // Helper function to parse and display location data
 const getLocationDisplay = (location: string | null | undefined): string | null => {
@@ -69,9 +70,9 @@ export function NewsPostCard({
   onActionTaken
 }: NewsPostCardProps) {
   const { data: session } = useSession();
+  const router = useRouter();
   const { toast } = useToast();
   const {
-    openCreateInitiativeModal,
     openCreateIdeaModal,
     openCreateIssueModal,
     openCreateGeneralPostModal
@@ -159,7 +160,7 @@ export function NewsPostCard({
           openCreateIssueModal(newsContext);
           break;
         case 'initiative':
-          openCreateInitiativeModal(newsContext);
+          router.push(`/initiatives/create?title=${encodeURIComponent(newsContext)}`);
           break;
         case 'general_post':
           openCreateGeneralPostModal(newsContext);

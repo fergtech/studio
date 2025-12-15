@@ -7,10 +7,11 @@ import { useModal } from '@/context/ModalContext';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-const CreateInitiativeForm = dynamic(() => import('@/components/CreateInitiativeForm').then(mod => ({ default: mod.CreateInitiativeForm })), {
-  ssr: false,
-  loading: () => <div className="animate-pulse bg-muted h-96 rounded-md" />
-});
+// CreateInitiativeForm no longer used in modal - moved to dedicated route /initiatives/create
+// const CreateInitiativeForm = dynamic(() => import('@/components/CreateInitiativeForm').then(mod => ({ default: mod.CreateInitiativeForm })), {
+//   ssr: false,
+//   loading: () => <div className="animate-pulse bg-muted h-96 rounded-md" />
+// });
 
 const IssueForm = dynamic(() => import('@/components/IssueForm').then(mod => ({ default: mod.IssueForm })), {
   ssr: false,
@@ -22,15 +23,23 @@ const IdeaForm = dynamic(() => import('@/components/IdeaForm').then(mod => ({ de
   loading: () => <div className="animate-pulse bg-muted h-96 rounded-md" />
 });
 
-const CreateSocietyForm = dynamic(() => import('@/components/CreateSocietyForm').then(mod => ({ default: mod.CreateSocietyForm })), {
-  ssr: false,
-  loading: () => <div className="animate-pulse bg-muted h-96 rounded-md" />
-});
+// CreateSocietyForm no longer used in modal - moved to dedicated route /societies/create
+// const CreateSocietyForm = dynamic(() => import('@/components/CreateSocietyForm').then(mod => ({ default: mod.CreateSocietyForm })), {
+//   ssr: false,
+//   loading: () => <div className="animate-pulse bg-muted h-96 rounded-md" />
+// });
 
-const CreateDebateTopicForm = dynamic(() => import('@/components/CreateDebateTopicForm').then(mod => ({ default: mod.CreateDebateTopicForm })), {
-  ssr: false,
-  loading: () => <div className="animate-pulse bg-muted h-96 rounded-md" />
-});
+// CreateDebateTopicForm no longer used in modal - moved to dedicated route /debates/create
+// const CreateDebateTopicForm = dynamic(() => import('@/components/CreateDebateTopicForm').then(mod => ({ default: mod.CreateDebateTopicForm })), {
+//   ssr: false,
+//   loading: () => <div className="animate-pulse bg-muted h-96 rounded-md" />
+// });
+
+// CreatePostForm no longer used in modal - moved to dedicated route /posts/create
+// const CreatePostForm = dynamic(() => import('@/components/CreatePostForm'), {
+//   ssr: false,
+//   loading: () => <div className="animate-pulse bg-muted h-96 rounded-md" />
+// });
 
 const CreatePostForm = dynamic(() => import('@/components/CreatePostForm'), {
   ssr: false,
@@ -64,10 +73,9 @@ export function GlobalModals() {
 
   return (
     <>
-      {/* Create Initiative Modal */}
-      <Dialog open={createInitiativeModal.isOpen} onOpenChange={(isOpen) => !isOpen && closeCreateInitiativeModal()}>
+      {/* Create Initiative Modal - DISABLED: Now uses dedicated route /initiatives/create */}
+      {/* <Dialog open={createInitiativeModal.isOpen} onOpenChange={(isOpen) => !isOpen && closeCreateInitiativeModal()}>
         <DialogContent className="w-[95vw] max-w-[600px] max-h-[85vh] sm:max-h-[90vh] flex flex-col p-0">
-          {/* Sticky Header with Close Button */}
           <DialogHeader className="sticky top-0 z-50 bg-background border-b px-6 py-4 flex flex-row items-center justify-between">
             <DialogTitle>Create New Initiative</DialogTitle>
             <Button 
@@ -80,7 +88,6 @@ export function GlobalModals() {
               <span className="sr-only">Close</span>
             </Button>
           </DialogHeader>
-          {/* Scrollable Content */}
           <div className="overflow-y-auto flex-1 px-6 pb-6">
             <CreateInitiativeForm 
               setOpen={closeCreateInitiativeModal} 
@@ -93,7 +100,7 @@ export function GlobalModals() {
             />
           </div>
         </DialogContent>
-      </Dialog>
+      </Dialog> */}
 
       {/* Create Issue Modal */}
       <Dialog open={createIssueModal.isOpen} onOpenChange={(isOpen) => !isOpen && closeCreateIssueModal()}>
@@ -115,27 +122,27 @@ export function GlobalModals() {
         </DialogContent>
       </Dialog>
 
-      {/* Create Society Modal */}
-      <Dialog open={createSocietyModal.isOpen} onOpenChange={(isOpen) => !isOpen && closeCreateSocietyModal()}>
+      {/* Create Society Modal - DISABLED: Now uses dedicated route /societies/create */}
+      {/* <Dialog open={createSocietyModal.isOpen} onOpenChange={(isOpen) => !isOpen && closeCreateSocietyModal()}>
         <DialogContent className="w-[95vw] max-w-[600px] max-h-[85vh] sm:max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create New Society</DialogTitle>
           </DialogHeader>
           <CreateSocietyForm setOpen={closeCreateSocietyModal} onCreated={handleFeedItemCreated} />
         </DialogContent>
-      </Dialog>
+      </Dialog> */}
 
-      {/* Create Debate Topic Modal */}
-      <Dialog open={createDebateTopicModal.isOpen} onOpenChange={(isOpen) => !isOpen && closeCreateDebateTopicModal()}>
+      {/* Create Debate Topic Modal - DISABLED: Now uses dedicated route /debates/create */}
+      {/* <Dialog open={createDebateTopicModal.isOpen} onOpenChange={(isOpen) => !isOpen && closeCreateDebateTopicModal()}>
         <DialogContent className="w-[95vw] max-w-[600px] max-h-[85vh] sm:max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create New Debate Topic</DialogTitle>
           </DialogHeader>
           <CreateDebateTopicForm setOpen={closeCreateDebateTopicModal} onCreated={handleFeedItemCreated} />
         </DialogContent>
-      </Dialog>
+      </Dialog> */}
 
-      {/* Create Battle Response Modal */}
+      {/* Create Battle Response Modal - KEPT: Special context, not a standalone creation */}
       <Dialog open={createBattleResponseModal.isOpen} onOpenChange={(isOpen) => !isOpen && closeCreateBattleResponseModal()}>
         <DialogContent
           className="w-[95vw] max-w-[600px] max-h-[85vh] sm:max-h-[90vh] overflow-y-auto"
@@ -170,8 +177,8 @@ export function GlobalModals() {
         </DialogContent>
       </Dialog>
 
-      {/* Create Topic Post Modal */}
-      <Dialog open={createTopicPostModal.isOpen} onOpenChange={(isOpen) => !isOpen && closeCreateTopicPostModal()}>
+      {/* Create Topic Post Modal - DISABLED: Now uses dedicated route /posts/create */}
+      {/* <Dialog open={createTopicPostModal.isOpen} onOpenChange={(isOpen) => !isOpen && closeCreateTopicPostModal()}>
         <DialogContent
           className="w-[95vw] max-w-[600px] max-h-[85vh] sm:max-h-[90vh] overflow-y-auto"
           onInteractOutside={(e) => {
@@ -200,7 +207,7 @@ export function GlobalModals() {
             initialTopic={createTopicPostModal.topic}
           />
         </DialogContent>
-      </Dialog>
+      </Dialog> */}
     </>
   );
 }

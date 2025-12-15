@@ -1,6 +1,6 @@
 "use server";
 
-import { InitiativeStatus, UpdateType, MediaType, InitiativeRoleType } from "@prisma/client"; // Added InitiativeRoleType
+import { InitiativeStatus, UpdateType, MediaType, InitiativeRoleType, ResourceType } from "@prisma/client"; // Added InitiativeRoleType and ResourceType
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
@@ -344,14 +344,87 @@ interface CreateUpdateArgs {
   type: UpdateType;
   userId: string;
   content: string;
-  media?: Array<{ 
-    url: string; 
-    type: string; 
-    name?: string; 
-    size?: number; 
-    mimeType?: string; 
-  }>; 
-  details?: any; 
+  media?: Array<{
+    url: string;
+    type: string;
+    name?: string;
+    size?: number;
+    mimeType?: string;
+  }>;
+  details?: any;
+}
+
+/**
+ * Syncs ResourceMetadata entries from an Update's details and media
+ */
+async function syncResourceMetadata(update: any) {
+  try {
+    const details = update.details as any;
+    const resources = [];
+
+    // Extract links from details
+    if (details?.links?.length > 0) {
+      details.links.forEach((link: any, index: number) => {
+        resources.push({
+          initiativeId: update.initiativeId,
+          updateId: update.id,
+          resourceType: ResourceType.LINK,
+          title: link.title || link.url || 'Untitled Link',
+          description: link.description || null,
+          url: link.url,
+          category: link.category || null,
+          order: index,
+          createdBy: update.userId,
+        });
+      });
+    }
+
+    // Extract documents from details
+    if (details?.documents?.length > 0) {
+      details.documents.forEach((doc: any, index: number) => {
+        resources.push({
+          initiativeId: update.initiativeId,
+          updateId: update.id,
+          resourceType: ResourceType.DOCUMENT,
+          title: doc.title || doc.filename || 'Untitled Document',
+          description: doc.description || null,
+          url: doc.url,
+          category: doc.category || null,
+          order: index,
+          createdBy: update.userId,
+        });
+      });
+    }
+
+    // Extract media (images, videos, audio)
+    if (update.media?.length > 0) {
+      update.media.forEach((media: any, index: number) => {
+        resources.push({
+          initiativeId: update.initiativeId,
+          updateId: update.id,
+          resourceType: ResourceType.MEDIA,
+          title: 'Media from update',
+          description: null,
+          url: media.url,
+          category: null,
+          order: index,
+          createdBy: update.userId,
+        });
+      });
+    }
+
+    // Create ResourceMetadata entries if any resources were found
+    if (resources.length > 0) {
+      await prisma.resourceMetadata.createMany({
+        data: resources,
+        skipDuplicates: true,
+      });
+      console.log(`✅ Created ${resources.length} resource metadata entries for update ${update.id}`);
+    }
+  } catch (error) {
+    console.error(`Error syncing resource metadata for update ${update.id}:`, error);
+    // Don't throw - we don't want to fail the update creation if resource metadata sync fails
+  }
 }
 
 export async function createUpdate(args: CreateUpdateArgs): Promise<{ success: boolean; update?: any; error?: string }> {
@@ -363,21 +436,25 @@ export async function createUpdate(args: CreateUpdateArgs): Promise<{ success: b
         userId: args.userId,
         content: args.content,
         details: args.details,
-        media: args.media ? { 
+        media: args.media ? {
           create: args.media.map(item => ({
             url: item.url,
             type: item.type as MediaType,
             // name: item.name || 'Untitled Media', // Prisma schema for MediaItem does not have name, size, mimeType
             // size: item.size || 0,
             // mimeType: item.mimeType || 'application/octet-stream',
-          })) 
+          }))
         } : undefined,
       },
       include: {
-        user: true, 
+        user: true,
         media: true,
       },
     });
+
+    // Sync ResourceMetadata entries
+    await syncResourceMetadata(update);
+
     revalidatePath(`/initiatives/${args.initiativeId}`);
     return { success: true, update };
   } catch (error) {

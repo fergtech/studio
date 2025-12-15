@@ -15,7 +15,7 @@ import { UnlockProgress } from '@/components/UnlockProgress';
 import { UserUnlockStatus } from '@/lib/gamification';
 
 interface CreateSocietyFormProps {
-  setOpen: (open: boolean) => void;
+  setOpen?: (open: boolean) => void;
   onCreated?: (society: any) => void;
 }
 
@@ -226,8 +226,10 @@ export function CreateSocietyForm({ setOpen, onCreated }: CreateSocietyFormProps
         variant: 'default',
       });
       
-      // Reset form
-      setOpen(false);
+      // Reset form and navigate
+      if (setOpen) {
+        setOpen(false);
+      }
       setName('');
       setDescription('');
       setCustomLocation(null);
@@ -236,6 +238,11 @@ export function CreateSocietyForm({ setOpen, onCreated }: CreateSocietyFormProps
       removeImage();
       
       if (onCreated) onCreated(society);
+      
+      // Navigate to society page when used as route
+      if (!setOpen) {
+        router.push(`/societies/${society.id}`);
+      }
     } catch (error: any) {
       toast({
         title: 'Error Creating Society',
@@ -403,15 +410,17 @@ export function CreateSocietyForm({ setOpen, onCreated }: CreateSocietyFormProps
       </div>
       
       <div className="flex flex-col sm:flex-row justify-end gap-2">
-        <Button 
-          type="button" 
-          variant="outline" 
-          onClick={() => setOpen(false)} 
-          disabled={isSubmitting || isUploading} 
-          className="min-h-[44px]"
-        >
-          Cancel
-        </Button>
+        {setOpen && (
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={() => setOpen(false)} 
+            disabled={isSubmitting || isUploading} 
+            className="min-h-[44px]"
+          >
+            Cancel
+          </Button>
+        )}
         <Button 
           type="submit" 
           disabled={isSubmitting || isUploading} 

@@ -53,7 +53,14 @@ const eventSchema = z.object({
     (val) => !val || /^https?:\/\/.+/.test(val),
     { message: 'Must be a valid URL' }
   ),
-  maxAttendees: z.number().int().positive('Must be positive').optional().or(z.nan()).transform(val => isNaN(val) ? undefined : val),
+  maxAttendees: z.preprocess(
+    (val) => {
+      if (val === '' || val === undefined || val === null) return null;
+      const num = Number(val);
+      return isNaN(num) ? null : num;
+    },
+    z.number().int().positive('Must be positive').nullable().default(null)
+  ),
 });
 
 type EventFormData = z.infer<typeof eventSchema>;
@@ -75,6 +82,7 @@ export function CreateEventDialog({
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
 
   const form = useForm<EventFormData>({
     resolver: zodResolver(eventSchema),
@@ -107,13 +115,13 @@ export function CreateEventDialog({
         // Combine date and time into ISO datetime string
         const eventDateTime = new Date(data.eventDate);
         const [hours, minutes] = data.eventTime.split(':').map(Number);
-        eventDateTime.setHours(hours, minutes, 0, 0);
+        eventDateTime.setHours(hours ?? 0, minutes ?? 0, 0, 0);
 
         let eventEndDateTime: string | undefined;
         if (data.eventEndTime) {
           const endDateTime = new Date(data.eventDate);
           const [endHours, endMinutes] = data.eventEndTime.split(':').map(Number);
-          endDateTime.setHours(endHours, endMinutes, 0, 0);
+          endDateTime.setHours(endHours ?? 0, endMinutes ?? 0, 0, 0);
           eventEndDateTime = endDateTime.toISOString();
         }
 
@@ -123,7 +131,7 @@ export function CreateEventDialog({
           eventType: data.eventType,
           eventLocation: data.eventLocation || undefined,
           virtualLink: data.virtualLink || undefined,
-          maxAttendees: data.maxAttendees,
+          maxAttendees: data.maxAttendees === undefined ? null : data.maxAttendees,
         };
 
         // Call server action to create event
@@ -215,9 +223,10 @@ export function CreateEventDialog({
             {/* Date Picker */}
             <div className="space-y-2">
               <Label>Event Date *</Label>
-              <Popover>
+              <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen} modal={true}>
                 <PopoverTrigger asChild>
                   <Button
+                    type="button"
                     variant="outline"
                     className={cn(
                       'w-full justify-start text-left font-normal',
@@ -229,11 +238,14 @@ export function CreateEventDialog({
                     {selectedDate ? format(selectedDate, 'PPP') : 'Pick a date'}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
+                <PopoverContent className="w-auto p-0" align="start" sideOffset={4}>
                   <Calendar
                     mode="single"
                     selected={selectedDate}
-                    onSelect={handleDateSelect}
+                    onSelect={(date) => {
+                      handleDateSelect(date);
+                      setDatePickerOpen(false);
+                    }}
                     initialFocus
                     disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
                   />

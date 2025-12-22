@@ -32,6 +32,7 @@ const GRADIENTS = {
   issue: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)',    // Red
   initiative: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', // Purple
   post: 'linear-gradient(135deg, #4299e1 0%, #3182ce 100%)',     // Blue
+  debate: 'linear-gradient(135deg, #f50b0bff 0%, #d9065eff 100%)',   // Orange
 };
 
 // Icons for each content type
@@ -40,6 +41,7 @@ const ICONS = {
   issue: '⚠️',
   initiative: '🎯',
   post: '📝',
+  debate: '⚖️',
 };
 
 /**
@@ -97,7 +99,7 @@ async function fetchImageAsBase64(url: string): Promise<string | null> {
  */
 export async function GET(request: NextRequest) {
   // Declare variables at function scope for error logging
-  let contentType: 'idea' | 'issue' | 'initiative' | 'post' | null = null;
+  let contentType: 'idea' | 'issue' | 'initiative' | 'post' | 'debate' | null = null;
   let contentId: string | null = null;
   let size: 'story' | 'feed' | 'facebook' = 'feed';
   let mediaUrl: string | null = null;
@@ -105,7 +107,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const { searchParams } = new URL(request.url);
-    contentType = searchParams.get('contentType') as 'idea' | 'issue' | 'initiative' | 'post';
+    contentType = searchParams.get('contentType') as 'idea' | 'issue' | 'initiative' | 'post' | 'debate';
     contentId = searchParams.get('contentId');
     size = (searchParams.get('size') || 'feed') as 'story' | 'feed' | 'facebook';
 
@@ -186,6 +188,20 @@ export async function GET(request: NextRequest) {
         mediaUrl = content.media?.find((m: any) => m.type === 'image')?.url || null;
         break;
 
+      case 'debate':
+        content = await prisma.debateTopic.findUnique({
+          where: { id: contentId },
+          include: { creator: true },
+        });
+        if (!content) return new Response('Debate not found', { status: 404 });
+        title = content.title;
+        description = content.content;
+        creatorName = content.creator?.name || 'Anonymous';
+        creatorAvatar = content.creator?.image;
+        // Use debate imageUrl if available
+        mediaUrl = content.imageUrl || null;
+        break;
+
       default:
         return new Response('Invalid content type', { status: 400 });
     }
@@ -197,14 +213,27 @@ export async function GET(request: NextRequest) {
     // Generate QR code
     const qrCodeDataUrl = await generateQRCode(contentUrl);
 
-    // TODO: Fetch and convert media image to base64 if available
-    // Currently disabled - Satori has issues rendering certain base64 images (u2 is not iterable error)
-    // Logo works because it's PNG, but user-uploaded images fail
-    // if (mediaUrl) {
-    //   console.log('Fetching media from URL:', mediaUrl);
-    //   mediaBase64 = await fetchImageAsBase64(mediaUrl);
-    //   console.log('Media base64 conversion result:', mediaBase64 ? 'Success' : 'Failed');
-    // }
+    // Fetch and convert debate media image to base64 if available
+    // Enable for debates to use as background
+    if (mediaUrl && contentType === 'debate') {
+      // Make URL absolute if it's relative
+      let absoluteMediaUrl = mediaUrl;
+      if (mediaUrl.startsWith('/')) {
+        absoluteMediaUrl = `${baseUrl}${mediaUrl}`;
+      }
+
+      console.log('Fetching debate media from URL:', absoluteMediaUrl);
+      try {
+        mediaBase64 = await fetchImageAsBase64(absoluteMediaUrl);
+        console.log('Debate media base64 conversion result:', mediaBase64 ? 'Success' : 'Failed');
+        if (mediaBase64) {
+          console.log('Media base64 length:', mediaBase64.length);
+        }
+      } catch (error) {
+        console.error('Error converting debate media:', error);
+        mediaBase64 = null;
+      }
+    }
 
     // Get dimensions for this size
     const { width, height } = SIZES[size];
@@ -230,7 +259,7 @@ export async function GET(request: NextRequest) {
             fontFamily: 'system-ui, -apple-system, sans-serif',
           }}
         >
-          {/* Background layer - gradient */}
+          {/* Background layer - image */}
           <div
             style={{
               position: 'absolute',
@@ -238,9 +267,27 @@ export async function GET(request: NextRequest) {
               left: 0,
               width: '100%',
               height: '100%',
-              background: GRADIENTS[contentType],
+              backgroundImage: mediaBase64 && contentType === 'debate'
+                ? `url(${mediaBase64})`
+                : GRADIENTS[contentType],
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
             }}
           />
+
+          {/* Dark overlay for debate images */}
+          {mediaBase64 && contentType === 'debate' && (
+            <div
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                backgroundColor: 'rgba(0,0,0,0.75)',
+              }}
+            />
+          )}
 
           {/* Content wrapper */}
           <div
@@ -259,21 +306,22 @@ export async function GET(request: NextRequest) {
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              marginBottom: isStory ? '40px' : '30px',
+              marginTop: isStory ? '40px' : '30px',
+              marginBottom: isStory ? '50px' : '40px',
             }}
           >
             <div
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '16px',
+                gap: '20px',
               }}
             >
               {logoBase64 ? (
                 <img
                   src={logoBase64}
-                  width={isStory ? 56 : 48}
-                  height={isStory ? 56 : 48}
+                  width={isStory ? 72 : 64}
+                  height={isStory ? 72 : 64}
                   style={{
                     borderRadius: '12px',
                   }}
@@ -281,7 +329,7 @@ export async function GET(request: NextRequest) {
               ) : null}
               <div
                 style={{
-                  fontSize: isStory ? '28px' : '24px',
+                  fontSize: isStory ? '38px' : '34px',
                   fontWeight: '600',
                   color: 'white',
                   opacity: 0.95,
@@ -306,9 +354,26 @@ export async function GET(request: NextRequest) {
               flexDirection: 'column',
               flex: 1,
               justifyContent: 'center',
-              gap: isStory ? '30px' : '20px',
+              gap: isStory ? '24px' : '18px',
             }}
           >
+            {contentType === 'debate' && (
+              <div
+                style={{
+                  fontSize: isStory ? '42px' : '38px',
+                  fontWeight: '800',
+                  color: 'white',
+                  letterSpacing: '0.5px',
+                  textTransform: 'uppercase',
+                  textShadow: '0 4px 12px rgba(0,0,0,0.4), 0 2px 4px rgba(0,0,0,0.3)',
+                  lineHeight: 1.3,
+                  marginBottom: isStory ? '8px' : '6px',
+                }}
+              >
+                NEW DEBATE TOPIC ON SOCIETY+
+              </div>
+            )}
+
             <div
               style={{
                 fontSize: isStory ? '56px' : '48px',
@@ -340,7 +405,7 @@ export async function GET(request: NextRequest) {
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'flex-end',
-              marginTop: 'auto',
+              marginTop: isStory ? '50px' : '40px',
             }}
           >
             {/* Creator info */}
@@ -348,17 +413,17 @@ export async function GET(request: NextRequest) {
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '16px',
+                gap: '24px',
               }}
             >
               {creatorAvatar ? (
                 <img
                   src={creatorAvatar}
-                  width={isStory ? 60 : 50}
-                  height={isStory ? 60 : 50}
+                  width={isStory ? 110 : 95}
+                  height={isStory ? 110 : 95}
                   style={{
                     borderRadius: '50%',
-                    border: '3px solid white',
+                    border: '4px solid white',
                   }}
                 />
               ) : null}
@@ -370,7 +435,7 @@ export async function GET(request: NextRequest) {
               >
                 <div
                   style={{
-                    fontSize: isStory ? '24px' : '20px',
+                    fontSize: isStory ? '42px' : '36px',
                     fontWeight: '600',
                     color: 'white',
                   }}
@@ -379,7 +444,7 @@ export async function GET(request: NextRequest) {
                 </div>
                 <div
                   style={{
-                    fontSize: isStory ? '20px' : '16px',
+                    fontSize: isStory ? '34px' : '28px',
                     color: 'white',
                     opacity: 0.8,
                     textTransform: 'capitalize',
@@ -397,23 +462,23 @@ export async function GET(request: NextRequest) {
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
-                  gap: '12px',
+                  gap: '14px',
                 }}
               >
                 <img
                   src={qrCodeDataUrl}
-                  width={isStory ? 200 : 180}
-                  height={isStory ? 200 : 180}
+                  width={isStory ? 320 : 300}
+                  height={isStory ? 320 : 300}
                   style={{
                     backgroundColor: 'white',
-                    padding: '12px',
-                    borderRadius: '16px',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                    padding: '16px',
+                    borderRadius: '20px',
+                    boxShadow: '0 6px 16px rgba(0,0,0,0.2)',
                   }}
                 />
                 <div
                   style={{
-                    fontSize: isStory ? '20px' : '16px',
+                    fontSize: isStory ? '24px' : '20px',
                     color: 'white',
                     opacity: 0.95,
                     fontWeight: '600',

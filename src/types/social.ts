@@ -2,7 +2,7 @@ export type SocialPlatform = 'INSTAGRAM' | 'FACEBOOK' | 'TIKTOK';
 
 export type SocialPostStatus = 'PENDING' | 'POSTING' | 'SUCCESS' | 'FAILED';
 
-export type ContentType = 'idea' | 'issue' | 'initiative' | 'post';
+export type ContentType = 'idea' | 'issue' | 'initiative' | 'post' | 'debate';
 
 export interface SocialAccount {
   id: string;

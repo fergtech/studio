@@ -1336,54 +1336,63 @@ export function InitiativeClientPage({
                   </Button>
                 </div>
               )}
-              <EventsSection
-                events={localUpdates.filter(u =>
-                  u.type === 'event_creation' || u.type === 'event_update' || u.type === 'event_cancelled'
-                )}
-                currentUserId={userId}
-                initiativeId={initiativeId}
-              onRSVP={async (eventId, status) => {
-                if (!userId) {
-                  toast({
-                    title: 'Login Required',
-                    description: 'Please log in to RSVP to events',
-                    variant: 'destructive',
-                  });
-                  return;
-                }
-
-                try {
-                  const response = await fetch(`/api/initiatives/${initiativeId}/events/${eventId}/rsvp`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ status }),
-                  });
-
-                  if (!response.ok) {
-                    throw new Error('Failed to RSVP');
-                  }
-
-                  const newRSVP = await response.json();
-
-                  // Update the event in localUpdates with the new RSVP
-                  setLocalUpdates(prev => prev.map(update => {
-                    if (update.id === eventId) {
-                      // Remove existing RSVP from this user if any, then add the new one
-                      const filteredRSVPs = (update.rsvps || []).filter((r: any) => r.userId !== userId);
-                      return {
-                        ...update,
-                        rsvps: [...filteredRSVPs, newRSVP]
-                      };
+              {localUpdates.filter(u =>
+                u.type === 'event_creation' || u.type === 'event_update' || u.type === 'event_cancelled'
+              ).length === 0 ? (
+                <div className="bg-muted/50 rounded-lg p-8 text-center">
+                  <p className="text-muted-foreground text-base mb-2">No events yet</p>
+                  <p className="text-sm text-muted-foreground">Be the first to create an event for this initiative!</p>
+                </div>
+              ) : (
+                <EventsSection
+                  events={localUpdates.filter(u =>
+                    u.type === 'event_creation' || u.type === 'event_update' || u.type === 'event_cancelled'
+                  )}
+                  currentUserId={userId}
+                  initiativeId={initiativeId}
+                  onRSVP={async (eventId, status) => {
+                    if (!userId) {
+                      toast({
+                        title: 'Login Required',
+                        description: 'Please log in to RSVP to events',
+                        variant: 'destructive',
+                      });
+                      return;
                     }
-                    return update;
-                  }));
-                } catch (error) {
-                  console.error('Error RSVPing:', error);
-                  throw error; // Re-throw so EventUpdateCard can handle the error
-                }
-              }}
-              onDelete={handleDeleteUpdate}
-            />
+
+                    try {
+                      const response = await fetch(`/api/initiatives/${initiativeId}/events/${eventId}/rsvp`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ status }),
+                      });
+
+                      if (!response.ok) {
+                        throw new Error('Failed to RSVP');
+                      }
+
+                      const newRSVP = await response.json();
+
+                      // Update the event in localUpdates with the new RSVP
+                      setLocalUpdates(prev => prev.map(update => {
+                        if (update.id === eventId) {
+                          // Remove existing RSVP from this user if any, then add the new one
+                          const filteredRSVPs = (update.rsvps || []).filter((r: any) => r.userId !== userId);
+                          return {
+                            ...update,
+                            rsvps: [...filteredRSVPs, newRSVP]
+                          };
+                        }
+                        return update;
+                      }));
+                    } catch (error) {
+                      console.error('Error RSVPing:', error);
+                      throw error; // Re-throw so EventUpdateCard can handle the error
+                    }
+                  }}
+                  onDelete={handleDeleteUpdate}
+                />
+              )}
             </div>
             )}
 

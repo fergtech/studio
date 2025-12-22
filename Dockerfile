@@ -37,7 +37,7 @@ RUN ls -la node_modules/.prisma/client/ || echo "Prisma client not found"
 ENV NODE_ENV=production
 # Use a more comprehensive set of environment variables for build
 RUN unset HTTPS_PROXY && unset HTTP_PROXY && \
-    DATABASE_URL="postgresql://placeholder:placeholder@placeholder:5432/placeholder" \
+    DATABASE_URL="postgresql://postgres:postgres@postgres:5432/studio_dev" \
     NEXTAUTH_SECRET="build-time-secret-key-for-docker-build" \
     NEXTAUTH_URL="http://localhost:3000" \
     NEXT_BUILD_STANDALONE=true \

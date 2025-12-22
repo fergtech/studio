@@ -472,15 +472,19 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
     followingCount: 0,
   };
 
-  if (!isOwnProfile && loggedInUserId) {
-    const isFollowing = await prisma.userFollow.findUnique({
-      where: {
-        followerId_followingId: {
-          followerId: loggedInUserId,
-          followingId: profileUserId,
+  if (!isOwnProfile) {
+    // Check if following (only if logged in)
+    let isFollowing = null;
+    if (loggedInUserId) {
+      isFollowing = await prisma.userFollow.findUnique({
+        where: {
+          followerId_followingId: {
+            followerId: loggedInUserId,
+            followingId: profileUserId,
+          },
         },
-      },
-    });
+      });
+    }
 
     const [followersCount, followingCount] = await Promise.all([
       prisma.userFollow.count({

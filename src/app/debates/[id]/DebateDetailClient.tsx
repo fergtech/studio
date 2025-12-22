@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import Image from 'next/image';
 import { formatDistanceToNow } from 'date-fns';
-import { ArrowLeft, ThumbsUp, ThumbsDown, MessageCircle, Users, Loader2, X, Edit, Save, Trash2 } from 'lucide-react';
+import { ArrowLeft, ThumbsUp, ThumbsDown, MessageCircle, Users, Loader2, X, Edit, Save, Trash2, Instagram, Paperclip, Upload } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -14,6 +14,9 @@ import { cn } from '@/lib/utils';
 import { VideoPlayer } from '@/components/ui/video-player';
 import { AudioPlayer } from '@/components/ui/audio-player';
 import { updateDebateTopicContent } from '@/app/actions/debateActions';
+import { ContentCardMenu } from '@/components/ui/content-card-menu';
+import { SocialShareDialog } from '@/components/social/SocialShareDialog';
+import imageCompression from 'browser-image-compression';
 
 // Helper function to detect video files
 const isVideoFile = (url: string) => {
@@ -104,9 +107,84 @@ export default function DebateDetailClient({
   const [editContent, setEditContent] = useState(debateTopic.content);
   const [editLoading, setEditLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [showSocialShare, setShowSocialShare] = useState(false);
+  const [selectedMedia, setSelectedMedia] = useState<File | null>(null);
+  const [mediaPreview, setMediaPreview] = useState<string | null>(null);
+  const [removeExistingMedia, setRemoveExistingMedia] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
+  };
+
+  const handleSocialShare = () => {
+    setShowSocialShare(true);
+  };
+
+  // Media handling functions
+  const compressFile = async (file: File): Promise<File | null> => {
+    try {
+      if (file.type.startsWith('image/')) {
+        const options = {
+          maxSizeMB: 5,
+          maxWidthOrHeight: 2048,
+          useWebWorker: true,
+          fileType: file.type,
+          quality: 0.85,
+          initialQuality: 0.85,
+        };
+        return await imageCompression(file, options);
+      }
+      return file;
+    } catch (error) {
+      console.error('Compression failed:', error);
+      toast({
+        title: "Compression Failed",
+        description: "Could not compress the file. Using original.",
+        variant: "destructive",
+      });
+      return file;
+    }
+  };
+
+  const handleMediaChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const processedFile = await compressFile(file);
+
+      if (processedFile) {
+        setSelectedMedia(processedFile);
+
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setMediaPreview(reader.result as string);
+        };
+        reader.readAsDataURL(processedFile);
+        setRemoveExistingMedia(false);
+      } else {
+        if (event.target) {
+          event.target.value = '';
+        }
+        setSelectedMedia(null);
+        setMediaPreview(null);
+      }
+    } else {
+      setSelectedMedia(null);
+      setMediaPreview(null);
+    }
+  };
+
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
+  };
+
+  const removeMedia = () => {
+    setSelectedMedia(null);
+    setMediaPreview(null);
+    setRemoveExistingMedia(true);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   // Helper to find an argument by id in the flat list
@@ -310,16 +388,65 @@ export default function DebateDetailClient({
       return;
     }
 
-    if (editTitle === debateTopic.title && editContent === debateTopic.content) {
+    const hasChanges = editTitle !== debateTopic.title ||
+                      editContent !== debateTopic.content ||
+                      selectedMedia !== null ||
+                      removeExistingMedia;
+
+    if (!hasChanges) {
       setEditMode(false);
       return;
     }
 
     setEditLoading(true);
     try {
-      const result = await updateDebateTopicContent(debateTopic.id, editContent, editTitle);
+      let uploadedMediaUrl: string | null = null;
+
+      // Handle media upload if there's a new file
+      if (selectedMedia) {
+        const uploadFormData = new FormData();
+        uploadFormData.append('file', selectedMedia);
+
+        try {
+          const uploadResponse = await fetch('/api/upload', {
+            method: 'POST',
+            body: uploadFormData,
+          });
+
+          if (!uploadResponse.ok) {
+            throw new Error(`Upload failed: ${uploadResponse.statusText}`);
+          }
+
+          const uploadResult = await uploadResponse.json();
+          if (uploadResult.imageUrl) {
+            uploadedMediaUrl = uploadResult.imageUrl;
+          }
+        } catch (uploadError) {
+          console.error('Media upload error:', uploadError);
+          toast({
+            title: "Upload Failed",
+            description: "Could not upload media. Saving without media.",
+            variant: "destructive",
+          });
+        }
+      }
+
+      const result = await updateDebateTopicContent(
+        debateTopic.id,
+        editContent,
+        editTitle,
+        uploadedMediaUrl,
+        removeExistingMedia
+      );
+
       if (result.success) {
         setEditMode(false);
+        setSelectedMedia(null);
+        setMediaPreview(null);
+        setRemoveExistingMedia(false);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
         toast({
           title: "Debate Updated!",
           description: "Your debate topic has been updated successfully.",
@@ -658,6 +785,18 @@ export default function DebateDetailClient({
                   </div>
                   <div className="ml-auto flex items-center gap-2">
                     <Badge variant="secondary">Debate Topic</Badge>
+
+                    {/* Instagram Share Button */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleSocialShare}
+                      className="h-8 w-8 p-0"
+                      title="Share to social media"
+                    >
+                      <Instagram className="h-4 w-4" />
+                    </Button>
+
                     {currentUserId === debateTopic.creator.id && (
                       <>
                         <Button
@@ -745,6 +884,98 @@ export default function DebateDetailClient({
                       className="min-h-[120px] resize-none"
                       placeholder="Describe your debate topic..."
                     />
+
+                    {/* Media Upload Section */}
+                    <div>
+                      {mediaPreview || ((isImage || isVideo || isAudio) && !removeExistingMedia) ? (
+                        <div className="relative">
+                          {mediaPreview ? (
+                            isVideoFile(mediaPreview) ? (
+                              <video
+                                src={mediaPreview}
+                                controls
+                                className="w-full h-auto max-h-64 object-cover rounded-lg"
+                              />
+                            ) : (
+                              <Image
+                                src={mediaPreview}
+                                alt="Preview"
+                                width={400}
+                                height={250}
+                                className="w-full h-auto max-h-64 object-cover rounded-lg"
+                              />
+                            )
+                          ) : isVideo ? (
+                            <video
+                              src={debateTopic.imageUrl || ''}
+                              controls
+                              className="w-full h-auto max-h-64 object-cover rounded-lg"
+                            />
+                          ) : isImage ? (
+                            <Image
+                              src={debateTopic.imageUrl || ''}
+                              alt="Current media"
+                              width={400}
+                              height={250}
+                              className="w-full h-auto max-h-64 object-cover rounded-lg"
+                            />
+                          ) : isAudio ? (
+                            <div className="bg-muted p-4 rounded-lg">
+                              <audio
+                                src={debateTopic.imageUrl || ''}
+                                controls
+                                className="w-full"
+                              />
+                            </div>
+                          ) : null}
+                          <Button
+                            onClick={removeMedia}
+                            variant="destructive"
+                            size="sm"
+                            className="absolute top-2 right-2"
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="border-2 border-dashed border-muted-foreground/20 rounded-lg p-6 text-center">
+                          <Upload className="w-6 h-6 mx-auto mb-2 text-muted-foreground/40" />
+                          <p className="text-sm text-muted-foreground mb-2">
+                            {(isImage || isVideo || isAudio) && removeExistingMedia ? 'Media will be removed' : 'No media selected'}
+                          </p>
+                          <Button
+                            onClick={triggerFileInput}
+                            variant="outline"
+                            size="sm"
+                            className="flex items-center gap-2"
+                          >
+                            <Paperclip className="w-3 h-3" />
+                            Choose File
+                          </Button>
+                        </div>
+                      )}
+
+                      <input
+                        type="file"
+                        accept="image/*,video/*"
+                        ref={fileInputRef}
+                        onChange={handleMediaChange}
+                        className="hidden"
+                      />
+
+                      {!mediaPreview && !((isImage || isVideo || isAudio) && !removeExistingMedia) && (
+                        <Button
+                          onClick={triggerFileInput}
+                          variant="outline"
+                          size="sm"
+                          className="w-full flex items-center gap-2 mt-2"
+                        >
+                          <Paperclip className="w-3 h-3" />
+                          Add Media
+                        </Button>
+                      )}
+                    </div>
+
                     <div className="flex gap-2">
                       <Button
                         onClick={handleEditSubmit}
@@ -769,6 +1000,12 @@ export default function DebateDetailClient({
                           setEditMode(false);
                           setEditTitle(debateTopic.title);
                           setEditContent(debateTopic.content);
+                          setSelectedMedia(null);
+                          setMediaPreview(null);
+                          setRemoveExistingMedia(false);
+                          if (fileInputRef.current) {
+                            fileInputRef.current.value = '';
+                          }
                         }}
                         variant="outline"
                         size="sm"
@@ -1101,6 +1338,18 @@ export default function DebateDetailClient({
                 </div>
                 <div className="ml-auto flex items-center gap-2">
                   <Badge variant="secondary" className="text-sm">Debate Topic</Badge>
+
+                  {/* Instagram Share Button */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSocialShare}
+                    className="h-8 w-8 p-0"
+                    title="Share to social media"
+                  >
+                    <Instagram className="h-4 w-4" />
+                  </Button>
+
                   {currentUserId === debateTopic.creator.id && (
                     <>
                       <Button
@@ -1151,7 +1400,7 @@ export default function DebateDetailClient({
                 <div className="mb-6">
                   <VideoPlayer 
                     src={debateTopic.imageUrl!}
-                    className="w-full max-h-96 rounded-lg"
+                    className="w-full max-h-[85vh] rounded-lg"
                     controls={true}
                     autoPlay={false}
                     muted={false}
@@ -1172,8 +1421,8 @@ export default function DebateDetailClient({
                     src={debateTopic.imageUrl!} 
                     alt="Debate topic" 
                     width={800}
-                    height={384}
-                    className="w-full max-h-96 object-cover rounded-lg border"
+                    height={800}
+                    className="w-full max-h-[85vh] object-contain rounded-lg border"
                     priority
                   />
                 </div>
@@ -1188,6 +1437,90 @@ export default function DebateDetailClient({
                     className="min-h-[150px] resize-none text-base"
                     placeholder="Describe your debate topic..."
                   />
+
+                  {/* Media Upload Section */}
+                  <div>
+                    {mediaPreview || ((isImage || isVideo || isAudio) && !removeExistingMedia) ? (
+                      <div className="relative">
+                        {mediaPreview ? (
+                          isVideoFile(mediaPreview) ? (
+                            <video
+                              src={mediaPreview}
+                              controls
+                              className="w-full h-auto max-h-[85vh] object-contain rounded-lg"
+                            />
+                          ) : (
+                            <Image
+                              src={mediaPreview}
+                              alt="Preview"
+                              width={800}
+                              height={800}
+                              className="w-full h-auto max-h-[85vh] object-contain rounded-lg"
+                            />
+                          )
+                        ) : isVideo ? (
+                          <video
+                            src={debateTopic.imageUrl || ''}
+                            controls
+                            className="w-full h-auto max-h-[85vh] object-contain rounded-lg"
+                          />
+                        ) : isImage ? (
+                          <Image
+                            src={debateTopic.imageUrl || ''}
+                            alt="Current media"
+                            width={800}
+                            height={800}
+                            className="w-full h-auto max-h-[85vh] object-contain rounded-lg"
+                          />
+                        ) : isAudio ? (
+                          <div className="bg-muted p-4 rounded-lg">
+                            <audio
+                              src={debateTopic.imageUrl || ''}
+                              controls
+                              className="w-full"
+                            />
+                          </div>
+                        ) : null}
+                        <Button
+                          onClick={removeMedia}
+                          variant="destructive"
+                          size="sm"
+                          className="absolute top-2 right-2"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="border-2 border-dashed border-muted-foreground/20 rounded-lg p-8 text-center">
+                        <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground/40" />
+                        <p className="text-sm text-muted-foreground mb-3">
+                          {(isImage || isVideo || isAudio) && removeExistingMedia ? 'Media will be removed' : 'No media selected'}
+                        </p>
+                        <Button
+                          onClick={triggerFileInput}
+                          variant="outline"
+                          size="sm"
+                          className="flex items-center gap-2"
+                        >
+                          <Paperclip className="w-4 h-4" />
+                          Choose File
+                        </Button>
+                      </div>
+                    )}
+
+                    {!mediaPreview && !((isImage || isVideo || isAudio) && !removeExistingMedia) && (
+                      <Button
+                        onClick={triggerFileInput}
+                        variant="outline"
+                        size="sm"
+                        className="w-full flex items-center gap-2 mt-2"
+                      >
+                        <Paperclip className="w-4 h-4" />
+                        Add Media
+                      </Button>
+                    )}
+                  </div>
+
                   <div className="flex gap-2">
                     <Button
                       onClick={handleEditSubmit}
@@ -1212,6 +1545,12 @@ export default function DebateDetailClient({
                         setEditMode(false);
                         setEditTitle(debateTopic.title);
                         setEditContent(debateTopic.content);
+                        setSelectedMedia(null);
+                        setMediaPreview(null);
+                        setRemoveExistingMedia(false);
+                        if (fileInputRef.current) {
+                          fileInputRef.current.value = '';
+                        }
                       }}
                       variant="outline"
                       size="sm"
@@ -1535,6 +1874,15 @@ export default function DebateDetailClient({
 
         </div>
       </div>
+
+      {/* Social Share Dialog */}
+      <SocialShareDialog
+        open={showSocialShare}
+        onOpenChange={setShowSocialShare}
+        contentType="debate"
+        contentId={debateTopic.id}
+        contentTitle={debateTopic.title}
+      />
     </div>
   );
 }

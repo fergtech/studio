@@ -101,6 +101,7 @@ export function ContentCardMenu({
     itemType === 'idea' ? 'idea' :
     itemType === 'issue' ? 'issue' :
     itemType === 'initiative' ? 'initiative' :
+    itemType === 'debate' ? 'debate' :
     null;
 
   const canShareToSocial = contentType !== null;

@@ -169,14 +169,14 @@ export async function createIdea(data: CreateIdeaData): Promise<CreateIdeaResult
         },
       };
 
-      // Only add societyId if it's provided and not null
+      // Only add society if societyId is provided and not null
       if (data.societyId) {
-        createData.societyId = data.societyId;
+        createData.society = { connect: { id: data.societyId } };
       }
 
-      // Only add addressingIssueId if it's provided and not null
+      // Only add addressingIssue if addressingIssueId is provided and not null
       if (data.addressingIssueId) {
-        createData.addressingIssueId = data.addressingIssueId;
+        createData.addressingIssue = { connect: { id: data.addressingIssueId } };
       }
 
       const newIdea = await tx.idea.create({
@@ -274,8 +274,12 @@ export async function updateIdea({
     if (description) updateData.description = description;
     if (tags) updateData.tags = tags;
     if (location !== undefined) updateData.location = location;
-    if (societyId !== undefined) updateData.societyId = societyId;
-    if (addressingIssueId !== undefined) updateData.addressingIssueId = addressingIssueId;
+    if (societyId !== undefined) {
+      updateData.society = societyId ? { connect: { id: societyId } } : { disconnect: true };
+    }
+    if (addressingIssueId !== undefined) {
+      updateData.addressingIssue = addressingIssueId ? { connect: { id: addressingIssueId } } : { disconnect: true };
+    }
 
     const updatedIdea = await prisma.idea.update({
       where: { id: ideaId },

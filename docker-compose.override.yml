@@ -1,8 +1,6 @@
 # Docker Compose override file for development
 # This file automatically extends docker-compose.yml when you run docker-compose up
 
-version: '3.8'
-
 services:
   app:
     # Override environment for development

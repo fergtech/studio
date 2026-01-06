@@ -458,7 +458,7 @@ export default function UserControlsWidget({ collapsed = false, isMobile = false
           <div className="mx-3 p-4 bg-gradient-to-br from-primary/90 to-primary text-primary-foreground rounded-xl shadow-lg">
             <h3 className="font-bold text-base mb-2">Join Society+</h3>
             <p className="text-sm mb-4 opacity-90">
-              Create posts, join projects, and make real impact!
+              No billionaire ownership. No government control. Just us, the people.
             </p>
             <div className="flex flex-col gap-2">
               <Button asChild size="sm" variant="secondary" className="w-full shadow-sm font-semibold">

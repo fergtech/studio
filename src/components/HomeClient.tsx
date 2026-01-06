@@ -852,7 +852,7 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
         )}
 
         {/* Trending Topics Widget - Full width */}
-        <div className="w-full px-2 sm:px-4 lg:px-6 mb-6">
+        <div className="w-full px-2 sm:px-4 lg:px-6 mb-6 hidden">
           <div className="max-w-7xl mx-auto">
         <TrendingTopicsWidget />
           </div>

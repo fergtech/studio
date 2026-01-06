@@ -665,7 +665,6 @@ export function MobileDebateCard({
             isOpen={showDetailsSheet}
             onClose={() => setShowDetailsSheet(false)}
             onOpenComments={() => {
-              setShowDetailsSheet(false);
               setShowCommentsSheet(true);
             }}
             onShare={() => {
@@ -716,7 +715,6 @@ export function MobileDebateCard({
             isOpen={showDetailsSheet}
             onClose={() => setShowDetailsSheet(false)}
             onOpenComments={() => {
-              setShowDetailsSheet(false);
               setShowCommentsSheet(true);
             }}
             onShare={() => {

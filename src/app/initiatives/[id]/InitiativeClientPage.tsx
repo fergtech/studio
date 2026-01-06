@@ -1331,7 +1331,7 @@ export function InitiativeClientPage({
               {isMember && (
                 <div className="flex justify-between items-center">
                   <h2 className="text-2xl font-semibold">Events</h2>
-                  <Button onClick={() => setIsCreateEventDialogOpen(true)}>
+                  <Button onClick={() => router.push(`/initiatives/${initiativeId}/events/create`)}>
                     <Plus className="mr-2 h-4 w-4" /> Create Event
                   </Button>
                 </div>

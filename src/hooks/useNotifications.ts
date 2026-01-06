@@ -59,7 +59,7 @@ export function useNotifications() {
         const response = await fetch('/api/notifications?limit=10');
         if (response.ok) {
           const newNotifications = await response.json();
-          
+
           setNotifications(prev => {
             // If it's the same data, don't update
             if (JSON.stringify(prev) === JSON.stringify(newNotifications)) {
@@ -71,11 +71,19 @@ export function useNotifications() {
           // Update unread count
           const newUnreadCount = newNotifications.filter((n: Notification) => !n.read).length;
           setUnreadCount(newUnreadCount);
+        } else if (response.status === 401) {
+          // User not authenticated - silently skip
+          return;
         } else {
+          // Only log unexpected errors (not auth errors)
           console.warn('Failed to fetch notifications:', response.status);
         }
       } catch (error) {
-        console.error('Polling error:', error);
+        // Silently handle network errors - polling will retry automatically
+        // Only log if it's a critical error pattern
+        if (error instanceof TypeError && error.message !== 'Failed to fetch') {
+          console.error('Unexpected polling error:', error);
+        }
       }
     };
 
@@ -98,16 +106,22 @@ export function useNotifications() {
   // Manual fetch function for external use
   const fetchNotifications = useCallback(async () => {
     if (!session?.user?.id) return;
-    
+
     try {
       const response = await fetch('/api/notifications?limit=10');
       if (response.ok) {
         const data = await response.json();
         setNotifications(data);
         setUnreadCount(data.filter((n: Notification) => !n.read).length);
+      } else if (response.status === 401) {
+        // User not authenticated - silently skip
+        return;
       }
     } catch (error) {
-      console.error('Error fetching notifications:', error);
+      // Silently handle network errors
+      if (error instanceof TypeError && error.message !== 'Failed to fetch') {
+        console.error('Unexpected error fetching notifications:', error);
+      }
     }
   }, [session?.user?.id]);
 

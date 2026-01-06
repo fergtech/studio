@@ -198,10 +198,10 @@ export function CommentsSheet({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-[100]"
+            className="fixed inset-0 bg-black/50 z-[110]"
             onClick={handleClose}
           />
-          
+
           {/* Sheet Content */}
           <motion.div
             variants={isMobile ? mobileVariants : desktopVariants}
@@ -210,7 +210,7 @@ export function CommentsSheet({
             exit="exit"
             transition={{ duration: 0.3, ease: "easeOut" }}
             className={cn(
-              "fixed z-[100] bg-background border border-border flex flex-col",
+              "fixed z-[110] bg-background border border-border flex flex-col",
               isMobile
                 ? "bottom-0 left-0 right-0 rounded-t-3xl h-[85vh]"
                 : "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-2xl w-[420px] h-[600px] shadow-2xl"

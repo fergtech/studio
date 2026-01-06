@@ -197,10 +197,25 @@ export async function createIdea(data: CreateIdeaData): Promise<CreateIdeaResult
         });
       }
 
-      return newIdea;
+      // Fetch the idea with media and creator to match the expected return type
+      const fullIdea = await tx.idea.findUnique({
+        where: { id: newIdea.id },
+        include: {
+          media: true,
+          creator: {
+            select: {
+              id: true,
+              name: true,
+              image: true,
+            },
+          },
+        },
+      });
+
+      return fullIdea;
     });
 
-    return { success: true, idea: result };
+    return { success: true, idea: result ?? undefined };
   } catch (error) {
     console.error("Error creating idea:", error);
     if (error instanceof Error) {

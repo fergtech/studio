@@ -67,10 +67,13 @@ export default function SmartSuggestionsWidget({ flatStyle = false }: { flatStyl
         if (response.ok) {
           const data = await response.json();
           setOnlineUserIds(data.onlineUserIds || []);
+        } else {
+          // Silently fallback to empty array for non-critical errors
+          setOnlineUserIds([]);
         }
       } catch (error) {
-        console.error('Error fetching online users:', error);
-        setOnlineUserIds([]); // Fallback to no online users
+        // Silently handle network errors - this is not critical functionality
+        setOnlineUserIds([]);
       }
     };
 

@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from "@/components/ui/button";
+import AppSidebar from '@/components/AppSidebar';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -534,22 +535,19 @@ export default function ProfileClient({ user, isOwnProfile, activityFeed }: Prof
     };
   }, [user.createdInitiatives, user.initiativeMemberships]);
 
-  useEffect(() => {
-    const handleSidebarChange = (event: CustomEvent) => {
-      setSidebarCollapsed(event.detail.collapsed);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('sidebarCollapsed:profile', String(event.detail.collapsed));
-      }
-    };
-
-    window.addEventListener('sidebar:collapseChange', handleSidebarChange as EventListener);
-    return () => {
-      window.removeEventListener('sidebar:collapseChange', handleSidebarChange as EventListener);
-    };
-  }, []);
-
   return (
     <div className="min-h-screen bg-background">
+      <AppSidebar
+        className="hidden lg:flex"
+        widgets={['userControls', 'navigation', 'resources', 'footer']}
+        context={{ type: 'profile' }}
+        onCollapseChange={(collapsed: boolean) => {
+          setSidebarCollapsed(collapsed);
+          if (typeof window !== 'undefined' && window.localStorage) {
+            localStorage.setItem('sidebarCollapsed:profile', String(collapsed));
+          }
+        }}
+      />
       <div className="w-full">
         {/* Mobile Profile View - Only visible on mobile */}
         <div className="lg:hidden">

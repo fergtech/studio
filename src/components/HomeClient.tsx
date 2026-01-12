@@ -51,6 +51,7 @@ import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { PullToRefreshIndicator } from './PullToRefresh';
 import { PostStatsProvider } from '@/context/PostStatsContext';
 import { OnboardingModal } from './OnboardingModal';
+import { useSnapScroll } from '@/hooks/useSnapScroll';
 
 // Define extended types that include the relations we'll fetch
 type InitiativeWithCreator = PrismaInitiative & {
@@ -361,15 +362,19 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
   const [selectedIssue, setSelectedIssue] = useState<any>(null);
   const [isTikTokIssueDetailOpen, setIsTikTokIssueDetailOpen] = useState(false);
 
-  // Infinite scroll ref
-  const infiniteScrollRef = useRef<HTMLDivElement | null>(null);
-
   // TikTok Idea Detail Modal State
   const [selectedIdea, setSelectedIdea] = useState<any>(null);
   const [isTikTokIdeaDetailOpen, setIsTikTokIdeaDetailOpen] = useState(false);
 
   // Onboarding Modal State
   const [showOnboarding, setShowOnboarding] = useState(false);
+
+  // Infinite scroll ref
+  const infiniteScrollRef = useRef<HTMLDivElement | null>(null);
+
+  // Snap scroll for feed container
+  const feedContainerRef = useRef<HTMLDivElement | null>(null);
+  const { onScroll } = useSnapScroll(feedContainerRef);
 
   // Check onboarding status on mount (only for authenticated users)
   useEffect(() => {
@@ -558,12 +563,16 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
     }
   }, []);
 
-  // Pull-to-refresh hook (only on mobile)
+  // Pull-to-refresh hook (only on mobile) - DISABLED due to scroll conflicts
   const isMobile = useIsMobile();
-  const { isPulling, isRefreshing, pullDistance, progress } = usePullToRefresh({
-    onRefresh: handleRefresh,
-    threshold: 80,
-  });
+  // const { isPulling, isRefreshing, pullDistance, progress } = usePullToRefresh({
+  //   onRefresh: handleRefresh,
+  //   threshold: 120,
+  // });
+  const isPulling = false;
+  const isRefreshing = false;
+  const pullDistance = 0;
+  const progress = 0;
 
   const handleTabSwitch = (newFilter: typeof feedFilter) => {
     if (newFilter === feedFilter) return;
@@ -724,7 +733,17 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
     try {
       // Load content without news since we filter client-side
       const url = `/api/feed?unified=true&limit=20&cursor=${nextCursor}&type=content`;
-      const response = await fetch(url);
+      
+      // Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
+      const response = await fetch(url, { 
+        signal: controller.signal,
+        cache: 'no-store' // Prevent stale data on mobile
+      });
+      
+      clearTimeout(timeoutId);
 
       if (response.ok) {
         const data = await response.json();
@@ -753,13 +772,20 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
         }
       } else {
         console.error('Failed to load more posts:', response.status, response.statusText);
+        setHasMore(false); // Stop trying if request fails
       }
     } catch (error) {
-      console.error('Error loading more posts:', error);
+      // Handle abort errors gracefully
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.warn('Feed request timed out - network may be slow');
+      } else {
+        console.error('Error loading more posts:', error);
+      }
+      setHasMore(false); // Stop trying on network error
     } finally {
       setLoadingMore(false);
     }
-  }, [hasMore, loadingMore, nextCursor, allFeedItems]);
+  }, [hasMore, loadingMore, nextCursor]);
 
   // Basic scroll position saving (auto-restore disabled due to performance issues)
   const saveScrollPosition = () => {
@@ -775,19 +801,26 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
   useEffect(() => {
     if (!hasMore || loadingMore || filterSwitching) return;
 
+    let timeout: NodeJS.Timeout | null = null;
+
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting) {
-          loadMorePosts();
+        if (entries[0].isIntersecting && !loadingMore) {
+          // Debounce to prevent rapid-fire loads
+          if (timeout) clearTimeout(timeout);
+          timeout = setTimeout(() => {
+            loadMorePosts();
+          }, 300);
         }
       },
-      { root: null, rootMargin: '200px', threshold: 0.1 }
+      { root: null, rootMargin: '400px', threshold: 0 }
     );
 
     const target = infiniteScrollRef.current;
     if (target) observer.observe(target);
 
     return () => {
+      if (timeout) clearTimeout(timeout);
       if (target) observer.unobserve(target);
     };
   }, [hasMore, loadingMore, filterSwitching, loadMorePosts]);
@@ -839,7 +872,7 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
 
       {/* Main Content Area - with top padding for mobile navigation, and left margin for sidebar on desktop */}
       <div
-        className={`min-w-0 transition-all duration-300 pt-6 lg:pt-2 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-72 xl:ml-80'}`}
+        className={`min-w-0 transition-all duration-300 pt-3 lg:pt-2 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-72 xl:ml-80'}`}
       >
         {/* Pull-to-refresh indicator (mobile only) */}
         {isMobile && (
@@ -859,10 +892,10 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
         </div>
 
         {/* Main Layout: Feed centered */}
-        <div className="flex w-full justify-center">
+        <div className="flex w-full justify-center h-[calc(100vh-2rem)]">
           {/* Main Feed - Centered */}
-          <div className="flex-shrink-0 w-full max-w-3xl px-4 pb-32">
-        <div className="flex flex-col space-y-8">
+          <div className="flex-shrink-0 w-full max-w-3xl h-full">
+        <div className="flex flex-col h-full">
           {/* Hero Section - Within feed column - HIDDEN */}
           <div className="w-full mb-2 hidden">
             <div className="relative isolate overflow-hidden rounded-3xl px-6 py-12 sm:py-16 text-center shadow-2xl">
@@ -980,8 +1013,18 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
         </div>
           </div>
 
-          {/* Mobile-First Feed Container with Scroll Snap */}
-          <div className="w-full h-full overflow-y-auto overflow-x-hidden snap-y snap-mandatory scroll-smooth flex flex-col items-center space-y-6">
+          {/* Mobile-First Feed Container */}
+          <div
+            ref={feedContainerRef}
+            onScroll={onScroll}
+            className="flex-1 w-full overflow-y-auto overflow-x-hidden scroll-smooth px-4 pt-2 lg:pt-6 pb-32 space-y-6 scrollbar-hide"
+            style={{
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
+              WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 80%, rgba(0,0,0,0) 100%)',
+              maskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 80%, rgba(0,0,0,0) 100%)'
+            }}
+          >
           {filteredFeedItems.map((item, index) => {
         // Generate a safe key that works for all item types
         const itemKey = item.id || `item-${index}-${item.type || 'unknown'}`;

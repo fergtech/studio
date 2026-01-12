@@ -2,7 +2,6 @@ import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { Initiative, Update, ChatMessage, ContributionItem } from "@/lib/types";
 import ProfileClient from './ProfileClient';
-import AppSidebar from '@/components/AppSidebar';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { notFound } from 'next/navigation';
@@ -512,13 +511,6 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
   };
 
   return (
-    <div className="w-full min-w-0 overflow-hidden">
-      <AppSidebar
-        className="hidden lg:flex"
-        widgets={['userControls', 'navigation', 'resources', 'footer']}
-        context={{ type: 'profile' }}
-      />
-      <ProfileClient user={userWithFollowData} isOwnProfile={isOwnProfile} activityFeed={activityFeed} />
-    </div>
+    <ProfileClient user={userWithFollowData} isOwnProfile={isOwnProfile} activityFeed={activityFeed} />
   );
 } 

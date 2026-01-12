@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-**society+** is a comprehensive civic engagement and social action platform built with Next.js 15 that combines social networking, project management, and civic organizing tools. The platform enables users to identify community issues, propose ideas, create initiatives, organize projects, engage in debates, and collaborate on solutions to societal challenges.
+**society+** is intended to be a comprehensive Hyperlocal community engagement and social action platform built with Next.js 15 that combines social networking, project management, and community organizing tools. The platform enables users to identify community issues, propose ideas, create initiatives, organize projects, engage in debates, and collaborate on solutions to societal challenges.
 
 **Tagline**: Built for changemakers
 
@@ -10,7 +10,7 @@
 
 ## Core Concept
 
-A **social platform for civic action** that transforms community discussions into actionable initiatives. society+ provides the digital infrastructure for communities to:
+A **social platform for communal action** that transforms community discussions into actionable initiatives. society+ provides the digital infrastructure for communities to:
 
 - Surface and discuss issues affecting their communities
 - Propose ideas for solutions

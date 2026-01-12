@@ -14,6 +14,7 @@ import Image from 'next/image';
 import { DiscoveryGrid } from '@/components/DiscoveryGrid';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import AppSidebar from '@/components/AppSidebar';
+import { StickySearchBar } from '@/components/StickySearchBar';
 
 interface SearchUser {
   id: string;
@@ -279,10 +280,10 @@ function ExplorePageInner() {
           }
         }}
       />
-      <div className={`px-4 lg:px-6 pt-20 lg:pt-6 pb-32 transition-all duration-300 ${
+      <div className={`px-4 lg:px-6 pt-6 pb-32 transition-all duration-300 ${
         sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-80 xl:ml-96'
       }`}>
-        <div className="max-w-5xl mx-auto py-10">
+        <div className="max-w-5xl mx-auto py-6">
           <div className="flex flex-col sm:flex-row items-center justify-center mb-2 gap-4">
             {/* Networking image above or right of Explore header */}
             <div className="flex-shrink-0">
@@ -293,16 +294,12 @@ function ExplorePageInner() {
               <p className="text-lg text-muted-foreground text-center sm:text-left">Discover and connect with your society</p>
             </div>
           </div>
-      <form onSubmit={handleSearch} className="flex justify-center mb-10">
-        <Input
-          className="max-w-lg w-full rounded-l-md"
-          placeholder="Search debates, projects, communities..."
-          value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
-          suppressHydrationWarning
-        />
-        <Button type="submit" className="rounded-l-none">Search</Button>
-      </form>
+      <StickySearchBar
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        onSearch={handleSearch}
+        placeholder="Search debates, projects, communities..."
+      />
       
       {/* Loading states */}
       {isLoading && <div className="text-center text-muted-foreground">Searching...</div>}

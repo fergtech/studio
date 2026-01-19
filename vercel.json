@@ -1,12 +1,20 @@
 {
   "functions": {
+    "src/app/**/*.ts": {
+      "maxDuration": 60
+    },
     "src/app/api/**/*.ts": {
-      "maxDuration": 30
+      "maxDuration": 60
     },
     "src/app/api/upload/route.ts": {
       "maxDuration": 60,
       "memory": 1024
+    },
+    "src/app/page.tsx": {
+      "maxDuration": 60,
+      "memory": 1024
     }
   },
-  "crons": []
+  "crons": [],
+  "regions": ["iad1"]
 }

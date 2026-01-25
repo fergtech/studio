@@ -7,11 +7,17 @@ export async function POST(req: NextRequest) {
     if (!postId || !userId) {
       return NextResponse.json({ error: 'Missing postId or userId' }, { status: 400 });
     }
-    const like = await prisma.generalPostLike.create({
-      data: { postId, userId },
+    // Use upsert to handle case where like already exists
+    const like = await prisma.generalPostLike.upsert({
+      where: {
+        postId_userId: { postId, userId }
+      },
+      update: {}, // No update needed, like already exists
+      create: { postId, userId },
     });
     return NextResponse.json(like, { status: 201 });
   } catch (error) {
+    console.error('Error liking post:', error);
     return NextResponse.json({ error: 'Failed to like post' }, { status: 500 });
   }
 }

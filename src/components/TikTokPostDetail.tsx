@@ -31,6 +31,8 @@ import { formatDistanceToNow } from 'date-fns';
 import { usePostStats } from '@/context/PostStatsContext';
 import { ExpandableTextModal } from '@/components/ui/expandable-text';
 import { ContextBadge } from '@/components/ui/context-badge';
+import { deletePostAction } from '@/app/actions/postActions';
+import { useToast } from '@/hooks/use-toast';
 
 interface PostUser {
   id: string;
@@ -93,9 +95,11 @@ export function TikTokPostDetail({
   const [comments, setComments] = useState<PostComment[]>(post.comments || []);
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const router = useRouter();
   const { data: session } = useSession();
+  const { toast } = useToast();
 
   // Check if current user is the post owner
   const isOwnPost = session?.user?.id === post.userId;
@@ -307,6 +311,32 @@ export function TikTokPostDetail({
     } else {
       // Fallback: copy to clipboard
       navigator.clipboard.writeText(`${window.location.origin}/posts/${post.id}`);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!isOwnPost || isDeleting) return;
+    if (!confirm('Delete this post? This action cannot be undone.')) return;
+
+    setIsDeleting(true);
+    try {
+      const result = await deletePostAction(post.id);
+      if (result.error) {
+        toast({ title: result.error, variant: 'destructive' });
+        setIsDeleting(false);
+      } else {
+        toast({ title: 'Post deleted successfully' });
+        // Dispatch event to remove from feed
+        window.dispatchEvent(new CustomEvent('feed:itemDeleted', { detail: { id: post.id } }));
+        // Close the modal
+        onClose();
+        // Refresh the page
+        router.refresh();
+      }
+    } catch (error) {
+      console.error('Error deleting post:', error);
+      toast({ title: 'Failed to delete post', variant: 'destructive' });
+      setIsDeleting(false);
     }
   };
 
@@ -532,14 +562,15 @@ export function TikTokPostDetail({
                           Edit
                         </button>
                         <button
-                          className="w-full px-4 py-2 text-left text-red-400 hover:bg-white/10 flex items-center gap-2 text-sm"
+                          className="w-full px-4 py-2 text-left text-red-400 hover:bg-white/10 flex items-center gap-2 text-sm disabled:opacity-50"
                           onClick={() => {
                             setShowMenu(false);
-                            // TODO: Implement delete functionality
+                            handleDelete();
                           }}
+                          disabled={isDeleting}
                         >
                           <Trash2 className="h-4 w-4" />
-                          Delete
+                          {isDeleting ? 'Deleting...' : 'Delete'}
                         </button>
                         <div className="h-px bg-gray-700 my-1" />
                       </>

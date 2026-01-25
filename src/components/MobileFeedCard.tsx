@@ -235,11 +235,10 @@ export function MobileFeedCard({ post, currentUserId, onPostClick, society, type
   return (
     <motion.div
       ref={swipeRef}
-      className="relative w-full h-[calc(100vh-8rem)] md:h-[600px] md:max-w-md md:mx-auto bg-card rounded-xl overflow-hidden snap-start group md:mb-6 cursor-pointer"
+      className="relative w-full h-[calc(100vh-8rem)] md:h-[600px] md:max-w-md md:mx-auto bg-card rounded-xl overflow-hidden snap-start group md:mb-6"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      onClick={navigateToPost}
     >
       {/* Like Animation Overlay */}
       <LikeAnimation
@@ -287,6 +286,11 @@ export function MobileFeedCard({ post, currentUserId, onPostClick, society, type
             )}
             {/* Gradient overlay for readability */}
             <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/80" />
+            {/* Clickable area for media - only covers middle section, below top bar and action buttons */}
+            <div
+              className="absolute inset-x-0 top-28 bottom-44 cursor-pointer"
+              onClick={navigateToPost}
+            />
           </>
         ) : (
           /* Vibrant gradient for text-only posts */
@@ -296,11 +300,11 @@ export function MobileFeedCard({ post, currentUserId, onPostClick, society, type
         )}
       </div>
 
-      {/* Content Overlay */}
-      <div className="absolute inset-0 flex flex-col justify-between p-4 text-white">
+      {/* Content Overlay - z-10 to be above clickable media area */}
+      <div className="absolute inset-0 flex flex-col justify-between p-4 text-white z-10 pointer-events-none">
         {/* Top Bar - Creator Info & Menu */}
         <div className={cn(
-          "flex items-center justify-between z-10",
+          "flex items-center justify-between pointer-events-auto",
           !hasMedia && "absolute top-4 left-4 right-4"
         )}>
           <div className="flex flex-col gap-2">
@@ -349,22 +353,29 @@ export function MobileFeedCard({ post, currentUserId, onPostClick, society, type
               </div>
             )}
           </div>
-          <ContentCardMenu
-            itemId={post.id}
-            itemType="post"
-            itemName={post.content.substring(0, 50)}
-            isCreator={isCreator}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-          />
+          <div
+            onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <ContentCardMenu
+              itemId={post.id}
+              itemType="post"
+              itemName={post.content.substring(0, 50)}
+              isCreator={isCreator}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+            />
+          </div>
         </div>
 
         {/* Middle - Text Content (for text-only posts) */}
         {!hasMedia && (
-          <div className="flex-1 flex items-center justify-center z-10 px-4 py-20">
+          <div
+            className="flex-1 flex items-center justify-center px-4 py-20 cursor-pointer pointer-events-auto"
+            onClick={navigateToPost}
+          >
             <motion.div
-              onClick={navigateToPost}
-              className="cursor-pointer max-w-2xl"
+              className="max-w-2xl"
               whileTap={{ scale: 0.98 }}
             >
               <p className="text-2xl md:text-4xl font-bold text-center leading-tight drop-shadow-2xl">
@@ -376,15 +387,15 @@ export function MobileFeedCard({ post, currentUserId, onPostClick, society, type
 
         {/* Bottom Bar - Content & Actions */}
         <div className={cn(
-          "space-y-4 z-10",
+          "space-y-4 pointer-events-auto",
           !hasMedia && "absolute bottom-4 left-4 right-4"
         )}>
           {/* Post Content (for media posts) */}
           {hasMedia && (
             <motion.div
-              onClick={navigateToPost}
               className="cursor-pointer"
               whileTap={{ scale: 0.98 }}
+              onClick={navigateToPost}
             >
               <p className="text-base leading-relaxed drop-shadow-lg line-clamp-3 mb-2">
                 {post.content}
@@ -393,7 +404,10 @@ export function MobileFeedCard({ post, currentUserId, onPostClick, society, type
           )}
 
           {/* Action Buttons - Horizontal (TikTok style) */}
-          <div className="flex items-center gap-4">
+          <div 
+            className="flex items-center gap-4"
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Like */}
             <motion.button
               whileTap={{ scale: 0.9 }}

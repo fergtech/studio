@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Home, Plus, User, Settings, LogOut, Sun, Moon, Search, MessageSquare, FolderKanban, Users, Lightbulb, AlertTriangle, FileText, X, Bell, Shield } from 'lucide-react';
+import { Home, Plus, User, Settings, LogOut, Sun, Moon, Search, MessageSquare, Layers, Users, Lightbulb, AlertTriangle, FileText, X, Bell, Shield } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -148,7 +148,7 @@ export function BottomNavBar() {
 
         {/* Projects Button */}
         <Link href="/initiatives" className={cn("flex flex-col items-center justify-center text-muted-foreground transition-colors", pathname === '/initiatives' && 'text-primary')}>
-          <FolderKanban className="h-6 w-6" />
+          <Layers className="h-6 w-6" />
         </Link>
 
         {/* Profile Popover */}

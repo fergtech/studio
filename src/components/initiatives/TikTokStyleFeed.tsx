@@ -124,7 +124,7 @@ export function TikTokStyleFeed({ initiatives, onRefresh }: TikTokStyleFeedProps
   return (
     <div 
       ref={containerRef}
-      className="h-screen w-full overflow-hidden bg-black relative"
+      className="h-[calc(100vh-4rem)] w-full overflow-hidden bg-black relative"
     >
       {/* Progress indicator */}
       <div className="absolute top-4 left-4 right-4 z-20">
@@ -178,12 +178,12 @@ export function TikTokStyleFeed({ initiatives, onRefresh }: TikTokStyleFeedProps
           className="absolute inset-0 cursor-grab active:cursor-grabbing"
         >
           <div 
-            className="h-full w-full"
+            className="w-full h-full"
             onClick={() => handleInitiativeClick(initiatives[currentIndex])}
           >
             <SimpleInitiativeCard
               initiative={initiatives[currentIndex]}
-              className="h-full w-full rounded-none"
+              className="!aspect-auto h-full w-full rounded-none mb-0"
             />
           </div>
         </motion.div>

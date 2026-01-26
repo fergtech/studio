@@ -369,10 +369,7 @@ export function MobileDebateCard({
   const { ref: swipeRef } = useSwipeGestures({
     // onDoubleTap: handleDoubleTap, // DISABLED: Was causing accidental votes when opening detail sheet
     onSwipeLeft: () => {
-      if (!currentUserId) return;
-      setShowSwipeLeft(true);
-      setTimeout(() => setShowSwipeLeft(false), 300);
-      handleShare();
+      // Swipe left gesture removed - share is now in dropdown menu
     },
     onSwipeRight: () => {
       if (!currentUserId) return;
@@ -572,7 +569,7 @@ export function MobileDebateCard({
             </div>
           )}
 
-          {/* Action Buttons - Agree/Disagree/Comment/Share */}
+          {/* Action Buttons - Agree/Disagree/Comment (Modern minimal style) */}
           <div className="flex items-center gap-3">
             {/* Agree */}
             <motion.button
@@ -642,17 +639,7 @@ export function MobileDebateCard({
               </span>
             </motion.button>
 
-            {/* Share */}
-            <motion.button
-              whileTap={{ scale: 0.9 }}
-              onClick={handleShare}
-              className="flex flex-col items-center gap-1 min-w-[60px]"
-            >
-              <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                <Share2 className="w-6 h-6 text-white" />
-              </div>
-              <span className="text-xs font-semibold drop-shadow-lg">Share</span>
-            </motion.button>
+            {/* Share button removed - use dropdown menu (•••) for sharing */}
           </div>
         </div>
       </div>

@@ -86,9 +86,11 @@ interface CreatePostFormProps {
   };
   initialTopic?: string | null;
   initialContentType?: 'idea' | 'issue' | 'post' | null;
+  /** 'card' wraps in Card component (for embedding), 'seamless' blends into page (for fullscreen) */
+  variant?: 'card' | 'seamless';
 }
 
-export default function CreatePostForm({ onPostCreated, onSuccess, societyId, context = 'general', battleContext, initialTopic, initialContentType }: CreatePostFormProps) {
+export default function CreatePostForm({ onPostCreated, onSuccess, societyId, context = 'general', battleContext, initialTopic, initialContentType, variant = 'card' }: CreatePostFormProps) {
   const { data: session, status } = useSession();
   const { toast } = useToast();
 
@@ -193,6 +195,13 @@ export default function CreatePostForm({ onPostCreated, onSuccess, societyId, co
 
   // Show loading state while session is loading
   if (status === "loading") {
+    if (variant === 'seamless') {
+      return (
+        <div className="p-4 text-center text-muted-foreground">
+          Loading...
+        </div>
+      );
+    }
     return (
       <Card className="mb-6 shadow-sm border-none bg-card/80 backdrop-blur overflow-hidden">
         <CardContent className="p-4 text-center text-muted-foreground">
@@ -548,6 +557,14 @@ export default function CreatePostForm({ onPostCreated, onSuccess, societyId, co
   };
 
   if (!currentUser) {
+    if (variant === 'seamless') {
+      return (
+        <div className="p-4 text-center text-muted-foreground">
+          <AlertCircle className="mx-auto h-8 w-8 mb-2" />
+          Please log in to create a post.
+        </div>
+      );
+    }
     return (
       <Card className="mb-6 shadow-sm border-none bg-card/80 backdrop-blur overflow-hidden">
         <CardContent className="p-4 text-center text-muted-foreground">
@@ -558,10 +575,11 @@ export default function CreatePostForm({ onPostCreated, onSuccess, societyId, co
     );
   }
 
-  return (
-    <Card className="mb-6 shadow-sm border-none bg-card/80 backdrop-blur overflow-hidden">
+  // Content that's shared between card and seamless variants
+  const formContent = (
+    <>
       {/* Media Preview or Selected Background Preview */}
-      <div className="h-32 relative flex items-center justify-center text-muted-foreground overflow-hidden">
+      <div className={`relative flex items-center justify-center text-muted-foreground overflow-hidden ${variant === 'seamless' ? 'h-48 rounded-xl' : 'h-32'}`}>
         {selectedMedia && selectedMedia.type.startsWith('video/') && mediaPreview ? (
           // Video preview - check if it's a thumbnail (data:image) or actual video (data:video or blob)
           mediaPreview.startsWith('data:image') ? (
@@ -615,7 +633,7 @@ export default function CreatePostForm({ onPostCreated, onSuccess, societyId, co
         {mediaPreview && <div className="absolute inset-0 bg-black/20"></div>} {/* Overlay */}
       </div>
 
-      <CardContent className="p-4">
+      <div className="p-4">
         <form onSubmit={handleSubmit}>
 
           <div className="flex items-start space-x-3">
@@ -827,7 +845,23 @@ export default function CreatePostForm({ onPostCreated, onSuccess, societyId, co
             </Button>
           </div>
         </form>
-      </CardContent>
+      </div>
+    </>
+  );
+
+  // Seamless variant - no card wrapper, blends into page
+  if (variant === 'seamless') {
+    return (
+      <div className="space-y-4">
+        {formContent}
+      </div>
+    );
+  }
+
+  // Card variant (default) - wrapped in Card for embedding in feed
+  return (
+    <Card className="mb-6 shadow-sm border-none bg-card/80 backdrop-blur overflow-hidden">
+      {formContent}
     </Card>
   );
 }

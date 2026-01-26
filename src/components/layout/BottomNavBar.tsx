@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Home, Plus, User, Settings, LogOut, Sun, Moon, Search, MessageSquare, Target, Users, Lightbulb, AlertTriangle, FileText, X, Bell, Shield } from 'lucide-react';
+import { Home, Plus, User, Settings, LogOut, Sun, Moon, Search, MessageSquare, FolderKanban, Users, Lightbulb, AlertTriangle, FileText, X, Bell, Shield } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -82,6 +82,18 @@ export function BottomNavBar() {
 
   const isLoading = status === 'loading';
 
+  // Handle home navigation with refresh
+  const handleHomeClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    // If already on home page, refresh the view
+    if (pathname === '/') {
+      e.preventDefault();
+      router.refresh();
+      // Dispatch event to scroll feed container to top (window.scrollTo doesn't work with container scroll)
+      window.dispatchEvent(new CustomEvent('feed:scrollToTop'));
+    }
+    // Otherwise, navigate normally (Link handles this)
+  };
+
   // Handle create option selection
   const handleCreateOption = (type: 'debate' | 'initiative' | 'society' | 'post') => {
     setShowCreateSheet(false);
@@ -108,21 +120,23 @@ export function BottomNavBar() {
 
       {/* Mobile Nav Bar */}
       <div className="fixed bottom-0 left-0 right-0 h-16 bg-background/95 backdrop-blur-sm border-t border-border flex items-center justify-around md:hidden z-40">
-        <Link href="/" className={cn("flex flex-col items-center gap-1 text-muted-foreground transition-colors", pathname === '/' && 'text-primary')}>
+        <Link 
+          href="/" 
+          onClick={handleHomeClick}
+          className={cn("flex flex-col items-center justify-center text-muted-foreground transition-colors", pathname === '/' && 'text-primary')}
+        >
           <Home className="h-6 w-6" />
-          <span className="text-xs">Home</span>
         </Link>
 
-        <Link href="/explore" className={cn("flex flex-col items-center gap-1 text-muted-foreground transition-colors", pathname === '/explore' && 'text-primary')}>
+        <Link href="/explore" className={cn("flex flex-col items-center justify-center text-muted-foreground transition-colors", pathname === '/explore' && 'text-primary')}>
           <Search className="h-6 w-6" />
-          <span className="text-xs">Explore</span>
         </Link>
 
         {/* Create Button */}
         <button
           suppressHydrationWarning={true}
           onClick={() => setShowCreateSheet(true)}
-          className="flex flex-col items-center gap-1 text-muted-foreground transition-colors hover:text-primary"
+          className="flex flex-col items-center justify-center text-muted-foreground transition-colors hover:text-primary"
         >
           <div className="relative">
             <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping" style={{ animationDuration: '3s' }} />
@@ -130,13 +144,11 @@ export function BottomNavBar() {
               <Plus className="h-5 w-5 text-primary-foreground" />
             </div>
           </div>
-          <span className="text-xs">Create</span>
         </button>
 
         {/* Projects Button */}
-        <Link href="/initiatives" className={cn("flex flex-col items-center gap-1 text-muted-foreground transition-colors", pathname === '/initiatives' && 'text-primary')}>
-          <Target className="h-6 w-6" />
-          <span className="text-xs">Projects</span>
+        <Link href="/initiatives" className={cn("flex flex-col items-center justify-center text-muted-foreground transition-colors", pathname === '/initiatives' && 'text-primary')}>
+          <FolderKanban className="h-6 w-6" />
         </Link>
 
         {/* Profile Popover */}
@@ -145,15 +157,14 @@ export function BottomNavBar() {
         ) : session?.user ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className={cn("flex flex-col items-center gap-1 text-muted-foreground transition-colors", (pathname.startsWith('/u/') || pathname.startsWith('/profile')) && 'text-primary')}>
-                <Avatar className="h-10 w-10">
+              <button className={cn("flex flex-col items-center justify-center text-muted-foreground transition-colors", (pathname.startsWith('/u/') || pathname.startsWith('/profile')) && 'text-primary')}>
+                <Avatar className="h-8 w-8">
                     <AvatarImage
                       src={getAvatarUrl(session.user.id, session.user.image)}
                       alt={session.user.name || 'User'}
                     />
                     <AvatarFallback>{getInitials(session.user.name)}</AvatarFallback>
                   </Avatar>
-                <span className="text-xs">Profile</span>
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56 mb-2">
@@ -204,9 +215,8 @@ export function BottomNavBar() {
           </DropdownMenu>
         ) : (
           <Link href="/api/auth/signin" passHref>
-            <div className={cn("flex flex-col items-center gap-1 text-muted-foreground transition-colors")}>
+            <div className={cn("flex flex-col items-center justify-center text-muted-foreground transition-colors")}>
               <User className="h-6 w-6" />
-              <span className="text-xs">Sign In</span>
             </div>
           </Link>
         )}
@@ -224,7 +234,7 @@ export function BottomNavBar() {
           <div className="w-px h-8 bg-border/50 mx-1" />
 
           {/* Home */}
-          <Link href="/">
+          <Link href="/" onClick={handleHomeClick}>
             <Button
               variant="ghost"
               size="sm"

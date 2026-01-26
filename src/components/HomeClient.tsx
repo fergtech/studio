@@ -652,6 +652,12 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
   }, [currentUserId]);
 
   useEffect(() => {
+    const handleScrollToTop = () => {
+      if (feedContainerRef.current) {
+        feedContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    };
+
     const handleFeedItemCreated = (event: CustomEvent) => {
       const item = event.detail;
       console.log('[HomeClient] feed:itemCreated event received:', item);
@@ -709,10 +715,12 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
       setAllFeedItems(prev => prev.filter(item => item.id !== id));
     };
 
+    window.addEventListener('feed:scrollToTop', handleScrollToTop);
     window.addEventListener('feed:itemCreated', handleFeedItemCreated as EventListener);
     window.addEventListener('feed:itemDeleted', handleFeedItemDeleted as EventListener);
 
     return () => {
+      window.removeEventListener('feed:scrollToTop', handleScrollToTop);
       window.removeEventListener('feed:itemCreated', handleFeedItemCreated as EventListener);
       window.removeEventListener('feed:itemDeleted', handleFeedItemDeleted as EventListener);
     };
@@ -1014,46 +1022,46 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
           </div>
 
           {/* Mobile-First Feed Container */}
-          <div
+            <div
             ref={feedContainerRef}
             onScroll={onScroll}
             className="flex-1 w-full overflow-y-auto overflow-x-hidden scroll-smooth px-4 pt-2 lg:pt-6 pb-32 space-y-6 scrollbar-hide"
             style={{
               scrollbarWidth: 'none',
               msOverflowStyle: 'none',
-              WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 80%, rgba(0,0,0,0) 100%)',
-              maskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 80%, rgba(0,0,0,0) 100%)'
+              // WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 80%, rgba(0,0,0,0) 100%)',
+              // maskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 80%, rgba(0,0,0,0) 100%)'
             }}
-          >
-          {filteredFeedItems.map((item, index) => {
-        // Generate a safe key that works for all item types
-        const itemKey = item.id || `item-${index}-${item.type || 'unknown'}`;
+            >
+            {filteredFeedItems.map((item, index) => {
+          // Generate a safe key that works for all item types
+          const itemKey = item.id || `item-${index}-${item.type || 'unknown'}`;
 
-        // Handle content items
-        if (isContentItem(item)) {
-          const contentData = item.data as FeedItemDb;
+          // Handle content items
+          if (isContentItem(item)) {
+            const contentData = item.data as FeedItemDb;
 
-          // SOCIETY POSTS - Transform to MobileFeedCard
-          if (item.type === 'societyPost' && isSocietyPost(item.data)) {
+            // SOCIETY POSTS - Transform to MobileFeedCard
+            if (item.type === 'societyPost' && isSocietyPost(item.data)) {
             const societyPostData = item.data as SocietyPostWithUserAndSociety;
             const displayPost: GeneralPost = {
-          id: societyPostData.id,
-          creatorId: societyPostData.user.id,
-          creatorName: societyPostData.user.name,
-          creatorAvatar: societyPostData.user.image,
-          content: societyPostData.content,
-          timestamp: new Date(societyPostData.createdAt),
-          media: societyPostData.imageUrl ? [{
+            id: societyPostData.id,
+            creatorId: societyPostData.user.id,
+            creatorName: societyPostData.user.name,
+            creatorAvatar: societyPostData.user.image,
+            content: societyPostData.content,
+            timestamp: new Date(societyPostData.createdAt),
+            media: societyPostData.imageUrl ? [{
             id: `${societyPostData.id}-media`,
             url: societyPostData.imageUrl,
             type: 'image' as const,
             issueId: null,
             ideaId: null
-          }] : [],
-          society: societyPostData.society,
+            }] : [],
+            society: societyPostData.society,
             };
             return (
-          <div key={`${item.type}-${itemKey}`} className="w-full">
+            <div key={`${item.type}-${itemKey}`} className="w-full">
             <MobileFeedCard
               post={displayPost}
               currentUserId={currentUserId}
@@ -1061,15 +1069,15 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
               society={societyPostData.society}
               type="society"
             />
-          </div>
+            </div>
             );
-          }
+            }
 
-          // SOCIETY CREATIONS - SocietyCard
-          else if (item.type === 'societyCreate') {
+            // SOCIETY CREATIONS - SocietyCard
+            else if (item.type === 'societyCreate') {
             const societyData = item.data as any;
             return (
-          <div key={`${item.type}-${itemKey}`} className="w-full max-w-full">
+            <div key={`${item.type}-${itemKey}`} className="w-full max-w-full">
             <SocietyCard
               society={societyData}
               creatorName={societyData.creator?.name || 'Anonymous'}
@@ -1077,39 +1085,39 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
               currentUserId={currentUserId || undefined}
               className="mb-4 w-full max-w-full"
             />
-          </div>
+            </div>
             );
-          }
+            }
 
-          // DEBATES - MobileDebateCard
-          else if (contentData && isDebate(contentData)) {
+            // DEBATES - MobileDebateCard
+            else if (contentData && isDebate(contentData)) {
             const debateItem = contentData;
             const proVotes = debateItem.votes.filter(v => v.side === 'PRO').length;
             const conVotes = debateItem.votes.filter(v => v.side === 'CON').length;
             const totalVotes = proVotes + conVotes;
             const stats = {
-          proVotes,
-          conVotes,
-          totalVotes,
-          proPercentage: totalVotes > 0 ? Math.round((proVotes / totalVotes) * 100) : 0,
-          conPercentage: totalVotes > 0 ? Math.round((conVotes / totalVotes) * 100) : 0,
-          argumentCount: debateItem.arguments.length,
+            proVotes,
+            conVotes,
+            totalVotes,
+            proPercentage: totalVotes > 0 ? Math.round((proVotes / totalVotes) * 100) : 0,
+            conPercentage: totalVotes > 0 ? Math.round((conVotes / totalVotes) * 100) : 0,
+            argumentCount: debateItem.arguments.length,
             };
 
             const creatorForDebate = debateItem.creator
-          ? {
+            ? {
               id: debateItem.creator.id,
               name: debateItem.creator.name || 'Anonymous',
               image: debateItem.creator.image || undefined,
             }
-          : {
+            : {
               id: debateItem.creatorId || 'anonymous-creator',
               name: 'Anonymous',
               image: undefined,
             };
 
             return (
-          <div key={`${item.type}-${itemKey}`} className="w-full">
+            <div key={`${item.type}-${itemKey}`} className="w-full">
             <MobileDebateCard
               id={debateItem.id}
               title={debateItem.title}
@@ -1120,73 +1128,73 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
               stats={stats}
               currentUserId={currentUserId}
             />
-          </div>
+            </div>
             );
-          }
+            }
 
-          // GENERAL POSTS - MobileFeedCard
-          else if (contentData && isGeneralPost(contentData)) {
+            // GENERAL POSTS - MobileFeedCard
+            else if (contentData && isGeneralPost(contentData)) {
             const displayPost: GeneralPost = {
-          id: contentData.id,
-          creatorId: contentData.creatorId,
-          creatorName: contentData.creator?.name || 'Anonymous',
-          creatorAvatar: contentData.creator?.image || undefined,
-          content: contentData.content,
-          topics: contentData.topics || [],
-          timestamp: contentData.timestamp,
-          background: contentData.background || undefined,
-          linkedInitiativeId: contentData.linkedInitiativeId || undefined,
-          media: contentData.media,
+            id: contentData.id,
+            creatorId: contentData.creatorId,
+            creatorName: contentData.creator?.name || 'Anonymous',
+            creatorAvatar: contentData.creator?.image || undefined,
+            content: contentData.content,
+            topics: contentData.topics || [],
+            timestamp: contentData.timestamp,
+            background: contentData.background || undefined,
+            linkedInitiativeId: contentData.linkedInitiativeId || undefined,
+            media: contentData.media,
             };
             return (
-          <div key={`${item.type}-${itemKey}`} className="w-full">
+            <div key={`${item.type}-${itemKey}`} className="w-full">
             <MobileFeedCard
               post={displayPost}
               currentUserId={currentUserId}
               onPostClick={handlePostClick}
               type="general"
             />
-          </div>
+            </div>
             );
-          }
+            }
 
-          // INITIATIVES - InitiativeCard (TikTok-style)
-          else if (contentData && isInitiative(contentData)) {
+            // INITIATIVES - InitiativeCard (TikTok-style)
+            else if (contentData && isInitiative(contentData)) {
             const initiativeItem = contentData;
             const creatorForCard: UserForDisplay = initiativeItem.creator
-          ? {
+            ? {
               id: initiativeItem.creator.id,
               name: initiativeItem.creator.name,
               image: initiativeItem.creator.image,
             }
-          : {
+            : {
               id: initiativeItem.creatorId || 'unknown-creator',
               name: 'Unknown Creator',
               image: null,
             };
 
             const initiativeForCard: Initiative & { creatorId?: string } = {
-          id: initiativeItem.id,
-          title: initiativeItem.title,
-          description: initiativeItem.description || '',
-          imageUrl: initiativeItem.imageUrl,
-          status: initiativeItem.status as InitiativeStatus,
-          createdAt: initiativeItem.createdAt,
-          updatedAt: initiativeItem.updatedAt,
-          creatorId: initiativeItem.creatorId,
-          roles: initiativeItem.roles || [],
-          creator: creatorForCard,
-          memberships: initiativeItem.memberships || [],
-          updates: initiativeItem.updates || [],
-          chatMessages: initiativeItem.chatMessages || [],
-          goals: initiativeItem.goals || [],
-          milestones: initiativeItem.milestones || [],
-          societyId: initiativeItem.societyId || null,
-          society: initiativeItem.society || null,
+            id: initiativeItem.id,
+            title: initiativeItem.title,
+            description: initiativeItem.description || '',
+            imageUrl: initiativeItem.imageUrl,
+            status: initiativeItem.status as InitiativeStatus,
+            createdAt: initiativeItem.createdAt,
+            updatedAt: initiativeItem.updatedAt,
+            creatorId: initiativeItem.creatorId,
+            roles: initiativeItem.roles || [],
+            creator: creatorForCard,
+            memberships: initiativeItem.memberships || [],
+            updates: initiativeItem.updates || [],
+            chatMessages: initiativeItem.chatMessages || [],
+            goals: initiativeItem.goals || [],
+            milestones: initiativeItem.milestones || [],
+            societyId: initiativeItem.societyId || null,
+            society: initiativeItem.society || null,
             };
 
             return (
-          <div key={`${item.type}-${itemKey}`} className="w-full">
+            <div key={`${item.type}-${itemKey}`} className="w-full">
             <InitiativeCard
               initiative={initiativeForCard}
               creatorName={initiativeItem.creator?.name || 'Unknown Creator'}
@@ -1194,69 +1202,69 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
               currentUserId={currentUserId}
               className="w-full h-[calc(100vh-8rem)] md:h-[600px] md:max-w-md md:mx-auto md:mb-6"
             />
-          </div>
+            </div>
             );
-          }
+            }
 
-          // IDEAS & ISSUES - Transform to MobileFeedCard
-          else if (contentData && isTaggedContent(contentData)) {
+            // IDEAS & ISSUES - Transform to MobileFeedCard
+            else if (contentData && isTaggedContent(contentData)) {
             const taggedItem = contentData;
             const isCurrentItemAnIssue = item.type === 'issue';
             const creatorForDisplay: UserForDisplay = taggedItem.creator
-          ? {
+            ? {
               id: taggedItem.creator.id,
               name: taggedItem.creator.name,
               image: taggedItem.creator.image,
             }
-          : {
+            : {
               id: taggedItem.creatorId || 'anonymous',
               name: 'Anonymous',
               image: null,
             };
 
             const transformedData = {
-          id: taggedItem.id,
-          title: taggedItem.title,
-          description: taggedItem.description,
-          creatorId: taggedItem.creatorId,
-          createdAt: taggedItem.createdAt,
-          tags: taggedItem.tags || [],
-          location: taggedItem.location,
-          media: taggedItem.media || [],
-          championCount: taggedItem.championCount || 0,
-          championedBy: null,
-          championedByInitiativeId: taggedItem.championedByInitiativeId,
-          creator: creatorForDisplay,
+            id: taggedItem.id,
+            title: taggedItem.title,
+            description: taggedItem.description,
+            creatorId: taggedItem.creatorId,
+            createdAt: taggedItem.createdAt,
+            tags: taggedItem.tags || [],
+            location: taggedItem.location,
+            media: taggedItem.media || [],
+            championCount: taggedItem.championCount || 0,
+            championedBy: null,
+            championedByInitiativeId: taggedItem.championedByInitiativeId,
+            creator: creatorForDisplay,
             };
 
             const displayPost: GeneralPost = {
-          id: transformedData.id,
-          creatorId: transformedData.creatorId,
-          creatorName: transformedData.creator.name || 'Anonymous',
-          creatorAvatar: transformedData.creator.image || undefined,
-          content: `${transformedData.title}\n\n${transformedData.description}`,
-          topics: transformedData.tags,
-          timestamp: transformedData.createdAt,
-          media: transformedData.media,
+            id: transformedData.id,
+            creatorId: transformedData.creatorId,
+            creatorName: transformedData.creator.name || 'Anonymous',
+            creatorAvatar: transformedData.creator.image || undefined,
+            content: `${transformedData.title}\n\n${transformedData.description}`,
+            topics: transformedData.tags,
+            timestamp: transformedData.createdAt,
+            media: transformedData.media,
             };
 
             return (
-          <div key={`${item.type}-${itemKey}`} className="w-full">
+            <div key={`${item.type}-${itemKey}`} className="w-full">
             <MobileFeedCard
               post={displayPost}
               currentUserId={currentUserId}
               onPostClick={() => isCurrentItemAnIssue ? handleIssueClick(transformedData) : handleIdeaClick(transformedData)}
               type={isCurrentItemAnIssue ? "issue" : "idea"}
             />
-          </div>
+            </div>
             );
+            }
           }
-        }
 
-        // Fallback for unknown types
-        return null;
-          })}
-          </div>
+          // Fallback for unknown types
+          return null;
+            })}
+            </div>
           {/* End Mobile-First Scroll Snap Container */}
 
           {/* Show loading state for filter switching */}

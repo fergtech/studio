@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Copy, Mail, MessageSquare, Link, Twitter, Facebook, Download } from 'lucide-react';
+import { X, Copy, Mail, MessageSquare, Link, Twitter, Facebook, Download, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { triggerHaptic, hapticPatterns } from '@/lib/animations';
@@ -33,20 +33,23 @@ export function ShareOptionsSheet({
   description
 }: ShareOptionsSheetProps) {
   const [isMobile, setIsMobile] = useState(false);
+  const [copied, setCopied] = useState(false);
   const { toast } = useToast();
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
     };
-    
+
     checkMobile();
     window.addEventListener('resize', checkMobile);
-    
+
     if (isOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
+      setCopied(false);
     }
 
     return () => {
@@ -61,22 +64,55 @@ export function ShareOptionsSheet({
   };
 
   const copyToClipboard = async () => {
-    try {
-      await navigator.clipboard.writeText(url);
-      triggerHaptic([...hapticPatterns.success]);
-      toast({
-        title: "Copied!",
-        description: "Link copied to clipboard",
-      });
-      handleClose();
-    } catch (error) {
-      console.error('Failed to copy:', error);
-      toast({
-        title: "Failed to copy",
-        description: "Please try again",
-        variant: "destructive",
-      });
+    triggerHaptic(hapticPatterns.medium);
+
+    // Try modern Clipboard API first
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      try {
+        await navigator.clipboard.writeText(url);
+        setCopied(true);
+        toast({
+          title: "Copied!",
+          description: "Link copied to clipboard",
+        });
+        setTimeout(() => {
+          setCopied(false);
+          handleClose();
+        }, 1000);
+        return;
+      } catch (error) {
+        console.log('Clipboard API failed, trying fallback');
+      }
     }
+
+    // Fallback: Use input element and execCommand
+    try {
+      if (inputRef.current) {
+        inputRef.current.value = url;
+        inputRef.current.select();
+        inputRef.current.setSelectionRange(0, 99999);
+        document.execCommand('copy');
+        setCopied(true);
+        toast({
+          title: "Copied!",
+          description: "Link copied to clipboard",
+        });
+        setTimeout(() => {
+          setCopied(false);
+          handleClose();
+        }, 1000);
+        return;
+      }
+    } catch (error) {
+      console.log('execCommand fallback failed');
+    }
+
+    // Last resort: Show the URL for manual copy
+    toast({
+      title: "Copy this link",
+      description: url,
+      duration: 10000,
+    });
   };
 
   const shareViaEmail = () => {
@@ -139,10 +175,10 @@ export function ShareOptionsSheet({
   const shareOptions: ShareOption[] = [
     {
       id: 'copy',
-      label: 'Copy Link',
-      icon: <Copy className="w-5 h-5" />,
+      label: copied ? 'Copied!' : 'Copy Link',
+      icon: copied ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />,
       action: copyToClipboard,
-      color: 'text-blue-600'
+      color: copied ? 'text-green-600' : 'text-blue-600'
     },
     {
       id: 'email',
@@ -282,6 +318,16 @@ export function ShareOptionsSheet({
                 <p className="text-xs text-muted-foreground mb-1">Share URL:</p>
                 <p className="text-xs font-mono break-all">{url}</p>
               </div>
+
+              {/* Hidden input for clipboard fallback */}
+              <input
+                ref={inputRef}
+                type="text"
+                value={url}
+                readOnly
+                className="sr-only"
+                aria-hidden="true"
+              />
             </div>
           </motion.div>
         </>

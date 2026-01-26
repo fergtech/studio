@@ -60,12 +60,13 @@ export default function CreatePostPage() {
         </div>
       )}
 
-      {/* Scrollable form content - mimics modal content area */}
+      {/* Scrollable form content - blends seamlessly into page */}
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6">
           <CreatePostForm
             initialTopic={initialTopic}
             battleContext={battleContext}
+            variant="seamless"
             onSuccess={() => {
               router.back();
               router.refresh();

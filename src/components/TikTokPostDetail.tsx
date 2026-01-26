@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import {
   Heart,
   MessageCircle,
-  Share,
+  Share2,
   X,
   Send,
   MoreHorizontal,
@@ -33,6 +33,7 @@ import { ExpandableTextModal } from '@/components/ui/expandable-text';
 import { ContextBadge } from '@/components/ui/context-badge';
 import { deletePostAction } from '@/app/actions/postActions';
 import { useToast } from '@/hooks/use-toast';
+import { ShareSheet } from '@/components/ShareSheet';
 
 interface PostUser {
   id: string;
@@ -96,6 +97,7 @@ export function TikTokPostDetail({
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showShareSheet, setShowShareSheet] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const router = useRouter();
   const { data: session } = useSession();
@@ -298,20 +300,11 @@ export function TikTokPostDetail({
   };
 
   // Handle share action
-  const handleShare = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: post.content,
-          url: `${window.location.origin}/posts/${post.id}`
-        });
-      } catch (error) {
-        // Handle share error
-      }
-    } else {
-      // Fallback: copy to clipboard
-      navigator.clipboard.writeText(`${window.location.origin}/posts/${post.id}`);
-    }
+  const handleShare = () => {
+    console.log('🔔 Share button clicked in TikTokPostDetail');
+    console.log('📊 Current showShareSheet state:', showShareSheet);
+    setShowShareSheet(true);
+    console.log('📊 After setState - showShareSheet should be true');
   };
 
   const handleDelete = async () => {
@@ -463,7 +456,7 @@ export function TikTokPostDetail({
 
             {/* Right sidebar with actions and info */}
             <motion.div
-              className="absolute right-4 bottom-1/3 flex flex-col items-center space-y-4 z-40"
+              className="absolute right-2 bottom-4 flex flex-col items-center space-y-4 z-40"
               drag="y"
               dragConstraints={{ top: 0, bottom: 0 }}
               onDragEnd={handleDragEnd}
@@ -480,7 +473,7 @@ export function TikTokPostDetail({
                   <p className="text-white font-semibold text-sm cursor-pointer" onClick={handleUserClick}>
                     {post.user.name}
                   </p>
-                  <p className="text-gray-300 text-xs">
+                  <p className="text-gray-300 text-[10px]">
                     {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
                   </p>
                 </div>
@@ -517,18 +510,7 @@ export function TikTokPostDetail({
                 <span className="text-white text-xs mt-1">{comments.length}</span>
               </div>
 
-              {/* Share button */}
-              <div className="flex flex-col items-center">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleShare}
-                  className="bg-black/50 text-white hover:bg-black/70 rounded-full w-12 h-12"
-                >
-                  <Share className="h-6 w-6" />
-                </Button>
-                <span className="text-white text-xs mt-1">{post.shares}</span>
-              </div>
+              {/* Share button removed - use dropdown menu (•••) for sharing */}
 
               {/* More actions */}
               <div className="relative flex flex-col items-center">
@@ -579,6 +561,16 @@ export function TikTokPostDetail({
                       className="w-full px-4 py-2 text-left text-white hover:bg-white/10 flex items-center gap-2 text-sm"
                       onClick={() => {
                         setShowMenu(false);
+                        handleShare();
+                      }}
+                    >
+                      <Share2 className="h-4 w-4" />
+                      Share
+                    </button>
+                    <button
+                      className="w-full px-4 py-2 text-left text-white hover:bg-white/10 flex items-center gap-2 text-sm"
+                      onClick={() => {
+                        setShowMenu(false);
                         // TODO: Implement save functionality
                       }}
                     >
@@ -602,7 +594,7 @@ export function TikTokPostDetail({
 
             {/* Bottom metadata overlay - shows content when media is present */}
             {post.mediaUrl && (
-              <div className="absolute bottom-0 left-0 right-0 p-6 pr-20 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
+              <div className="absolute bottom-0 left-0 right-0 p-6 pr-28 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
                 <div className="mb-2">
                   <Badge
                     variant={
@@ -739,5 +731,28 @@ export function TikTokPostDetail({
 
   // Use portal to render at document root, escaping parent stacking contexts
   if (typeof document === 'undefined') return null;
-  return createPortal(modalContent, document.body);
+  
+  // Debug logging
+  console.log('🎬 TikTokPostDetail render - isOpen:', isOpen, 'showShareSheet:', showShareSheet);
+  
+  return (
+    <>
+      {createPortal(modalContent, document.body)}
+      
+      {/* ShareSheet rendered separately to avoid z-index conflicts */}
+      {isOpen && (
+        <ShareSheet
+          isOpen={showShareSheet}
+          onClose={() => {
+            console.log('🔴 ShareSheet onClose called');
+            setShowShareSheet(false);
+          }}
+          url={`${typeof window !== 'undefined' ? window.location.origin : ''}/posts/${post.id}`}
+          title={post.content.substring(0, 100)}
+          description={`Check out this post on Society Plus`}
+          contentType="post"
+        />
+      )}
+    </>
+  );
 }

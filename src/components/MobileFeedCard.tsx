@@ -170,14 +170,7 @@ export function MobileFeedCard({ post, currentUserId, onPostClick, society, type
     handleLike();
   };
 
-  const handleShare = async (e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    // TODO: Implement share functionality
-    toast({
-      title: 'Sharing is caring!',
-      description: 'Share functionality coming soon.',
-    });
-  };
+  // Share functionality is now in the dropdown menu (ContentCardMenu)
 
   const handleEdit = () => {
     if (!isCreator) return;
@@ -206,14 +199,11 @@ export function MobileFeedCard({ post, currentUserId, onPostClick, society, type
     }
   };
 
-  // Setup swipe gestures
+  // Setup swipe gestures (double-tap disabled to prevent accidental likes when navigating)
   const { ref: swipeRef } = useSwipeGestures({
-    onDoubleTap: handleDoubleClick,
+    // onDoubleTap: handleDoubleClick, // DISABLED: Was causing accidental likes when clicking to view post details
     onSwipeLeft: () => {
-      if (!currentUserId) return;
-      setShowSwipeLeft(true);
-      setTimeout(() => setShowSwipeLeft(false), 300);
-      handleShare();
+      // Swipe left gesture removed - share is now in dropdown menu
     },
     onSwipeRight: () => {
       if (!currentUserId) return;
@@ -378,9 +368,15 @@ export function MobileFeedCard({ post, currentUserId, onPostClick, society, type
               className="max-w-2xl"
               whileTap={{ scale: 0.98 }}
             >
-              <p className="text-2xl md:text-4xl font-bold text-center leading-tight drop-shadow-2xl">
+              <p className="text-2xl md:text-4xl font-bold text-center leading-tight drop-shadow-2xl line-clamp-6 md:line-clamp-5">
                 {post.content}
               </p>
+              {/* Subtle indicator that there's more to read */}
+              {post.content.length > 200 && (
+                <div className="mt-4 text-center">
+                  <span className="text-sm text-white/60 drop-shadow-md">Tap to read more</span>
+                </div>
+              )}
             </motion.div>
           </div>
         )}
@@ -403,7 +399,7 @@ export function MobileFeedCard({ post, currentUserId, onPostClick, society, type
             </motion.div>
           )}
 
-          {/* Action Buttons - Horizontal (TikTok style) */}
+          {/* Action Buttons - Horizontal (Modern minimal style) */}
           <div 
             className="flex items-center gap-4"
             onClick={(e) => e.stopPropagation()}
@@ -449,19 +445,7 @@ export function MobileFeedCard({ post, currentUserId, onPostClick, society, type
               </span>
             </motion.button>
 
-            {/* Share */}
-            <motion.button
-              whileTap={{ scale: 0.9 }}
-              onClick={handleShare}
-              className="flex flex-col items-center gap-1 min-w-[60px]"
-            >
-              <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                <Share2 className="w-6 h-6 text-white" />
-              </div>
-              <span className="text-xs font-semibold drop-shadow-lg">
-                {shareCount > 0 ? shareCount : 'Share'}
-              </span>
-            </motion.button>
+            {/* Share button removed - use dropdown menu (•••) for sharing */}
           </div>
         </div>
       </div>

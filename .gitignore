@@ -19,7 +19,7 @@
 .env.local
 .env.production
 .env.development
-.env.example
+# .env.example is intentionally committed — it documents required vars without secrets
 
 # next.js
 /.next/

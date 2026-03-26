@@ -376,6 +376,50 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
   const feedContainerRef = useRef<HTMLDivElement | null>(null);
   const { onScroll } = useSnapScroll(feedContainerRef);
 
+  // Desktop app-shell mode: keep the feed as the primary scroll target.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const html = document.documentElement;
+    const body = document.body;
+    const previousHtmlOverflowY = html.style.overflowY;
+    const previousBodyOverflowY = body.style.overflowY;
+    const mediaQuery = window.matchMedia('(min-width: 1024px)');
+
+    const updateDesktopScrollLock = (isDesktop: boolean) => {
+      if (isDesktop) {
+        html.style.overflowY = 'hidden';
+        body.style.overflowY = 'hidden';
+      } else {
+        html.style.overflowY = previousHtmlOverflowY;
+        body.style.overflowY = previousBodyOverflowY;
+      }
+    };
+
+    updateDesktopScrollLock(mediaQuery.matches);
+
+    const handleMediaQueryChange = (event: MediaQueryListEvent) => {
+      updateDesktopScrollLock(event.matches);
+    };
+
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', handleMediaQueryChange);
+    } else {
+      mediaQuery.addListener(handleMediaQueryChange);
+    }
+
+    return () => {
+      if (typeof mediaQuery.removeEventListener === 'function') {
+        mediaQuery.removeEventListener('change', handleMediaQueryChange);
+      } else {
+        mediaQuery.removeListener(handleMediaQueryChange);
+      }
+
+      html.style.overflowY = previousHtmlOverflowY;
+      body.style.overflowY = previousBodyOverflowY;
+    };
+  }, []);
+
   // Check onboarding status on mount (only for authenticated users)
   useEffect(() => {
     if (!currentUserId) return;
@@ -864,7 +908,7 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
   }
 
   return (
-    <div className="w-full min-w-0 overflow-hidden relative">
+    <div className="w-full min-w-0 overflow-hidden relative lg:h-[100dvh] lg:max-h-[100dvh]">
       {/* AppSidebar for desktop (hidden on mobile) */}
       <AppSidebar
         className="hidden lg:flex"
@@ -880,7 +924,7 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
 
       {/* Main Content Area - with top padding for mobile navigation, and left margin for sidebar on desktop */}
       <div
-        className={`min-w-0 transition-all duration-300 pt-3 lg:pt-2 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-72 xl:ml-80'}`}
+        className={`min-w-0 transition-all duration-300 pt-3 lg:pt-2 lg:h-full lg:overflow-hidden ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-72 xl:ml-80'}`}
       >
         {/* Pull-to-refresh indicator (mobile only) */}
         {isMobile && (
@@ -900,7 +944,7 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
         </div>
 
         {/* Main Layout: Feed centered */}
-        <div className="flex w-full justify-center h-[calc(100vh-2rem)]">
+        <div className="flex w-full justify-center h-[calc(100dvh-2rem)] lg:h-full lg:min-h-0">
           {/* Main Feed - Centered */}
           <div className="flex-shrink-0 w-full max-w-3xl h-full">
         <div className="flex flex-col h-full">
@@ -927,7 +971,7 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
             </div>
           </div>
           {/* Feed Filter Controls - Centered Tabs - HIDDEN */}
-          <div className="w-full flex justify-center hidden">
+          <div className="hidden">
         <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent hover:scrollbar-thumb-primary/50">
           <Filter className="h-4 w-4 text-muted-foreground flex-shrink-0" />
           <button
@@ -1025,7 +1069,7 @@ export function HomeClient({ currentUserId, username }: HomeClientProps) {
             <div
             ref={feedContainerRef}
             onScroll={onScroll}
-            className="flex-1 w-full overflow-y-auto overflow-x-hidden scroll-smooth px-4 pt-2 lg:pt-6 pb-32 space-y-6 scrollbar-hide"
+            className="flex-1 w-full overflow-y-auto overflow-x-hidden overscroll-contain scroll-smooth px-4 pt-2 lg:pt-6 pb-32 space-y-6 scrollbar-hide"
             style={{
               scrollbarWidth: 'none',
               msOverflowStyle: 'none',

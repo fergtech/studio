@@ -272,7 +272,12 @@ export async function generateAIGuidance(prompt: string, maxRetries: number = 3)
     try {
       console.log(`Attempt ${attempt}/${maxRetries} to generate AI guidance...`);
 
-      const result = await generateAIText(prompt);
+      // Guidance needs a capable model — try Gemini first, fall back to Cloudflare
+      let result = await generateWithGemini(prompt);
+      if (!result.success) {
+        console.log('🔄 Gemini unavailable for guidance, trying Cloudflare...');
+        result = await generateWithCloudflare(prompt);
+      }
 
       if (result.success) {
         console.log(`✅ AI guidance generated successfully on attempt ${attempt}`);

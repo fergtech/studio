@@ -16,6 +16,6 @@ export async function GET(req: NextRequest) {
     faviconUrl: `${baseUrl}/favicon.ico`,
     logoUrl: `${baseUrl}/favicon.ico`,
     version: '1.0',
-    capabilities: ['initiatives'],
+    capabilities: ['initiatives', 'societies'],
   });
 }

@@ -68,7 +68,7 @@ export function toHubSpace(society: any, callerEmail?: string | null) {
       ? (callerMembership.role === 'admin' ? 'owner' : 'member')
       : null,
     my_status: callerMembership ? 'active' : null,
-    web_public: false,
+    web_public: true,
   };
 }
 

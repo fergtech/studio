@@ -90,6 +90,7 @@ export function toHubPost(post: any) {
     author_id: post.userId,
     author_username: username,
     media_file_name: undefined,
+    media_url: post.imageUrl ?? null,
     reply_count: post._count?.comments ?? 0,
     created_at: post.createdAt?.toISOString() ?? new Date().toISOString(),
     updated_at: post.createdAt?.toISOString() ?? new Date().toISOString(),

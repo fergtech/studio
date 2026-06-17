@@ -13,7 +13,7 @@ import { lookupByPostalCode } from "@/services/location";
 
 // Initialize the Google Generative AI model (keep for backward compatibility)
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY || 'dummy'); // Fallback to prevent crashes
-const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
 interface CreateInitiativeArgs {
   title: string;

@@ -246,7 +246,7 @@ async function classifyWithCloudflare(content: string, topicNames: string[]): Pr
       return [];
     }
 
-    const modelUrl = `https://api.cloudflare.com/client/v4/accounts/${cfAccountId}/ai/run/@cf/meta/llama-3.1-8b-instruct`;
+    const modelUrl = `https://api.cloudflare.com/client/v4/accounts/${cfAccountId}/ai/run/@cf/meta/llama-3.1-8b-instruct-fp8`;
 
     const prompt = `You are a topic classifier. Given a social media post, classify it into 1-3 topics from this list ONLY:
 
@@ -345,7 +345,7 @@ async function classifyIntoCuratedTopics(content: string): Promise<string[]> {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
     const prompt = `Classify this post into 1-3 topics from this list ONLY:
 

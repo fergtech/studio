@@ -34,25 +34,25 @@ body {
 
 @layer base {
   :root {
-    /* Impact Labs Theme - Dark (Enhanced Contrast & Vibrancy) */
-    --background: 222 28% 10%; /* Deeper dark background */
-    --foreground: 0 0% 98%; /* Pure white for main text */
-    --card: 222 16% 16%; /* Lighter than background for cards */
+    /* Impact Labs Theme - Dark (Even deeper, more neutral near-black surfaces) */
+    --background: 220 8% 5%; /* Very deep near-black background */
+    --foreground: 0 0% 98%; /* Pure white for primary text */
+    --card: 220 6% 10%; /* Darker surface that still separates from background */
     --card-foreground: 0 0% 98%;
-    --popover: 222 16% 18%;
+    --popover: 220 6% 12%;
     --popover-foreground: 0 0% 98%;
     --primary: 220 90% 56%; /* Vibrant blue for primary actions */
     --primary-foreground: 0 0% 100%;
-    --secondary: 222 16% 22%; /* For secondary containers */
+    --secondary: 220 5% 14%; /* Darker neutral secondary containers */
     --secondary-foreground: 0 0% 98%;
-    --muted: 222 10% 32%;
-    --muted-foreground: 0 0% 70%;
+    --muted: 220 5% 18%;
+    --muted-foreground: 0 0% 72%;
     --accent: 142 76% 45%; /* Brighter green for accents */
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
-    --border: 220 15% 28%; /* More visible border */
-    --input: 222 16% 20%; /* Input background */
+    --border: 220 6% 16%; /* Darker border to match deeper surfaces */
+    --input: 220 6% 12%; /* Darker input surface */
     --ring: 220 90% 56%;
     --chart-1: 220 90% 56%;
     --chart-2: 142 76% 45%;

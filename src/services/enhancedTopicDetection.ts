@@ -170,7 +170,7 @@ async function extractKeyTopicsWithLLM(text: string): Promise<string[]> {
     lastRequestTime = Date.now();
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
     const prompt = `Analyze this social media post and extract 3-5 relevant topic categories that describe what the post is about. Focus on the main subject matter, not individual words.
 

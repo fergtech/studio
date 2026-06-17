@@ -28,7 +28,7 @@ async function generateWithCloudflare(prompt: string): Promise<AIResponse> {
       return { text: '', provider: 'error', success: false };
     }
 
-    const modelUrl = `https://api.cloudflare.com/client/v4/accounts/${cfAccountId}/ai/run/@cf/meta/llama-3.1-8b-instruct`;
+    const modelUrl = `https://api.cloudflare.com/client/v4/accounts/${cfAccountId}/ai/run/@cf/meta/llama-3.1-8b-instruct-fp8`;
 
     const response = await fetch(modelUrl, {
       method: 'POST',
@@ -85,7 +85,7 @@ async function generateWithGemini(prompt: string): Promise<AIResponse> {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
     const result = await model.generateContent(prompt);
     const response = await result.response;

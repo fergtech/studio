@@ -229,7 +229,7 @@ export async function detectOpposingViewpoints(post1Content: string, post2Conten
 
     const { GoogleGenerativeAI } = await import('@google/generative-ai');
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
     const prompt = `Analyze these two posts and determine if they express opposing viewpoints on the same topic.
 
